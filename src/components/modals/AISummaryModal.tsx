@@ -160,7 +160,7 @@ export const AISummaryModal: React.FC<AISummaryModalProps> = ({
       `📌 SUMMARY:\n${summary.briefSummary}\n\n` +
       `🎯 KEY TAKEAWAYS:\n` + summary.keyTakeaways.map(k => `• ${k}`).join('\n') + `\n\n` +
       `💡 EXAM & MASTERY TIP:\n${summary.studentActionableTip}\n\n` +
-      `Generated via Skooleo AI (Powered by Gemini 3.7 Flash)`;
+      `Generated via Skuggle AI (Powered by Gemini 3.7 Flash)`;
 
     navigator.clipboard.writeText(textToCopy);
     setCopied(true);

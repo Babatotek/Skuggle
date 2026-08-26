@@ -1,0 +1,127 @@
+name: Backend Security Checks
+
+# Runs on every push/PR for backend-only changes.
+# The root .github/workflows/security.yml runs broader project-level scans.
+
+on:
+  push:
+    branches: [main, master, develop]
+    paths:
+      - "backend/**"
+  pull_request:
+    paths:
+      - "backend/**"
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  # -----------------------------------------------------------------------
+  # Verify no .env files are tracked by git
+  # -----------------------------------------------------------------------
+  env-file-check:
+    name: Env File Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify .env not tracked
+        run: |
+          if git ls-files | grep -E '(^|/)\.env$'; then
+            echo "❌ .env file is tracked by git — must not be committed"
+            exit 1
+          fi
+          echo "✅ No .env files tracked"
+
+      - name: Verify .env.example exists
+        run: |
+          if [ ! -f ".env.example" ]; then
+            echo "❌ .env.example missing"
+            exit 1
+          fi
+          echo "✅ .env.example present"
+
+  # -----------------------------------------------------------------------
+  # Composer audit
+  # -----------------------------------------------------------------------
+  composer-audit:
+    name: Composer Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, ctype, openssl, tokenizer, xml
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-scripts
+
+      - name: Run composer audit
+        run: composer audit --abandoned=fail
+
+  # -----------------------------------------------------------------------
+  # PHPUnit security tests (Unit/Security suite only — fast, no DB needed)
+  # -----------------------------------------------------------------------
+  security-unit-tests:
+    name: Security Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, pdo_sqlite, sqlite3, ctype, fileinfo, openssl, tokenizer, xml
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Copy .env
+        run: cp .env.example .env && php artisan key:generate --ansi
+
+      - name: Run security unit tests
+        run: vendor/bin/phpunit --testsuite Unit --filter Security 2>&1
+
+  # -----------------------------------------------------------------------
+  # withoutGlobalScopes() call-site count enforcement
+  # -----------------------------------------------------------------------
+  scope-bypass-check:
+    name: Tenant Scope Bypass Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, ctype
+          coverage: none
+
+      - name: Check withoutGlobalScopes call count
+        run: php scripts/check-global-scope-bypass.php
+
+  # -----------------------------------------------------------------------
+  # Pint code style
+  # -----------------------------------------------------------------------
+  code-style:
+    name: Code Style (Pint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, ctype, tokenizer, xml
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Run Pint
+        run: vendor/bin/pint --test

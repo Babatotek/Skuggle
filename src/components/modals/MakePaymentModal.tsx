@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { StudentRecord } from '../../types';
+import { LoadingButton } from '../../shared/ui';
+import { feedbackBus } from '../../shared/feedback/feedbackBus';
 
 interface MakePaymentModalProps {
   isOpen: boolean;
@@ -35,7 +37,7 @@ export const MakePaymentModal: React.FC<MakePaymentModalProps> = ({
     e.preventDefault();
     setIsProcessing(true);
 
-    setTimeout(() => {
+    window.setTimeout(() => {
       setIsProcessing(false);
       setIsPaid(true);
       confetti({
@@ -43,7 +45,10 @@ export const MakePaymentModal: React.FC<MakePaymentModalProps> = ({
         spread: 70,
         origin: { y: 0.6 }
       });
-    }, 800);
+      feedbackBus.success(
+        `Payment of ₦${amount.toLocaleString()} confirmed for ${student?.name || 'Nathan Bello'}.`,
+      );
+    }, 900);
   };
 
   return (
@@ -159,14 +164,15 @@ export const MakePaymentModal: React.FC<MakePaymentModalProps> = ({
               </div>
             )}
 
-            <button
+            <LoadingButton
               type="submit"
-              disabled={isProcessing}
-              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md shadow-indigo-200 transition-all flex items-center justify-center gap-1.5"
+              loading={isProcessing}
+              loadingText="Processing Transaction…"
+              icon={<Lock className="w-3.5 h-3.5" />}
+              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md shadow-indigo-200 transition-all"
             >
-              <Lock className="w-3.5 h-3.5" />
-              <span>{isProcessing ? 'Processing Transaction...' : `Authorize ₦${amount.toLocaleString()}`}</span>
-            </button>
+              {`Authorize ₦${amount.toLocaleString()}`}
+            </LoadingButton>
           </form>
         ) : (
           <div className="p-6 space-y-4 text-center text-xs">

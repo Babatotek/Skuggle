@@ -116,7 +116,7 @@ export const AILessonBuilderModal: React.FC<AILessonBuilderModalProps> = ({
           'Express as a single fraction in its lowest term: (2x-1)/3 - (x+2)/2'
         ],
         homework: 'Complete Exercises 4.2 in New General Mathematics Book 2, Questions 1 through 8.',
-        teacherRemarks: 'Prepared with Skooleo AI Curriculum Assistant for JSS 2 First Term.'
+        teacherRemarks: 'Prepared with Skuggle AI Curriculum Assistant for JSS 2 First Term.'
       });
     } finally {
       setIsGenerating(false);
@@ -135,7 +135,7 @@ export const AILessonBuilderModal: React.FC<AILessonBuilderModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900">
-                Skooleo AI Lesson Plan & Scheme Builder
+                Skuggle AI Lesson Plan & Scheme Builder
               </h2>
               <p className="text-xs text-slate-500">
                 Instantly draft pedagogical lesson notes aligned to National & International curricula
@@ -360,7 +360,7 @@ export const AILessonBuilderModal: React.FC<AILessonBuilderModalProps> = ({
             <div className="border-2 border-dashed border-slate-200 rounded-3xl p-12 text-center text-slate-400">
               <Sparkles className="w-10 h-10 text-indigo-300 mx-auto mb-3" />
               <p className="text-sm font-bold text-slate-700">Enter a topic above to generate a comprehensive lesson note</p>
-              <p className="text-xs text-slate-400 mt-1">Skooleo AI automatically generates behavioral objectives, timings, teacher/student actions & assessment tasks.</p>
+              <p className="text-xs text-slate-400 mt-1">Skuggle AI automatically generates behavioral objectives, timings, teacher/student actions & assessment tasks.</p>
             </div>
           )}
 

@@ -1,0 +1,39 @@
+<IfModule mod_rewrite.c>
+    <IfModule mod_negotiation.c>
+        Options -MultiViews -Indexes
+    </IfModule>
+
+    RewriteEngine On
+
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    RewriteCond %{HTTP:x-xsrf-token} .
+    RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
+
+    # Laravel API, Sanctum, health probes, email verification
+    RewriteCond %{REQUEST_URI} ^/api/ [OR]
+    RewriteCond %{REQUEST_URI} ^/sanctum/ [OR]
+    RewriteCond %{REQUEST_URI} ^/email/verify/ [OR]
+    RewriteCond %{REQUEST_URI} ^/health$ [OR]
+    RewriteCond %{REQUEST_URI} ^/ready$ [OR]
+    RewriteCond %{REQUEST_URI} ^/startup$ [OR]
+    RewriteCond %{REQUEST_URI} ^/live$ [OR]
+    RewriteCond %{REQUEST_URI} ^/up$
+    RewriteRule ^ index.php [L]
+
+    # Existing static files / directories
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # SPA fallback
+    RewriteRule ^ index.html [L]
+</IfModule>
+
+DirectoryIndex index.html index.php
+
+# Deny sensitive files if ever placed in public_html
+<FilesMatch "^\.env">
+    Require all denied
+</FilesMatch>

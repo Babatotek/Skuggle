@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# Remote release steps for Hostinger shared hosting.
+# Expected layout:
+#   domains/skuggle.royalgatewayadmin.com/application  (Laravel)
+#   domains/skuggle.royalgatewayadmin.com/public_html  (SPA + index.php bridge)
+set -euo pipefail
+
+APP_DIR="${APP_DIR:-$HOME/domains/skuggle.royalgatewayadmin.com/application}"
+PUBLIC_DIR="${PUBLIC_DIR:-$HOME/domains/skuggle.royalgatewayadmin.com/public_html}"
+
+# Hostinger CloudLinux PHP selector (Laravel 13 requires ^8.3)
+PHP_BIN="${PHP_BIN:-/opt/alt/php83/usr/bin/php}"
+COMPOSER_BIN="${COMPOSER_BIN:-/usr/local/bin/composer}"
+
+if [[ ! -x "$PHP_BIN" ]]; then
+  echo "ERROR: PHP binary not found at $PHP_BIN"
+  exit 1
+fi
+
+cd "$APP_DIR"
+
+echo "==> Using $($PHP_BIN -v | head -1)"
+echo "==> Composer install"
+"$PHP_BIN" "$COMPOSER_BIN" install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+echo "==> Ensure writable storage"
+mkdir -p storage/framework/{cache,sessions,views} storage/logs bootstrap/cache
+chmod -R ug+rwx storage bootstrap/cache || true
+
+if [[ ! -f .env ]]; then
+  echo "ERROR: missing $APP_DIR/.env — create it from deploy/shared-hosting/.env.shared.example"
+  exit 1
+fi
+
+if ! grep -q '^APP_KEY=base64:' .env; then
+  echo "==> Generating APP_KEY"
+  "$PHP_BIN" artisan key:generate --force
+fi
+
+echo "==> Migrate"
+"$PHP_BIN" artisan migrate --force
+
+echo "==> Cache"
+"$PHP_BIN" artisan config:cache
+"$PHP_BIN" artisan route:cache
+"$PHP_BIN" artisan view:cache
+"$PHP_BIN" artisan event:cache || true
+
+echo "==> Storage link into public_html"
+# PHP symlink() is often disabled on Hostinger; use shell ln instead.
+rm -f "$PUBLIC_DIR/storage" 2>/dev/null || true
+ln -sfn "$APP_DIR/storage/app/public" "$PUBLIC_DIR/storage"
+rm -f "$APP_DIR/public/storage" 2>/dev/null || true
+ln -sfn "$APP_DIR/storage/app/public" "$APP_DIR/public/storage"
+
+echo "==> Shared hosting release complete"
+"$PHP_BIN" artisan about --only=environment 2>/dev/null || true

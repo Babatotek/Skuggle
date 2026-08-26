@@ -30,6 +30,10 @@ import { jsPDF } from 'jspdf';
 import { ResourceItem, ResourceType, OcrPageResult } from '../../types';
 import { recognizeAllPages, recognizePageText, searchOcrContent } from '../../lib/ocrEngine';
 import { classifyDocumentContent } from '../../lib/mlAutoClassifier';
+import { appConfig } from '@/app/config';
+import { libraryService } from '@/features/library/libraryService';
+import { getApiError } from '@/shared/api/client';
+import { feedbackBus } from '@/shared/feedback/feedbackBus';
 
 interface ScannedPage {
   id: string;
@@ -422,7 +426,7 @@ export const CameraDocumentScannerModal: React.FC<CameraDocumentScannerModalProp
         doc.setFontSize(8);
         doc.setTextColor(160, 160, 160);
         doc.text(
-          `Skooleo Digital Library • Page ${index + 1} of ${pages.length} • OCR Searchable Document`,
+          `Skuggle Digital Library • Page ${index + 1} of ${pages.length} • OCR Searchable Document`,
           pageWidth / 2,
           pageHeight - 2,
           { align: 'center' }
@@ -490,14 +494,11 @@ export const CameraDocumentScannerModal: React.FC<CameraDocumentScannerModalProp
 
     try {
       const pdfBlob = await generatePdfDocument();
-      const blobUrl = URL.createObjectURL(pdfBlob);
-
       const tags = tagsInput
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean);
 
-      // Run ML Classification on the OCR transcript
       const mlResult = classifyDocumentContent({
         title: title.trim(),
         description: description.trim(),
@@ -511,6 +512,84 @@ export const CameraDocumentScannerModal: React.FC<CameraDocumentScannerModalProp
 
       const combinedTags = Array.from(new Set([...tags, ...mlResult.suggestedTags])).slice(0, 6);
 
+      if (appConfig.liveApi) {
+        const file = new File(
+          [pdfBlob],
+          `${title.trim().replace(/[^\w\-]+/g, '_').slice(0, 60) || 'scan'}.pdf`,
+          { type: 'application/pdf' },
+        );
+        const formData = libraryService.buildCreateFormData({
+          title: title.trim(),
+          description:
+            description.trim() ||
+            `Scanned document (${pages.length} page${pages.length > 1 ? 's' : ''}) with OCR text.`,
+          author: 'School staff',
+          resourceType: 'document',
+          subject,
+          className: classLevels[0] || 'All Classes',
+          term,
+          topic: mlResult.predictedCategory || title.trim(),
+          accessTier: shareWithStudents ? 'school' : 'learn_plus',
+          sourceLabel: curriculumStandard || 'Scanned upload',
+          licenceName: 'School licence',
+          status: 'published',
+          schoolApproved: true,
+          isPublic: shareWithParents,
+          changeSummary: 'Published from camera scanner with OCR transcript',
+          learningObjectives: combinedTags.length
+            ? combinedTags
+            : [`Review ${title.trim()}`],
+          sections: [
+            {
+              id: 'section-1',
+              title: 'OCR Transcript',
+              content:
+                fullOcrText.trim() ||
+                description.trim() ||
+                `Scanned physical document (${pages.length} pages).`,
+            },
+          ],
+          file,
+        });
+        const created = await libraryService.create(formData);
+        const published: ResourceItem = {
+          id: created.id,
+          title: title.trim(),
+          description:
+            description.trim() ||
+            `Multi-page scanned document (${pages.length} pages) with OCR text extraction.`,
+          subject,
+          classLevels: classLevels.length > 0 ? classLevels : ['All Classes'],
+          term,
+          resourceType: 'document',
+          fileFormat: 'PDF',
+          fileSize: pdfFileSize || undefined,
+          tags: combinedTags,
+          author: 'School staff',
+          authorRole: 'Teacher',
+          uploadedAt: new Date().toISOString().split('T')[0],
+          downloadCount: 0,
+          viewCount: 1,
+          isPinned: false,
+          isSharedWithStudents: shareWithStudents,
+          isSharedWithParents: shareWithParents,
+          curriculumStandard,
+          weekNumber,
+          folderCategory: mlResult.predictedCategory,
+          ocrText: fullOcrText,
+          ocrPages: ocrPages.length > 0 ? ocrPages : undefined,
+          ocrStatus: 'ready',
+          ocrConfidence: ocrConfidence || 96,
+          ocrLanguage: 'English',
+        };
+        onSaveToLibrary(published);
+        feedbackBus.success('Scanned PDF published to the school library.');
+        stopCamera();
+        onClose();
+        return;
+      }
+
+      const blobUrl = URL.createObjectURL(pdfBlob);
       const newResource: ResourceItem = {
         id: `res_scan_${Date.now()}`,
         title: title.trim(),
@@ -554,7 +633,6 @@ export const CameraDocumentScannerModal: React.FC<CameraDocumentScannerModalProp
           modelType: 'ML-Bayes-NLP'
         },
         contentPreview: fullOcrText.slice(0, 300) || `Scanned Physical Document (${pages.length} pages total)\n- High-resolution A4 PDF format\n- OCR Searchable Text Indexed`,
-        // OCR properties for full platform searchability
         ocrText: fullOcrText,
         ocrPages: ocrPages.length > 0 ? ocrPages : undefined,
         ocrStatus: 'ready',
@@ -567,6 +645,7 @@ export const CameraDocumentScannerModal: React.FC<CameraDocumentScannerModalProp
       onClose();
     } catch (err) {
       console.error('Error saving scanned PDF:', err);
+      feedbackBus.error(getApiError(err).message);
     } finally {
       setIsGeneratingPdf(false);
     }

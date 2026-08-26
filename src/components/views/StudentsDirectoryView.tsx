@@ -34,7 +34,8 @@ export const StudentsDirectoryView: React.FC<StudentsDirectoryViewProps> = ({
   const [selectedClass, setSelectedClass] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
 
-  const classesList = ['All', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'JSS 2', 'JSS 3', 'Primary 6'];
+  // Derive class list from real student data — no hardcoded school-specific classes
+  const classesList = ['All', ...Array.from(new Set(students.map((s) => s.class).filter(Boolean))).sort()];
 
   const filteredStudents = students.filter((s) => {
     const matchesSearch =
@@ -67,7 +68,7 @@ export const StudentsDirectoryView: React.FC<StudentsDirectoryViewProps> = ({
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Skooleo_Students_${selectedClass}_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `Skuggle_Students_${selectedClass}_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -175,7 +176,21 @@ export const StudentsDirectoryView: React.FC<StudentsDirectoryViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filteredStudents.map((student) => (
+              {filteredStudents.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-16 text-center">
+                    <Users className="mx-auto mb-3 h-9 w-9 text-slate-300" />
+                    <p className="text-sm font-bold text-slate-600">
+                      {students.length === 0 ? 'No students registered yet' : 'No students match your filters'}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      {students.length === 0
+                        ? 'Register or import students from school setup to see them here.'
+                        : 'Try adjusting your search term, class, or status filter.'}
+                    </p>
+                  </td>
+                </tr>
+              ) : filteredStudents.map((student) => (
                 <tr
                   key={student.id}
                   className="hover:bg-slate-50/70 transition-colors group cursor-pointer"

@@ -144,7 +144,7 @@ export function createClientFallbackSummary(
     estimatedReadTime: '2 min quick read',
     targetExam: level === 'exam_prep' ? 'WAEC & NECO Past Questions' : 'Class Tests & Terminal Exams',
     generatedAt: new Date().toISOString(),
-    model: 'Skooleo AI Tutor (Offline Mode)',
+    model: 'Skuggle AI Tutor (Offline Mode)',
   };
 }
 

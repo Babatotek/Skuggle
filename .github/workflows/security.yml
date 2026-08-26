@@ -1,0 +1,120 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+  schedule:
+    # Run every Monday at 07:00 UTC to catch newly disclosed vulnerabilities
+    - cron: "0 7 * * 1"
+
+jobs:
+  # -----------------------------------------------------------------------
+  # 1. PHP dependency audit — composer audit (built-in, zero config)
+  # -----------------------------------------------------------------------
+  composer-audit:
+    name: Composer Dependency Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, ctype, openssl, tokenizer, xml
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --no-scripts
+
+      - name: Audit PHP packages for known vulnerabilities
+        # Exits non-zero when any installed package has a known CVE.
+        # --abandoned fail → also fails if a package is marked abandoned.
+        run: composer audit --abandoned=fail
+
+  # -----------------------------------------------------------------------
+  # 2. PHP static analysis — Larastan (already in devDependencies)
+  # -----------------------------------------------------------------------
+  static-analysis:
+    name: Static Analysis (PHPStan / Larastan)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, pdo_sqlite, sqlite3, ctype, fileinfo, openssl, tokenizer, xml
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Copy .env
+        run: cp .env.example .env && php artisan key:generate --ansi
+
+      - name: Run Larastan
+        run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+
+  # -----------------------------------------------------------------------
+  # 3. withoutGlobalScopes() call-site enforcement
+  # -----------------------------------------------------------------------
+  scope-bypass-check:
+    name: Tenant Scope Bypass Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, ctype
+          coverage: none
+
+      - name: Check withoutGlobalScopes() call count
+        run: php scripts/check-global-scope-bypass.php
+
+  # -----------------------------------------------------------------------
+  # 4. Secrets detection — Gitleaks (prevents accidental credential commits)
+  # -----------------------------------------------------------------------
+  secrets-scan:
+    name: Secrets Scan (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history needed for accurate scan
+
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # -----------------------------------------------------------------------
+  # 5. Node.js dependency audit
+  # -----------------------------------------------------------------------
+  npm-audit:
+    name: NPM Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Audit Node packages
+        # --audit-level=high — only fail on high/critical severity
+        run: npm audit --audit-level=high

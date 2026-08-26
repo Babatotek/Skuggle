@@ -5,7 +5,9 @@ export type UserRole =
   | 'principal'
   | 'super_admin'
   | 'parent'
-  | 'student';
+  | 'student'
+  | 'bursar'
+  | 'examination_officer';
 
 export interface UserProfile {
   id: string;
@@ -42,6 +44,8 @@ export interface StudentRecord {
   status: StudentStatus;
   dob: string;
   stateOfOrigin: string;
+  localGovernmentArea?: string;
+  countryCode?: string;
   nationality: string;
   admissionDate: string;
   guardianName: string;
@@ -242,15 +246,25 @@ export type ResourceFolderCategory =
 
 export interface MLClassificationResult {
   predictedCategory: ResourceFolderCategory;
+  /** Alias used by some library UI surfaces; prefer predictedCategory. */
+  primaryCategory?: ResourceFolderCategory;
   confidence: number; // 0 - 100
   reasoning: string;
   keyFeatures: string[]; // trigger terms/keywords extracted
   secondaryPredictions: { category: ResourceFolderCategory; probability: number }[];
+  /** Alias for secondaryPredictions in older UI bindings. */
+  secondaryCategories?: {
+    category: ResourceFolderCategory;
+    probability: number;
+    confidence?: number;
+  }[];
   suggestedTags: string[];
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
   readingTimeMinutes?: number;
   classifiedAt: string;
   modelType: 'ML-Bayes-NLP' | 'Gemini-3.7-Flash' | 'Hybrid-Ensemble';
+  /** Optional classifier provenance tag (e.g. gemini_flash). */
+  source?: string;
 }
 
 export interface ResourceFolderInfo {
@@ -318,4 +332,256 @@ export interface ResourceItem {
   ocrStatus?: 'ready' | 'processing' | 'failed' | 'none';
   ocrLanguage?: string;
   ocrConfidence?: number;
+  // Sticky-note style annotations
+  annotations?: ResourceAnnotation[];
 }
+
+export interface ResourceAnnotation {
+  id: string;
+  resourceId: string;
+  author: string;
+  authorRole: 'teacher' | 'student' | 'admin';
+  authorAvatar?: string;
+  text: string;
+  color: 'yellow' | 'blue' | 'green' | 'pink' | 'purple';
+  positionX: number; // percentage 0-100 on page
+  positionY: number; // percentage 0-100 on page
+  pageNumber: number;
+  createdAt: string;
+  isResolved?: boolean;
+  replies?: {
+    id: string;
+    author: string;
+    authorRole: string;
+    text: string;
+    createdAt: string;
+  }[];
+}
+
+export interface SmartQuizQuestion {
+  id: string;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+  learningOutcome: string;
+  difficulty: 'Easy' | 'Medium' | 'Hard';
+}
+
+export interface SmartQuiz {
+  id: string;
+  title: string;
+  sourceDocumentId?: string;
+  sourceDocumentTitle?: string;
+  subject: string;
+  classLevel: string;
+  learningOutcomes: string[];
+  questions: SmartQuizQuestion[];
+  totalPoints: number;
+  timeLimitMinutes: number;
+  createdAt: string;
+}
+
+// SaaS Management Types for Super Admin & Platform Menu
+export type SaaSPlanTier = 'Starter' | 'Growth' | 'Premium' | 'Enterprise';
+export type SaaSSchoolStatus = 'Active' | 'Trial' | 'Pending' | 'Suspended' | 'Archived';
+
+export interface SaaSSchoolTenant {
+  id: string;
+  name: string;
+  code: string;
+  subdomain: string;
+  location: string;
+  state: string;
+  zone: 'South West' | 'South East' | 'South South' | 'North Central' | 'North West' | 'North East';
+  plan: SaaSPlanTier;
+  status: SaaSSchoolStatus;
+  studentsCount: number;
+  teachersCount: number;
+  adminName: string;
+  adminEmail: string;
+  adminPhone: string;
+  created: string;
+  lastActive: string;
+  storageUsedGB: number;
+  smartMarkScansCount: number;
+  geminiTokensUsed: number;
+  renewalDate: string;
+  healthScore: number; // 0-100
+  paymentGateway: 'Paystack' | 'Flutterwave' | 'Direct Bank';
+}
+
+export interface SaaSPlanDefinition {
+  id: string;
+  name: SaaSPlanTier;
+  tagline: string;
+  termlyPriceNGN: number;
+  annualPriceNGN: number;
+  maxStudents: number | 'Unlimited';
+  maxTeachers: number | 'Unlimited';
+  storageGB: number;
+  smartMarkMonthlyScans: number | 'Unlimited';
+  geminiAICredits: string;
+  smsCreditsPerTerm: number;
+  badge?: string;
+  popular?: boolean;
+  features: {
+    title: string;
+    included: boolean;
+  }[];
+  activeSchoolsCount: number;
+}
+
+export interface SaaSSubscriptionInvoice {
+  id: string;
+  invoiceNumber: string;
+  schoolId: string;
+  schoolName: string;
+  plan: SaaSPlanTier;
+  cycle: 'Termly' | 'Annual' | 'Monthly';
+  amountNGN: number;
+  discountNGN?: number;
+  status: 'Paid' | 'Pending' | 'Overdue' | 'Canceled';
+  issueDate: string;
+  dueDate: string;
+  paidDate?: string;
+  gateway: 'Paystack' | 'Flutterwave' | 'NIBSS Transfer';
+  reference: string;
+  receiptUrl?: string;
+}
+
+export interface SaaSTelemetryMetric {
+  timestamp: string;
+  apiRequests: number;
+  geminiTokens: number;
+  smartMarkScans: number;
+  activeUsers: number;
+  storageGB: number;
+}
+
+export interface SaaSSupportTicket {
+  id: string;
+  ticketNumber: string;
+  schoolId: string;
+  schoolName: string;
+  requesterName: string;
+  requesterRole: string;
+  requesterEmail: string;
+  subject: string;
+  category: 'SmartMark OCR' | 'Gradebook & Results' | 'Billing & Subscription' | 'Portal Access' | 'Feature Request';
+  priority: 'Urgent' | 'High' | 'Medium' | 'Low';
+  status: 'Open' | 'In Progress' | 'Waiting on School' | 'Resolved' | 'Closed';
+  createdAt: string;
+  updatedAt: string;
+  assignedAgent: string;
+  slaMinutesRemaining: number;
+  satisfactionRating?: number;
+  messages: {
+    id: string;
+    sender: string;
+    senderType: 'school' | 'support_agent' | 'system';
+    avatar?: string;
+    content: string;
+    timestamp: string;
+    attachments?: string[];
+  }[];
+}
+
+export interface SaaSSystemNode {
+  id: string;
+  name: string;
+  region: string;
+  type: 'API Microservice' | 'Database Cluster' | 'AI Inference Pool' | 'Vision OCR Worker' | 'Payment Webhook' | 'Edge CDN';
+  status: 'Healthy' | 'Degraded' | 'Maintenance' | 'Offline';
+  uptimePercentage: number;
+  latencyMs: number;
+  cpuUsage: number;
+  memoryUsage: number;
+  activeConnections: number;
+}
+
+export interface SaaSSystemIncident {
+  id: string;
+  title: string;
+  impact: 'None' | 'Minor' | 'Major' | 'Critical';
+  status: 'Investigating' | 'Identified' | 'Monitoring' | 'Resolved';
+  servicesAffected: string[];
+  startTime: string;
+  resolvedTime?: string;
+  updates: {
+    time: string;
+    message: string;
+    author: string;
+  }[];
+}
+
+export interface SaaSAuditLog {
+  id: string;
+  actor: string;
+  actorEmail: string;
+  actorRole: string;
+  action: string;
+  target: string;
+  category: 'Security' | 'Tenant' | 'Billing' | 'System' | 'AI Model';
+  ipAddress: string;
+  timestamp: string;
+  status: 'Success' | 'Warning' | 'Blocked';
+}
+
+export interface AuthenticatedUser {
+  id: string;
+  name: string;
+  roleTitle?: string;
+  role: UserRole;
+  avatar?: string;
+  schoolName?: string;
+  schoolCode?: string;
+  email?: string;
+  tenant?: string | null;
+  hasSubscription?: boolean;
+  subscriptionPlan?: 'free' | 'learn_plus' | 'school' | 'enterprise';
+  unreadNotifications?: number;
+}
+
+export interface SaaSAnnouncement {
+  id: string;
+  title: string;
+  summary: string;
+  body: string;
+  channel: 'In-App Banner' | 'Email Digest' | 'SMS Alert' | 'All Channels';
+  targetAudience:
+    | 'All Schools'
+    | 'School Admins Only'
+    | 'Teachers & Principals'
+    | 'Teachers Only'
+    | 'Trial Accounts';
+  publishedAt: string;
+  status: 'Sent' | 'Scheduled' | 'Draft';
+  recipientCount: number;
+  openRatePercent: number;
+}
+
+// Tenant Branding & Welcome Experience Types
+export type WelcomeBackgroundStyle = 'subtle_glow' | 'solid' | 'gradient';
+export type WelcomeAnimationType = 'soft_zoom' | 'fade' | 'float' | 'minimal';
+export type AuthStage = 'welcome' | 'transitioning' | 'login' | 'authenticated';
+
+export interface TenantBrandingConfig {
+  tenantId: string;
+  school_name: string;
+  school_code: string;
+  school_logo: string;
+  logo_badge_text?: string;
+  welcome_tagline?: string;
+  primary_color: string;
+  secondary_color: string;
+  accent_color?: string;
+  background_style: WelcomeBackgroundStyle;
+  welcome_animation: WelcomeAnimationType;
+  animation_duration: number; // In seconds (e.g. 2.4s)
+  show_skuggle_branding: boolean;
+  audio_enabled: boolean;
+  motto?: string;
+  crestIcon?: string;
+}
+

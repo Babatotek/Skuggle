@@ -1,0 +1,188 @@
+name: Deploy Hostinger
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths:
+      - "backend/**"
+      - "src/**"
+      - "public/**"
+      - "index.html"
+      - "package.json"
+      - "package-lock.json"
+      - "vite.config.ts"
+      - ".github/workflows/deploy-hostinger.yml"
+
+concurrency:
+  group: deploy-hostinger
+  cancel-in-progress: true
+
+env:
+  DOMAIN: skuggle.royalgatewayadmin.com
+  PHP_VERSION: "8.3"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Build frontend
+        env:
+          VITE_APP_NAME: Skuggle
+          VITE_ENVIRONMENT: production
+          VITE_SUPPORT_EMAIL: support@skuggle.com
+          VITE_LIVE_API: "true"
+          VITE_API_URL: /api/v1
+          VITE_CSRF_URL: /sanctum/csrf-cookie
+          APP_URL: https://skuggle.royalgatewayadmin.com
+        run: |
+          npm ci
+          npm run build
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, pdo_mysql, tokenizer, xml, curl, zip, bcmath, intl
+          coverage: none
+          tools: composer:v2
+
+      - name: Validate Composer lock
+        working-directory: backend
+        run: composer validate --no-check-publish
+
+      - name: Package release
+        run: |
+          set -euo pipefail
+          STAGE="${RUNNER_TEMP}/skuggle-stage"
+          mkdir -p "$STAGE/application" "$STAGE/public_html"
+
+          rsync -a \
+            --exclude vendor \
+            --exclude node_modules \
+            --exclude .git \
+            --exclude tests \
+            --exclude load-tests \
+            --exclude storage/logs \
+            --exclude 'storage/framework/cache/**' \
+            --exclude 'storage/framework/sessions/**' \
+            --exclude 'storage/framework/views/**' \
+            --exclude 'bootstrap/cache/**' \
+            --exclude .env \
+            --exclude .env.* \
+            backend/ "$STAGE/application/"
+
+          mkdir -p \
+            "$STAGE/application/storage/app/public" \
+            "$STAGE/application/storage/framework/cache" \
+            "$STAGE/application/storage/framework/sessions" \
+            "$STAGE/application/storage/framework/views" \
+            "$STAGE/application/storage/logs" \
+            "$STAGE/application/bootstrap/cache"
+
+          rsync -a --exclude 'server.cjs*' dist/ "$STAGE/public_html/"
+          cp backend/deploy/shared-hosting/public_html/index.php "$STAGE/public_html/index.php"
+          cp backend/deploy/shared-hosting/public_html/.htaccess "$STAGE/public_html/.htaccess"
+          cp backend/deploy/shared-hosting/remote-release.sh "$STAGE/application/remote-release.sh"
+          chmod +x "$STAGE/application/remote-release.sh"
+
+          tar -C "$STAGE" -czf "${RUNNER_TEMP}/skuggle-release.tar.gz" application public_html
+          ls -lh "${RUNNER_TEMP}/skuggle-release.tar.gz"
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+          SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
+          SSH_PORT: ${{ secrets.HOSTINGER_SSH_PORT }}
+        run: |
+          set -euo pipefail
+          : "${SSH_PRIVATE_KEY:?Missing secret HOSTINGER_SSH_KEY (OpenSSH private key)}"
+          HOST="${SSH_HOST:-147.93.54.101}"
+          PORT="${SSH_PORT:-65002}"
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/hostinger_key
+          chmod 600 ~/.ssh/hostinger_key
+          ssh-keyscan -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts
+
+      - name: Upload + release
+        env:
+          SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
+          SSH_PORT: ${{ secrets.HOSTINGER_SSH_PORT }}
+          SSH_USER: ${{ secrets.HOSTINGER_SSH_USER }}
+          DB_DATABASE: ${{ secrets.HOSTINGER_DB_DATABASE }}
+          DB_USERNAME: ${{ secrets.HOSTINGER_DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.HOSTINGER_DB_PASSWORD }}
+          APP_KEY: ${{ secrets.HOSTINGER_APP_KEY }}
+        run: |
+          set -euo pipefail
+          HOST="${SSH_HOST:-147.93.54.101}"
+          PORT="${SSH_PORT:-65002}"
+          USER="${SSH_USER:-u237094395}"
+          DOMAIN_ROOT="/home/${USER}/domains/skuggle.royalgatewayadmin.com"
+          APP_DIR="${DOMAIN_ROOT}/application"
+          PUBLIC_DIR="${DOMAIN_ROOT}/public_html"
+          SSH=(ssh -i ~/.ssh/hostinger_key -p "$PORT" -o StrictHostKeyChecking=yes "${USER}@${HOST}")
+          SCP=(scp -i ~/.ssh/hostinger_key -P "$PORT" -o StrictHostKeyChecking=yes)
+
+          "${SCP[@]}" "${RUNNER_TEMP}/skuggle-release.tar.gz" "${USER}@${HOST}:/home/${USER}/skuggle-release.tar.gz"
+
+          "${SSH[@]}" bash -s <<REMOTE
+          set -euo pipefail
+          DOMAIN_ROOT='${DOMAIN_ROOT}'
+          APP_DIR='${APP_DIR}'
+          PUBLIC_DIR='${PUBLIC_DIR}'
+          mkdir -p "\$DOMAIN_ROOT" "\$HOME/backups"
+          if [[ -f "\$APP_DIR/.env" ]]; then
+            cp "\$APP_DIR/.env" /tmp/skuggle.env.preserve
+          fi
+          if [[ -d "\$APP_DIR" || -d "\$PUBLIC_DIR" ]]; then
+            ts=\$(date +%Y%m%d%H%M%S)
+            tar -czf "\$HOME/backups/skuggle-predeploy-\$ts.tar.gz" -C "\$DOMAIN_ROOT" application public_html 2>/dev/null || true
+          fi
+          rm -rf "\$APP_DIR" "\$PUBLIC_DIR"
+          tar -xzf "\$HOME/skuggle-release.tar.gz" -C "\$DOMAIN_ROOT"
+          if [[ -f /tmp/skuggle.env.preserve ]]; then
+            mv /tmp/skuggle.env.preserve "\$APP_DIR/.env"
+          fi
+          rm -f "\$HOME/skuggle-release.tar.gz"
+          chmod +x "\$APP_DIR/remote-release.sh"
+          REMOTE
+
+          # First-time .env bootstrap from secrets
+          if ! "${SSH[@]}" "test -f '${APP_DIR}/.env'"; then
+            : "${DB_DATABASE:?Missing HOSTINGER_DB_DATABASE}"
+            : "${DB_USERNAME:?Missing HOSTINGER_DB_USERNAME}"
+            : "${DB_PASSWORD:?Missing HOSTINGER_DB_PASSWORD}"
+            "${SCP[@]}" backend/deploy/shared-hosting/.env.shared.example "${USER}@${HOST}:${APP_DIR}/.env"
+            "${SSH[@]}" "sed -i \"s|^DB_DATABASE=.*|DB_DATABASE=${DB_DATABASE}|; s|^DB_USERNAME=.*|DB_USERNAME=${DB_USERNAME}|; s|^DB_PASSWORD=.*|DB_PASSWORD=${DB_PASSWORD}|\" '${APP_DIR}/.env'"
+            if [[ -n "${APP_KEY:-}" ]]; then
+              "${SSH[@]}" "sed -i \"s|^APP_KEY=.*|APP_KEY=${APP_KEY}|\" '${APP_DIR}/.env'"
+            fi
+          fi
+
+          "${SSH[@]}" "export APP_DIR='${APP_DIR}' PUBLIC_DIR='${PUBLIC_DIR}' PHP_BIN=/opt/alt/php83/usr/bin/php; bash '${APP_DIR}/remote-release.sh'"
+
+      - name: Health check
+        run: |
+          set -euo pipefail
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -sS -o /tmp/health.json -w "%{http_code}" "https://skuggle.royalgatewayadmin.com/health" || true)
+            echo "Attempt $i => HTTP $code"
+            if [[ "$code" == "200" ]]; then
+              cat /tmp/health.json || true
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Health check failed"
+          exit 1

@@ -1,0 +1,55 @@
+{
+  "states": [
+    { "code": "ahafo", "name": "Ahafo" },
+    { "code": "ashanti", "name": "Ashanti" },
+    { "code": "bono", "name": "Bono" },
+    { "code": "bono-east", "name": "Bono East" },
+    { "code": "central", "name": "Central" },
+    { "code": "eastern", "name": "Eastern" },
+    { "code": "greater-accra", "name": "Greater Accra" },
+    { "code": "north-east", "name": "North East" },
+    { "code": "northern", "name": "Northern" },
+    { "code": "oti", "name": "Oti" },
+    { "code": "savannah", "name": "Savannah" },
+    { "code": "upper-east", "name": "Upper East" },
+    { "code": "upper-west", "name": "Upper West" },
+    { "code": "volta", "name": "Volta" },
+    { "code": "western", "name": "Western" },
+    { "code": "western-north", "name": "Western North" }
+  ],
+  "lgas": {
+    "greater-accra": [
+      "Accra Metropolitan",
+      "Ada East",
+      "Ada West",
+      "Adentan Municipal",
+      "Ashaiman Municipal",
+      "Ga Central Municipal",
+      "Ga East Municipal",
+      "Ga North Municipal",
+      "Ga South Municipal",
+      "Ga West Municipal",
+      "Korle Klottey Municipal",
+      "Kpone Katamanso Municipal",
+      "La Dade Kotopon Municipal",
+      "La Nkwantanang Madina Municipal",
+      "Ledzokuku Municipal",
+      "Ningo Prampram District",
+      "Okaikwei North Municipal",
+      "Shai Osudoku District",
+      "Tema Metropolitan",
+      "Tema West Municipal",
+      "Weija Gbawe Municipal"
+    ],
+    "ashanti": [
+      "Kumasi Metropolitan",
+      "Obuasi Municipal",
+      "Asokore Mampong Municipal",
+      "Ejisu Municipal",
+      "Mampong Municipal",
+      "Offinso Municipal",
+      "Bekwai Municipal",
+      "Konongo Municipal"
+    ]
+  }
+}

@@ -1,0 +1,65 @@
+[
+  {
+    "code": "NG",
+    "name": "Nigeria",
+    "hasLga": true,
+    "stateLabel": "State",
+    "lgaLabel": "Local Government Area"
+  },
+  {
+    "code": "GH",
+    "name": "Ghana",
+    "hasLga": true,
+    "stateLabel": "Region",
+    "lgaLabel": "District"
+  },
+  {
+    "code": "KE",
+    "name": "Kenya",
+    "hasLga": true,
+    "stateLabel": "County",
+    "lgaLabel": "Sub-county"
+  },
+  {
+    "code": "ZA",
+    "name": "South Africa",
+    "hasLga": false,
+    "stateLabel": "Province",
+    "lgaLabel": "Municipality"
+  },
+  {
+    "code": "GB",
+    "name": "United Kingdom",
+    "hasLga": false,
+    "stateLabel": "Country",
+    "lgaLabel": "Local area"
+  },
+  {
+    "code": "US",
+    "name": "United States",
+    "hasLga": false,
+    "stateLabel": "State",
+    "lgaLabel": "County / City"
+  },
+  {
+    "code": "CA",
+    "name": "Canada",
+    "hasLga": false,
+    "stateLabel": "Province",
+    "lgaLabel": "City / Municipality"
+  },
+  {
+    "code": "IN",
+    "name": "India",
+    "hasLga": false,
+    "stateLabel": "State",
+    "lgaLabel": "District"
+  },
+  {
+    "code": "OTHER",
+    "name": "Other",
+    "hasLga": false,
+    "stateLabel": "State / Region",
+    "lgaLabel": "Local area"
+  }
+]

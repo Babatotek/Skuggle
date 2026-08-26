@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { INITIAL_STUDENTS } from '../../data/mockData';
+import { LoadingButton } from '../../shared/ui';
+import { feedbackBus } from '../../shared/feedback/feedbackBus';
 
 interface AttendanceModalProps {
   isOpen: boolean;
@@ -36,6 +38,8 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
     stu_9: 'present',
   });
 
+  const [isSaving, setIsSaving] = useState(false);
+
   if (!isOpen) return null;
 
   const toggleStatus = (id: string, newStatus: 'present' | 'absent' | 'late') => {
@@ -49,13 +53,19 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
   };
 
   const handleSave = () => {
-    confetti({
-      particleCount: 50,
-      spread: 60,
-      origin: { y: 0.7 }
-    });
-    alert(`Attendance for ${classArm} successfully saved and SMS notifications dispatched to absent guardians.`);
-    onClose();
+    setIsSaving(true);
+    window.setTimeout(() => {
+      confetti({
+        particleCount: 50,
+        spread: 60,
+        origin: { y: 0.7 }
+      });
+      feedbackBus.success(
+        `Attendance for ${classArm} saved. SMS alerts queued for absent guardians.`,
+      );
+      setIsSaving(false);
+      onClose();
+    }, 700);
   };
 
   const presentCount = Object.values(statuses).filter(s => s === 'present').length;
@@ -192,13 +202,15 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
             Automated SMS will be dispatched to parents of absent students.
           </span>
 
-          <button
+          <LoadingButton
             onClick={handleSave}
-            className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-200 flex items-center gap-1.5"
+            loading={isSaving}
+            loadingText="Submitting Roll Call…"
+            icon={<Save className="w-4 h-4" />}
+            className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-200"
           >
-            <Save className="w-4 h-4" />
-            <span>Submit Roll Call</span>
-          </button>
+            Submit Roll Call
+          </LoadingButton>
         </div>
 
       </div>

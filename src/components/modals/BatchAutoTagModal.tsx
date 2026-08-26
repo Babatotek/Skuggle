@@ -22,6 +22,10 @@ import {
 import { ResourceItem, ResourceFolderCategory, MLClassificationResult } from '../../types';
 import { classifyDocumentContent, autoCategorizeWithAI, SYSTEM_FOLDERS } from '../../lib/mlAutoClassifier';
 import confetti from 'canvas-confetti';
+import { appConfig } from '@/app/config';
+import { libraryService } from '@/features/library/libraryService';
+import { getApiError } from '@/shared/api/client';
+import { feedbackBus } from '@/shared/feedback/feedbackBus';
 
 interface BatchAutoTagModalProps {
   isOpen: boolean;
@@ -147,7 +151,7 @@ export const BatchAutoTagModal: React.FC<BatchAutoTagModalProps> = ({
     });
   };
 
-  const handleCommitAll = () => {
+  const handleCommitAll = async () => {
     const updatedMap = new Map<string, StagedClassification>();
     stagedItems.filter(s => s.isApplied).forEach(s => {
       updatedMap.set(s.resource.id, s);
@@ -178,6 +182,52 @@ export const BatchAutoTagModal: React.FC<BatchAutoTagModalProps> = ({
         }
       };
     });
+
+    if (appConfig.liveApi) {
+      try {
+        const targets = finalResources.filter((res) => updatedMap.has(res.id));
+        for (const res of targets) {
+          const staged = updatedMap.get(res.id)!;
+          const detail = await libraryService.show(res.id);
+          const formData = libraryService.buildCreateFormData({
+            title: detail.title,
+            description: detail.description || res.description,
+            author: detail.author || res.author,
+            resourceType: res.resourceType,
+            subject: detail.subject || res.subject,
+            className: detail.className || res.classLevels[0],
+            term: detail.term || res.term,
+            topic: staged.selectedFolder,
+            accessTier: (detail.accessTier as 'free' | 'learn_plus' | 'school') || 'school',
+            sourceLabel: detail.sourceLabel || 'School library',
+            licenceName: detail.licence?.name || 'School licence',
+            copyrightOwner: detail.licence?.copyrightOwner || 'School',
+            status: 'published',
+            changeSummary: `ML auto-tag applied: ${staged.selectedFolder}`,
+            schoolApproved: detail.schoolApproved !== false,
+            isPublic: false,
+            learningObjectives: staged.selectedTags.length
+              ? staged.selectedTags
+              : detail.learningObjectives || [],
+            sections:
+              detail.sections && detail.sections.length > 0
+                ? detail.sections
+                : [
+                    {
+                      id: 'section-1',
+                      title: 'Overview',
+                      content: res.description || res.title,
+                    },
+                  ],
+          });
+          await libraryService.update(res.id, formData);
+        }
+        feedbackBus.success(`Auto-tagged ${targets.length} resource${targets.length === 1 ? '' : 's'}.`);
+      } catch (error) {
+        feedbackBus.error(getApiError(error).message);
+        return;
+      }
+    }
 
     onApplyClassifications(finalResources);
 
@@ -612,7 +662,7 @@ export const BatchAutoTagModal: React.FC<BatchAutoTagModalProps> = ({
               Cancel
             </button>
             <button
-              onClick={handleCommitAll}
+              onClick={() => void handleCommitAll()}
               disabled={stagedItems.length === 0 || stagedItems.filter(s => s.isApplied).length === 0}
               className="px-5 py-2 text-xs font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20 flex items-center gap-2 disabled:opacity-50 transition-all cursor-pointer"
             >

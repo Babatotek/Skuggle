@@ -57,7 +57,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
         spread: 70,
         origin: { y: 0.6 }
       });
-      alert(`🎉 Congratulations! ${schoolName} has been successfully provisioned on Skooleo Cloud.`);
+      alert(`🎉 Congratulations! ${schoolName} has been successfully provisioned on Skuggle Cloud.`);
       onClose();
     }
   };
@@ -186,7 +186,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
               <div className="p-4 bg-emerald-50/60 border border-emerald-200 rounded-2xl flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
                 <div>
-                  <p className="font-bold text-emerald-900">Pre-configured with Skooleo Best Practices</p>
+                  <p className="font-bold text-emerald-900">Pre-configured with Skuggle Best Practices</p>
                   <p className="text-[11px] text-emerald-700">Class arms, NERDC grading scales, fee heads & SmartMark templates are already auto-aligned.</p>
                 </div>
               </div>
@@ -201,7 +201,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
               <div>
                 <h3 className="text-base font-bold text-slate-900">Ready to Launch {schoolName}!</h3>
                 <p className="text-xs text-slate-500 mt-1">
-                  Your dedicated subdomain <strong className="text-indigo-600">brightfuture.skooleo.com</strong> and cloud database are ready.
+                  Your dedicated subdomain <strong className="text-indigo-600">brightfuture.skuggle.com</strong> and cloud database are ready.
                 </p>
               </div>
             </div>

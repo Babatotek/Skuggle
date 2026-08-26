@@ -21,6 +21,7 @@ import {
   VolumeX
 } from 'lucide-react';
 import { NotificationItem, NotificationCategory } from '../types';
+import { useFeedbackOptional } from '../shared/ui';
 
 interface NotificationCenterProps {
   isOpen: boolean;
@@ -46,7 +47,10 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const [activeCategory, setActiveCategory] = useState<'all' | NotificationCategory>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [unreadOnly, setUnreadOnly] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const feedback = useFeedbackOptional();
+  const soundEnabled = feedback?.soundEnabled ?? true;
+  const toggleSound = () => feedback?.setSoundEnabled(!soundEnabled);
+
   const [showBroadcastModal, setShowBroadcastModal] = useState(false);
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [broadcastTarget, setBroadcastTarget] = useState('all_parents');
@@ -181,9 +185,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
         <div className="flex items-center gap-1">
           <button
-            onClick={() => setSoundEnabled(!soundEnabled)}
+            onClick={toggleSound}
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-            title={soundEnabled ? 'Mute notification sound' : 'Unmute notification sound'}
+            title={soundEnabled ? 'Mute action sounds' : 'Unmute action sounds'}
           >
             {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </button>

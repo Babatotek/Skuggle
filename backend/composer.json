@@ -1,0 +1,86 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "skuggle/enterprise-backend",
+    "type": "project",
+    "description": "Production API for the Skuggle multi-tenant school operating system.",
+    "keywords": ["laravel", "education", "multi-tenant", "skuggle"],
+    "license": "proprietary",
+    "require": {
+        "php": "^8.3",
+        "laravel/fortify": "^1.38",
+        "laravel/framework": "^13.0",
+        "laravel/horizon": "^5.48",
+        "laravel/sanctum": "^4.3",
+        "laravel/tinker": "^3.0",
+        "league/flysystem-aws-s3-v3": "^3.29",
+        "predis/predis": "^3.2",
+        "sentry/sentry-laravel": "^4.27",
+        "smalot/pdfparser": "^2.12"
+    },
+    "require-dev": {
+        "fakerphp/faker": "^1.24",
+        "larastan/larastan": "^3.8",
+        "laravel/pint": "^1.27",
+        "mockery/mockery": "^1.6",
+        "nunomaduro/collision": "^8.8",
+        "phpunit/phpunit": "^12.5"
+    },
+    "suggest": {
+        "laravel/octane": "Persistent application workers for the scale tier.",
+        "laravel/pulse": "Application performance and usage telemetry.",
+        "league/flysystem-aws-s3-v3": "Required for S3 or Cloudflare R2 object storage.",
+        "sentry/sentry-laravel": "Production exception and performance monitoring."
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi"
+        ],
+        "post-root-package-install": [
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+        ],
+        "post-create-project-cmd": [
+            "@php artisan key:generate --ansi"
+        ],
+        "analyse": "phpstan analyse --memory-limit=1G",
+        "test": [
+            "@php artisan config:clear --ansi",
+            "@php artisan test --parallel"
+        ],
+        "quality": [
+            "@php vendor/bin/pint --test",
+            "@analyse",
+            "@test"
+        ]
+    },
+    "extra": {
+        "laravel": {
+            "dont-discover": []
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "php-http/discovery": false
+        },
+        "audit": {
+            "abandoned": "fail"
+        },
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

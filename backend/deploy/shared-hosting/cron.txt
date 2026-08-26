@@ -1,0 +1,8 @@
+# Hostinger shared hosting — Cron Jobs
+# Use the PHP 8.3 CloudLinux binary and the Laravel application root.
+
+# Laravel scheduler (every minute)
+* * * * * cd /home/u237094395/domains/skoolio.royalgatewayadmin.com/application && /opt/alt/php83/usr/bin/php artisan schedule:run >> /dev/null 2>&1
+
+# Database queue worker (short-lived, stop when empty)
+* * * * * cd /home/u237094395/domains/skoolio.royalgatewayadmin.com/application && /opt/alt/php83/usr/bin/php artisan queue:work --stop-when-empty --max-time=55 --tries=3 >> /dev/null 2>&1

@@ -15,6 +15,8 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { INITIAL_STUDENTS, SAMPLE_REPORT_CARD } from '../../data/mockData';
+import { appConfig } from '@/app/config';
+import { useAuth } from '@/features/auth/AuthProvider';
 
 interface ParentDashboardViewProps {
   onOpenModal: (modalName: string, data?: any) => void;
@@ -25,6 +27,8 @@ export const ParentDashboardView: React.FC<ParentDashboardViewProps> = ({
   onOpenModal,
   onNavigateTab,
 }) => {
+  const { user } = useAuth();
+  const firstName = user?.name?.trim().split(/\s+/)[0] ?? 'Parent';
   const [selectedChildIndex, setSelectedChildIndex] = useState(0);
 
   const children = [
@@ -61,6 +65,33 @@ export const ParentDashboardView: React.FC<ParentDashboardViewProps> = ({
   ];
 
   const currentChild = children[selectedChildIndex];
+
+  if (appConfig.liveApi) {
+    return (
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-10 animate-in fade-in duration-200">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-slate-900">Welcome, {firstName} 👋</h1>
+          <p className="text-sm text-slate-500 mt-1">Your children's academic progress, attendance, and fee summaries will appear here once the school publishes data to the parent portal.</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[
+            { icon: Users, label: 'My Children', tab: 'my_children', desc: 'Profiles, medical info, and authorised pickup persons' },
+            { icon: CheckCircle2, label: 'Attendance', tab: 'attendance', desc: 'Daily gate logs and term attendance rates' },
+            { icon: TrendingUp, label: 'Academics', tab: 'academics', desc: 'Subject grades, assignments, and exam timetable' },
+            { icon: CreditCard, label: 'Payments', tab: 'payments', desc: 'Fee invoices, payment history, and receipts' },
+            { icon: MessageSquare, label: 'Messages', tab: 'messages', desc: 'Chat with teachers, bursary, and principal' },
+            { icon: ArrowRight, label: 'More', tab: 'more', desc: 'Transport, clinic, cafeteria menu, and school calendar' },
+          ].map(({ icon: Icon, label, tab, desc }) => (
+            <button key={label} type="button" onClick={() => onNavigateTab(tab)}
+              className="flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-5 text-left hover:border-indigo-300 hover:shadow-sm transition-all">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600"><Icon className="h-5 w-5" /></div>
+              <div><p className="text-sm font-bold text-slate-900">{label}</p><p className="mt-0.5 text-xs text-slate-500">{desc}</p></div>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 animate-in fade-in duration-200">

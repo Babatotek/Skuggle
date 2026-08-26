@@ -14,6 +14,7 @@ import {
   Eye,
   Edit2
 } from 'lucide-react';
+import { SetupProgressBanner } from '../../features/onboarding/SetupProgressBanner';
 import { StudentRecord } from '../../types';
 
 interface AdminDashboardViewProps {
@@ -40,7 +41,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
   return (
     <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 animate-in fade-in duration-200">
-      
+      <SetupProgressBanner onNavigateTab={onNavigateTab} />
+
       {/* Welcome Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -388,6 +390,24 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 <p className="text-[10px] text-slate-500 mt-0.5">Export student data</p>
               </div>
 
+            </div>
+
+            {/* Quick Links to Reports & Settings */}
+            <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs">
+              <button
+                onClick={() => onNavigateTab('reports')}
+                className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-indigo-50/60 hover:bg-indigo-50 border border-indigo-100 font-bold text-indigo-700 transition-colors cursor-pointer"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Broadsheets & Reports</span>
+              </button>
+              <button
+                onClick={() => onNavigateTab('settings')}
+                className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 font-bold text-slate-700 transition-colors cursor-pointer"
+              >
+                <Shield className="w-3.5 h-3.5" />
+                <span>School Settings</span>
+              </button>
             </div>
           </div>
 

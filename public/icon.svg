@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Skuggle">
+  <rect width="512" height="512" rx="112" fill="#fffaf3"/>
+  <path fill="#5b36e8" d="M70 182 256 82l186 100-186 100L70 182Z"/>
+  <path fill="#8b6bf1" d="M128 226v108c58 57 198 57 256 0V226l-128 69-128-69Z"/>
+  <path fill="none" stroke="#24114f" stroke-width="22" stroke-linecap="round" d="M420 199v112"/>
+  <circle cx="420" cy="334" r="24" fill="#f59e73"/>
+</svg>

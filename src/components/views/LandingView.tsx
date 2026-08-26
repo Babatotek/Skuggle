@@ -20,11 +20,13 @@ import { UserRole } from '../../types';
 interface LandingViewProps {
   onSelectRole: (role: UserRole) => void;
   onOpenModal: (modalName: string) => void;
+  onRequestLogin?: () => void;
 }
 
 export const LandingView: React.FC<LandingViewProps> = ({
   onSelectRole,
   onOpenModal,
+  onRequestLogin,
 }) => {
   return (
     <div className="min-h-[calc(100vh-65px)] bg-[#FAFBFD] text-slate-800 flex flex-col justify-between">
@@ -42,7 +44,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
               <h1 className="text-4xl sm:text-5xl lg:text-[54px] font-extrabold text-slate-900 tracking-tight leading-[1.12]">
                 Welcome to <br />
                 <span className="relative inline-block text-indigo-600">
-                  Skooleo
+                  Skuggle
                   {/* Purple organic curved underline */}
                   <svg
                     className="absolute -bottom-2.5 left-0 w-full h-3 text-indigo-500 overflow-visible"
@@ -80,7 +82,8 @@ export const LandingView: React.FC<LandingViewProps> = ({
             <div className="flex flex-wrap items-center gap-3.5 pt-2">
               <button
                 id="btn-hero-get-started"
-                onClick={() => onSelectRole('school_admin')}
+                type="button"
+                onClick={() => onRequestLogin?.() ?? onSelectRole('school_admin')}
                 className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-sm shadow-md shadow-indigo-200 transition-all flex items-center gap-2 hover:gap-3 group"
               >
                 <span>Get Started</span>

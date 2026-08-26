@@ -17,6 +17,9 @@ import {
   ShieldCheck,
   Award
 } from 'lucide-react';
+import { SetupProgressBanner } from '../../features/onboarding/SetupProgressBanner';
+import { appConfig } from '@/app/config';
+import { useAuth } from '@/features/auth/AuthProvider';
 
 interface PrincipalDashboardViewProps {
   onOpenModal: (modalName: string, data?: any) => void;
@@ -27,6 +30,9 @@ export const PrincipalDashboardView: React.FC<PrincipalDashboardViewProps> = ({
   onOpenModal,
   onNavigateTab,
 }) => {
+  const { user } = useAuth();
+  const firstName = user?.name?.trim().split(/\s+/)[0] ?? 'Principal';
+  const schoolName = user?.tenant?.name ?? 'your school';
   const [selectedTerm, setSelectedTerm] = useState('First Term, 2026/2027');
 
   const classAverages = [
@@ -38,9 +44,38 @@ export const PrincipalDashboardView: React.FC<PrincipalDashboardViewProps> = ({
     { name: 'SS 3', avg: 74.1, target: 75, students: 204, trend: '+5.0%' },
   ];
 
+  if (appConfig.liveApi) {
+    return (
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-10 animate-in fade-in duration-200">
+        <SetupProgressBanner onNavigateTab={onNavigateTab} />
+        <div className="mt-6 mb-4">
+          <h1 className="text-2xl font-bold text-slate-900">Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, {firstName} 👋</h1>
+          <p className="text-sm text-slate-500 mt-1">{schoolName} — school-wide analytics will populate once students, staff, and academic sessions are set up.</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[
+            { icon: Users, label: 'Academics', tab: 'academics', desc: 'Class performance, subjects and curriculum compliance' },
+            { icon: CheckCircle2, label: 'Attendance', tab: 'attendance', desc: 'School-wide daily attendance overview' },
+            { icon: DollarSign, label: 'Finance', tab: 'finance', desc: 'Fee collection, payroll and revenue tracking' },
+            { icon: Briefcase, label: 'Staff', tab: 'staff', desc: 'Faculty roster, CPD and leave management' },
+            { icon: FileSpreadsheet, label: 'Reports', tab: 'reports', desc: 'Broadsheets, compliance and board dossiers' },
+            { icon: Send, label: 'Communication', tab: 'communication', desc: 'Broadcast SMS, announcements and parent messages' },
+          ].map(({ icon: Icon, label, tab, desc }) => (
+            <button key={label} type="button" onClick={() => onNavigateTab(tab)}
+              className="flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-5 text-left hover:border-indigo-300 hover:shadow-sm transition-all">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600"><Icon className="h-5 w-5" /></div>
+              <div><p className="text-sm font-bold text-slate-900">{label}</p><p className="mt-0.5 text-xs text-slate-500">{desc}</p></div>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 animate-in fade-in duration-200">
-      
+      <SetupProgressBanner onNavigateTab={onNavigateTab} />
+
       {/* Top Banner & Principal Executive Actions */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div>
@@ -87,7 +122,10 @@ export const PrincipalDashboardView: React.FC<PrincipalDashboardViewProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         
         {/* Card 1: Total Enrolment */}
-        <div className="bg-white rounded-2xl p-4.5 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between">
+        <div
+          onClick={() => onNavigateTab('students')}
+          className="bg-white rounded-2xl p-4.5 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between cursor-pointer hover:border-indigo-200 transition-all"
+        >
           <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
             <Users className="w-5 h-5" />
           </div>
@@ -102,7 +140,10 @@ export const PrincipalDashboardView: React.FC<PrincipalDashboardViewProps> = ({
         </div>
 
         {/* Card 2: Overall Attendance */}
-        <div className="bg-white rounded-2xl p-4.5 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between">
+        <div
+          onClick={() => onNavigateTab('attendance')}
+          className="bg-white rounded-2xl p-4.5 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between cursor-pointer hover:border-emerald-200 transition-all"
+        >
           <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
             <CheckCircle2 className="w-5 h-5" />
           </div>
@@ -117,7 +158,10 @@ export const PrincipalDashboardView: React.FC<PrincipalDashboardViewProps> = ({
         </div>
 
         {/* Card 3: School Average */}
-        <div className="bg-white rounded-2xl p-4.5 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between">
+        <div
+          onClick={() => onNavigateTab('academics')}
+          className="bg-white rounded-2xl p-4.5 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between cursor-pointer hover:border-blue-200 transition-all"
+        >
           <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
             <TrendingUp className="w-5 h-5" />
           </div>
@@ -132,7 +176,10 @@ export const PrincipalDashboardView: React.FC<PrincipalDashboardViewProps> = ({
         </div>
 
         {/* Card 4: Teaching Staff */}
-        <div className="bg-white rounded-2xl p-4.5 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between">
+        <div
+          onClick={() => onNavigateTab('staff')}
+          className="bg-white rounded-2xl p-4.5 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between cursor-pointer hover:border-purple-200 transition-all"
+        >
           <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
             <Briefcase className="w-5 h-5" />
           </div>
@@ -146,7 +193,10 @@ export const PrincipalDashboardView: React.FC<PrincipalDashboardViewProps> = ({
         </div>
 
         {/* Card 5: Fee Collection */}
-        <div className="bg-white rounded-2xl p-4.5 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between">
+        <div
+          onClick={() => onNavigateTab('finance')}
+          className="bg-white rounded-2xl p-4.5 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between cursor-pointer hover:border-amber-200 transition-all"
+        >
           <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
             <DollarSign className="w-5 h-5" />
           </div>
@@ -161,8 +211,8 @@ export const PrincipalDashboardView: React.FC<PrincipalDashboardViewProps> = ({
 
         {/* Card 6: Pending Approvals */}
         <div
-          onClick={() => onOpenModal('report_card')}
-          className="bg-white rounded-2xl p-4.5 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between cursor-pointer hover:border-rose-200 transition-colors"
+          onClick={() => onNavigateTab('reports')}
+          className="bg-white rounded-2xl p-4.5 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between cursor-pointer hover:border-rose-200 transition-all"
         >
           <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
             <Clock className="w-5 h-5" />
@@ -271,7 +321,7 @@ export const PrincipalDashboardView: React.FC<PrincipalDashboardViewProps> = ({
 
             <div className="space-y-2.5">
               <div
-                onClick={() => onOpenModal('report_card')}
+                onClick={() => onNavigateTab('academics')}
                 className="p-2.5 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/40 cursor-pointer transition-colors"
               >
                 <div className="flex items-center gap-2">
@@ -281,7 +331,10 @@ export const PrincipalDashboardView: React.FC<PrincipalDashboardViewProps> = ({
                 <p className="text-[10.5px] text-slate-500 mt-0.5">JSS 2 and SSS 1 term averages</p>
               </div>
 
-              <div className="p-2.5 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/40 cursor-pointer transition-colors">
+              <div
+                onClick={() => onNavigateTab('staff')}
+                className="p-2.5 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/40 cursor-pointer transition-colors"
+              >
                 <div className="flex items-center gap-2">
                   <Briefcase className="w-4 h-4 text-purple-600" />
                   <p className="text-xs font-bold text-slate-800">4 Staff Leave Requests</p>
@@ -289,7 +342,10 @@ export const PrincipalDashboardView: React.FC<PrincipalDashboardViewProps> = ({
                 <p className="text-[10.5px] text-slate-500 mt-0.5">Approved by Vice Principal</p>
               </div>
 
-              <div className="p-2.5 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/40 cursor-pointer transition-colors">
+              <div
+                onClick={() => onNavigateTab('attendance')}
+                className="p-2.5 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/40 cursor-pointer transition-colors"
+              >
                 <div className="flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-amber-600" />
                   <p className="text-xs font-bold text-slate-800">2 Academic Intervention Flags</p>
@@ -300,8 +356,8 @@ export const PrincipalDashboardView: React.FC<PrincipalDashboardViewProps> = ({
           </div>
 
           <button
-            onClick={() => onOpenModal('onboarding_wizard')}
-            className="w-full pt-3 border-t border-slate-100 text-xs font-semibold text-indigo-600 hover:underline text-center"
+            onClick={() => onNavigateTab('academics')}
+            className="w-full pt-3 border-t border-slate-100 text-xs font-semibold text-indigo-600 hover:underline text-center cursor-pointer"
           >
             Review All Approvals →
           </button>

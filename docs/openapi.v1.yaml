@@ -1,0 +1,81 @@
+# Skuggle API v1 (implemented surface)
+
+openapi: 3.0.3
+info:
+  title: Skuggle API
+  version: 1.0.0
+  description: Production API contract for Hostinger-shared and VPS deployments.
+servers:
+  - url: /api/v1
+paths:
+  /auth/login:
+    post:
+      summary: Authenticate with email and password
+      tags: [Auth]
+  /students:
+    get:
+      summary: List students
+      tags: [Students]
+    post:
+      summary: Create student
+      tags: [Students]
+  /attendance/classes/{class}:
+    put:
+      summary: Save attendance sheet
+      tags: [Attendance]
+  /assessments:
+    get:
+      summary: Paginated assessments
+      tags: [Assessments]
+  /sync:
+    post:
+      summary: Offline sync for attendance and scores
+      tags: [Sync]
+  /payments:
+    get:
+      summary: List payment transactions
+      tags: [Finance]
+    post:
+      summary: Create payment transaction
+      tags: [Finance]
+  /announcements:
+    get:
+      summary: List announcements
+      tags: [Comms]
+  /messages:
+    get:
+      summary: List messages
+      tags: [Comms]
+  /employees:
+    get:
+      summary: List employees
+      tags: [Staff]
+  /departments:
+    get:
+      summary: List departments
+      tags: [Staff]
+  /campuses:
+    get:
+      summary: List campuses
+      tags: [Academic]
+  /plans:
+    get:
+      summary: Subscription plan catalog
+      tags: [Billing]
+  /subscription:
+    get:
+      summary: Current tenant subscription
+      tags: [Billing]
+  /health/live:
+    get:
+      summary: Liveness probe
+      servers:
+        - url: /
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: skuggle_session
+security:
+  - cookieAuth: []

@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import { SAMPLE_REPORT_CARD, INITIAL_STUDENTS } from '../../data/mockData';
 import { StudentRecord } from '../../types';
+import { useStudentWorkspace } from '../../features/student/useStudentWorkspace';
+import { appConfig } from '../../app/config';
 
 interface ReportCardModalProps {
   isOpen: boolean;
@@ -23,10 +25,54 @@ export const ReportCardModal: React.FC<ReportCardModalProps> = ({
   onClose,
   student,
 }) => {
+  const workspace = useStudentWorkspace();
   if (!isOpen) return null;
 
-  const currentStudent = student || INITIAL_STUDENTS[5]; // Nathan Bello default
+  const currentStudent =
+    student ||
+    (appConfig.liveApi
+      ? ({
+          ...INITIAL_STUDENTS[5],
+          id: workspace.userId,
+          name: workspace.displayName,
+          firstName: workspace.firstName,
+          lastName: workspace.displayName.split(/\s+/).slice(1).join(' ') || workspace.firstName,
+          classArm: workspace.classLabel || (workspace.isPersonal ? 'Personal' : '—'),
+          admissionNo: workspace.isPersonal ? 'PERSONAL' : '—',
+          currentAverage: 0,
+        } as StudentRecord)
+      : INITIAL_STUDENTS[5]);
 
+  if (appConfig.liveApi && !student) {
+    return (
+      <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+        <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-lg p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-slate-900">Report card</h2>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl hover:bg-slate-100 text-slate-500"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <p className="text-sm text-slate-600">
+            No published report card for <strong>{workspace.displayName}</strong> yet
+            {workspace.isPersonal
+              ? '. Join a school with an invitation code to receive official term reports.'
+              : '. Your school will publish results when they are ready.'}
+          </p>
+          <button
+            onClick={onClose}
+            className="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-indigo-700"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden">

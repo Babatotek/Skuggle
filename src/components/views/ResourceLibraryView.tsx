@@ -45,14 +45,29 @@ import {
   CheckCheck,
   RefreshCw,
   ArrowRight,
-  FlaskConical
+  FlaskConical,
+  StickyNote,
+  FileDown,
+  HelpCircle
 } from 'lucide-react';
-import { ResourceItem, ResourceType, ResourceFolderCategory, MLClassificationResult } from '../../types';
+import { ResourceItem, ResourceType, ResourceFolderCategory, MLClassificationResult, SmartQuiz } from '../../types';
 import { SAMPLE_RESOURCES } from '../../data/mockData';
 import { CameraDocumentScannerModal } from '../modals/CameraDocumentScannerModal';
 import { BatchAutoTagModal } from '../modals/BatchAutoTagModal';
+import { SmartQuizGeneratorModal } from '../modals/SmartQuizGeneratorModal';
+import { BatchExportModal } from '../modals/BatchExportModal';
+import { DocumentAnnotationModal } from '../modals/DocumentAnnotationModal';
 import { searchOcrContent } from '../../lib/ocrEngine';
 import { SYSTEM_FOLDERS, classifyDocumentContent, autoCategorizeWithAI } from '../../lib/mlAutoClassifier';
+import { feedbackBus } from '../../shared/feedback/feedbackBus';
+import { appConfig } from '@/app/config';
+import { useAuth } from '@/features/auth/AuthProvider';
+import {
+  libraryService,
+  mapLibrarySummaryToResourceItem,
+} from '@/features/library/libraryService';
+import { getApiError } from '@/shared/api/client';
+import { ActionSpinner } from '@/shared/ui';
 
 interface ResourceLibraryViewProps {
   onOpenModal?: (modalName: string, data?: any) => void;
@@ -62,8 +77,20 @@ interface ResourceLibraryViewProps {
 export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
   onOpenModal,
 }) => {
+  const auth = useAuth();
+  const canCreate = Boolean(
+    auth.user?.permissions?.includes('library.create') ||
+      auth.user?.role === 'school_admin' ||
+      auth.user?.role === 'teacher' ||
+      auth.user?.role === 'platform_super_admin',
+  );
+
   // State
-  const [resources, setResources] = useState<ResourceItem[]>(SAMPLE_RESOURCES);
+  const [resources, setResources] = useState<ResourceItem[]>(
+    appConfig.liveApi ? [] : SAMPLE_RESOURCES,
+  );
+  const [loading, setLoading] = useState(appConfig.liveApi);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFolderCategory, setSelectedFolderCategory] = useState<string>('all');
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
@@ -78,6 +105,12 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showCameraScanner, setShowCameraScanner] = useState(false);
   const [showBatchAutoTagModal, setShowBatchAutoTagModal] = useState(false);
+  const [showQuizGeneratorModal, setShowQuizGeneratorModal] = useState(false);
+  const [quizSourceResource, setQuizSourceResource] = useState<ResourceItem | null>(null);
+  const [showBatchExportModal, setShowBatchExportModal] = useState(false);
+  const [selectedBatchIds, setSelectedBatchIds] = useState<string[]>([]);
+  const [showAnnotationModal, setShowAnnotationModal] = useState(false);
+  const [annotatingResource, setAnnotatingResource] = useState<ResourceItem | null>(null);
   const [activeUploadTab, setActiveUploadTab] = useState<'file' | 'link' | 'ai'>('file');
   const [previewResource, setPreviewResource] = useState<ResourceItem | null>(null);
   const [showQrModal, setShowQrModal] = useState<ResourceItem | null>(null);
@@ -85,7 +118,6 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
   const [copiedOcr, setCopiedOcr] = useState(false);
   const [ocrModalSearch, setOcrModalSearch] = useState('');
   const [activePreviewTab, setActivePreviewTab] = useState<'overview' | 'ocr' | 'ml'>('overview');
-  const [downloadSuccessToast, setDownloadSuccessToast] = useState<string | null>(null);
 
   // Form State for new upload
   const [newTitle, setNewTitle] = useState('');
@@ -102,17 +134,50 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
   const [shareStudents, setShareStudents] = useState(true);
   const [shareParents, setShareParents] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState<string>('');
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+
+  const reloadLibrary = async (signal?: AbortSignal) => {
+    if (!appConfig.liveApi) return;
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const page = await libraryService.list(
+        { search: searchQuery.trim() || undefined },
+        signal,
+      );
+      setResources(page.resources.map(mapLibrarySummaryToResourceItem));
+    } catch (error) {
+      setResources([]);
+      setLoadError(getApiError(error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!appConfig.liveApi) return;
+    const controller = new AbortController();
+    void reloadLibrary(controller.signal);
+    return () => controller.abort();
+    // Initial + auth change reload; search is applied client-side for snappy UX.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.user?.id, auth.user?.tenant?.id]);
 
   // Real-time live ML suggestion for upload form
   const liveMlSuggestion = useMemo(() => {
     if (!newTitle.trim() && !newDescription.trim() && !uploadedFileName) return null;
-    return classifyDocumentContent({
+    const result = classifyDocumentContent({
       title: newTitle || uploadedFileName.replace(/\.[^/.]+$/, ''),
       description: newDescription,
       subject: newSubject,
       fileFormat: newFormat
     });
+    return {
+      ...result,
+      primaryCategory: result.predictedCategory,
+      secondaryCategories: result.secondaryPredictions,
+    };
   }, [newTitle, newDescription, uploadedFileName, newSubject, newFormat]);
 
   // AI Generator state in modal
@@ -282,30 +347,58 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
     );
   };
 
-  const handleDeleteResource = (id: string, e: React.MouseEvent) => {
+  const handleDeleteResource = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (window.confirm('Are you sure you want to remove this resource from the library?')) {
+    if (!window.confirm('Archive this resource from the school library?')) {
+      return;
+    }
+    if (!appConfig.liveApi) {
       setResources((prev) => prev.filter((r) => r.id !== id));
-      if (previewResource?.id === id) {
-        setPreviewResource(null);
-      }
+      if (previewResource?.id === id) setPreviewResource(null);
+      return;
+    }
+    try {
+      await libraryService.archive(id);
+      setResources((prev) => prev.filter((r) => r.id !== id));
+      if (previewResource?.id === id) setPreviewResource(null);
+      feedbackBus.success('Resource archived.');
+    } catch (error) {
+      feedbackBus.error(getApiError(error).message);
     }
   };
 
-  const handleSimulateDownload = (resource: ResourceItem, e?: React.MouseEvent) => {
+  const handleSimulateDownload = async (resource: ResourceItem, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setResources((prev) =>
-      prev.map((r) => (r.id === resource.id ? { ...r, downloadCount: r.downloadCount + 1 } : r))
-    );
-    setDownloadSuccessToast(`Downloading "${resource.title.slice(0, 32)}..." (${resource.fileFormat})`);
-    setTimeout(() => {
-      setDownloadSuccessToast(null);
-    }, 3000);
+    if (!appConfig.liveApi) {
+      setResources((prev) =>
+        prev.map((r) =>
+          r.id === resource.id ? { ...r, downloadCount: r.downloadCount + 1 } : r,
+        ),
+      );
+      feedbackBus.info(`Downloading "${resource.title.slice(0, 32)}..." (${resource.fileFormat})`);
+      return;
+    }
+    try {
+      await libraryService.download(
+        resource.id,
+        `${resource.title}.${resource.fileFormat.toLowerCase()}`,
+      );
+      setResources((prev) =>
+        prev.map((r) =>
+          r.id === resource.id ? { ...r, downloadCount: r.downloadCount + 1 } : r,
+        ),
+      );
+      feedbackBus.success(`Download started for "${resource.title.slice(0, 40)}"`);
+    } catch (error) {
+      feedbackBus.error(getApiError(error).message);
+    }
   };
 
   const handleCopyLink = (resource: ResourceItem, e: React.MouseEvent) => {
     e.stopPropagation();
-    const link = resource.externalLink || `https://skooleo.edu.ng/library/res/${resource.id}`;
+    const link =
+      resource.externalLink ||
+      `${window.location.origin}/app?tab=resources&resource=${resource.id}`;
     navigator.clipboard?.writeText(link);
     setCopiedId(resource.id);
     setTimeout(() => setCopiedId(null), 2000);
@@ -320,10 +413,43 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
   // Apply Batch ML Classifications from BatchAutoTagModal
   const handleApplyBatchClassifications = (updatedResources: ResourceItem[]) => {
     setResources(updatedResources);
-    setDownloadSuccessToast(
-      `ML Auto-Tag Complete: Successfully organized ${updatedResources.length} documents into intelligent curriculum folders!`
+    feedbackBus.success(`ML Auto-Tag Complete: Successfully organized ${updatedResources.length} documents into intelligent curriculum folders!`);
+  };
+
+  // Toggle single item in batch export selection
+  const handleToggleBatchSelect = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedBatchIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
     );
-    setTimeout(() => setDownloadSuccessToast(null), 4000);
+  };
+
+  // Select all or clear batch export selection
+  const handleSelectAllBatch = () => {
+    if (selectedBatchIds.length === filteredResources.length) {
+      setSelectedBatchIds([]);
+    } else {
+      setSelectedBatchIds(filteredResources.map(({ item }) => item.id));
+    }
+  };
+
+  // Launch Smart Quiz Generator for a given resource
+  const handleOpenQuizGenerator = (resource: ResourceItem, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setQuizSourceResource(resource);
+    setShowQuizGeneratorModal(true);
+  };
+
+  // Launch Sticky Note Annotations for a given resource
+  const handleOpenAnnotations = (resource: ResourceItem, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setAnnotatingResource(resource);
+    setShowAnnotationModal(true);
+  };
+
+  // Save generated quiz
+  const handleSaveGeneratedQuiz = (quiz: SmartQuiz) => {
+    feedbackBus.success(`Smart Quiz "${quiz.title}" saved & shared with class students!`);
   };
 
   // Re-classify a single document using local ML
@@ -369,18 +495,63 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
     if (previewResource?.id === item.id) {
       setPreviewResource(updated);
     }
-    setDownloadSuccessToast(
-      `Auto-categorized "${item.title.slice(0, 24)}..." as 📁 ${result.predictedCategory} (${Math.round(result.confidence)}% ML confidence)`
-    );
-    setTimeout(() => setDownloadSuccessToast(null), 3500);
+    feedbackBus.success(`Auto-categorized "${item.title.slice(0, 24)}..." as 📁 ${result.predictedCategory} (${Math.round(result.confidence)}% ML confidence)`);
   };
 
-  // Submit New Upload / Link with ML categorization
-  const handleCreateResource = (e: React.FormEvent) => {
+  // Submit New Upload / Link — live API when enabled, local mock otherwise
+  const handleCreateResource = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
 
     setIsUploading(true);
+
+    if (appConfig.liveApi) {
+      try {
+        if (!canCreate) {
+          throw new Error('You do not have permission to publish library resources.');
+        }
+        const sectionContent =
+          activeUploadTab === 'link'
+            ? `External reference: ${newExternalUrl.trim()}\n\n${newDescription.trim()}`
+            : newDescription.trim();
+        const formData = libraryService.buildCreateFormData({
+          title: newTitle.trim(),
+          description:
+            newDescription.trim() ||
+            'Uploaded reference teaching material and class handout.',
+          author: auth.user?.name || 'School staff',
+          resourceType: activeUploadTab === 'link' ? 'link' : newResourceType,
+          subject: newSubject,
+          className: newClassLevels[0] || 'All Classes',
+          term: newTerm,
+          topic: newTitle.trim(),
+          accessTier: shareStudents ? 'school' : 'learn_plus',
+          sourceLabel: 'School upload',
+          licenceName: 'School licence',
+          copyrightOwner: auth.user?.tenant?.name || 'School',
+          status: 'published',
+          schoolApproved: true,
+          isPublic: shareParents,
+          sectionContent,
+          file: activeUploadTab === 'file' ? uploadedFile : null,
+        });
+        await libraryService.create(formData);
+        await reloadLibrary();
+        setShowUploadModal(false);
+        setNewTitle('');
+        setNewDescription('');
+        setNewExternalUrl('');
+        setNewTagsInput('');
+        setUploadedFileName('');
+        setUploadedFile(null);
+        feedbackBus.success('Resource published to the school library.');
+      } catch (error) {
+        feedbackBus.error(getApiError(error).message);
+      } finally {
+        setIsUploading(false);
+      }
+      return;
+    }
 
     setTimeout(() => {
       const tags = newTagsInput
@@ -388,7 +559,6 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
         .map((t) => t.trim())
         .filter(Boolean);
 
-      // Auto-classify if not manually set or enhanced
       const mlResult = classifyDocumentContent({
         title: newTitle.trim(),
         description: newDescription.trim(),
@@ -409,12 +579,11 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
         term: newTerm,
         resourceType: activeUploadTab === 'link' ? 'link' : newResourceType,
         fileFormat: activeUploadTab === 'link' ? 'URL' : newFormat,
-        fileSize: activeUploadTab === 'link' ? undefined : `${(Math.random() * 4 + 1.2).toFixed(1)} MB`,
+        fileSize: activeUploadTab === 'link' ? undefined : uploadedFile ? `${(uploadedFile.size / (1024 * 1024)).toFixed(1)} MB` : undefined,
         externalLink: activeUploadTab === 'link' ? newExternalUrl : undefined,
         tags: combinedTags.length > 0 ? combinedTags : [newSubject, newTerm, 'Class Material'],
-        author: 'Mr. Adewale Bakare',
-        authorRole: 'Senior Subject Lead',
-        authorAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
+        author: auth.user?.name || 'Teacher',
+        authorRole: auth.user?.roleLabel || 'Staff',
         uploadedAt: new Date().toISOString().split('T')[0],
         downloadCount: 0,
         viewCount: 1,
@@ -444,47 +613,117 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
       setResources((prev) => [newRes, ...prev]);
       setIsUploading(false);
       setShowUploadModal(false);
-
-      // Reset form
       setNewTitle('');
       setNewDescription('');
       setNewExternalUrl('');
       setNewTagsInput('');
       setUploadedFileName('');
+      setUploadedFile(null);
     }, 600);
   };
 
-  // AI Material Generation Handler with ML Folder auto-routing
-  const handleGenerateAiMaterial = (e: React.FormEvent) => {
+  // AI Material Generation — persists to API in live mode
+  const handleGenerateAiMaterial = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!aiTopic.trim()) return;
 
     setIsAiGenerating(true);
 
-    setTimeout(() => {
-      let title = '';
-      let format = 'PDF';
-      let rType: ResourceType = 'document';
-      let content = '';
-      let folderCat: ResourceFolderCategory = 'Lecture Notes';
+    let title = '';
+    let format = 'PDF';
+    let rType: ResourceType = 'document';
+    let content = '';
+    let folderCat: ResourceFolderCategory = 'Lecture Notes';
 
-      if (aiResourceType === 'summary') {
-        title = `${aiClass} ${aiSubject}: Comprehensive ${aiTopic} Study Guide & Cheat Sheet`;
-        rType = 'document';
-        folderCat = 'Lecture Notes';
-        content = `Key Concepts for ${aiTopic}:\n1. Core Definition & Theoretical Basis\n2. Key Formulas & Worked Example\n3. WAEC Exam Tips & Common Misconceptions\n4. Review Questions for Mastery`;
-      } else if (aiResourceType === 'worksheet') {
-        title = `${aiClass} ${aiSubject}: 20 Practice Questions on ${aiTopic} (with Answer Key)`;
-        rType = 'worksheet';
-        folderCat = 'Assignments';
-        content = `Section A: 10 Multiple Choice Questions\nSection B: 5 Structured Theory Questions\nSection C: Practical/Real-World Application\nAnswer Explanations included.`;
-      } else {
-        title = `${aiClass} ${aiSubject}: ${aiTopic} Quick Reference & Formula Chart`;
-        rType = 'document';
-        folderCat = 'Lecture Notes';
-        content = `Essential Symbols, Dimensional Analysis, Standard Constants, and Derivations for ${aiTopic}.`;
+    if (aiResourceType === 'summary') {
+      title = `${aiClass} ${aiSubject}: Comprehensive ${aiTopic} Study Guide & Cheat Sheet`;
+      rType = 'document';
+      folderCat = 'Lecture Notes';
+      content = `Key Concepts for ${aiTopic}:\n1. Core Definition & Theoretical Basis\n2. Key Formulas & Worked Example\n3. WAEC Exam Tips & Common Misconceptions\n4. Review Questions for Mastery`;
+    } else if (aiResourceType === 'worksheet') {
+      title = `${aiClass} ${aiSubject}: 20 Practice Questions on ${aiTopic} (with Answer Key)`;
+      rType = 'worksheet';
+      folderCat = 'Assignments';
+      content = `Section A: 10 Multiple Choice Questions\nSection B: 5 Structured Theory Questions\nSection C: Practical/Real-World Application\nAnswer Explanations included.`;
+    } else {
+      title = `${aiClass} ${aiSubject}: ${aiTopic} Quick Reference & Formula Chart`;
+      rType = 'document';
+      folderCat = 'Lecture Notes';
+      content = `Essential Symbols, Dimensional Analysis, Standard Constants, and Derivations for ${aiTopic}.`;
+    }
+
+    if (appConfig.liveApi) {
+      try {
+        const formData = libraryService.buildCreateFormData({
+          title,
+          description: `AI-assisted ${aiResourceType.replace('_', ' ')} for ${aiClass} ${aiSubject}.`,
+          author: auth.user?.name || 'Skuggle AI',
+          resourceType: rType,
+          subject: aiSubject,
+          className: aiClass,
+          term: 'First Term',
+          topic: aiTopic,
+          accessTier: 'school',
+          sourceLabel: 'AI-assisted draft',
+          licenceName: 'School licence',
+          status: 'published',
+          schoolApproved: true,
+          changeSummary: 'Created via Smart Library AI assist',
+          learningObjectives: [aiTopic, folderCat, 'Curriculum guide'],
+          sectionContent: content,
+        });
+        const created = await libraryService.create(formData);
+        let enrichedContent = content;
+        try {
+          const summary = await libraryService.summary(created.id);
+          enrichedContent = [
+            summary.summary,
+            '',
+            'Key points:',
+            ...(summary.keyPoints || []).map((point) => `• ${point}`),
+            '',
+            content,
+          ].join('\n');
+        } catch {
+          // Summary enrichment is optional if AI quota is exhausted.
+        }
+        await reloadLibrary();
+        const generatedRes: ResourceItem = {
+          id: created.id,
+          title,
+          description: `AI-assisted ${aiResourceType.replace('_', ' ')} for ${aiClass} ${aiSubject}.`,
+          subject: aiSubject,
+          classLevels: [aiClass],
+          term: 'First Term',
+          resourceType: rType,
+          fileFormat: format,
+          tags: [aiTopic, 'AI Assisted', aiClass, folderCat],
+          author: auth.user?.name || 'Skuggle AI',
+          authorRole: 'AI Curriculum Assistant',
+          uploadedAt: new Date().toISOString().split('T')[0],
+          downloadCount: 0,
+          viewCount: 1,
+          isPinned: true,
+          isSharedWithStudents: true,
+          isSharedWithParents: false,
+          curriculumStandard: 'NERDC Standard',
+          contentPreview: enrichedContent.slice(0, 400),
+          folderCategory: folderCat,
+        };
+        setShowUploadModal(false);
+        setAiTopic('');
+        setActivePreviewTab('overview');
+        setPreviewResource(generatedRes);
+        feedbackBus.success('AI-assisted material published to the school library.');
+      } catch (error) {
+        feedbackBus.error(getApiError(error).message);
+      } finally {
+        setIsAiGenerating(false);
       }
+      return;
+    }
 
+    setTimeout(() => {
       const generatedRes: ResourceItem = {
         id: `res_ai_${Date.now()}`,
         title,
@@ -496,9 +735,8 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
         fileFormat: format,
         fileSize: '1.8 MB',
         tags: [aiTopic, 'AI Generated', 'Study Aid', aiClass, folderCat],
-        author: 'Skooleo AI Tutor Assistant',
+        author: 'Skuggle AI Tutor Assistant',
         authorRole: 'AI Curriculum Generator',
-        authorAvatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80',
         uploadedAt: new Date().toISOString().split('T')[0],
         downloadCount: 0,
         viewCount: 1,
@@ -509,20 +747,6 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
         contentPreview: content,
         weekNumber: 3,
         folderCategory: folderCat,
-        mlClassification: {
-          predictedCategory: folderCat,
-          confidence: 97.5,
-          reasoning: `AI curriculum synthesized specifically as ${folderCat} with verified NERDC syllabus outcomes.`,
-          keyFeatures: [aiTopic, aiSubject, aiResourceType, 'curriculum synthesis'],
-          secondaryPredictions: [
-            { category: folderCat === 'Assignments' ? 'Exams' : 'Assignments', probability: 1.5 }
-          ],
-          suggestedTags: [aiTopic, aiSubject, 'Curriculum Guide', 'NERDC Standard'],
-          difficulty: 'Intermediate',
-          readingTimeMinutes: 6,
-          classifiedAt: new Date().toISOString(),
-          modelType: 'Gemini-3.7-Flash'
-        }
       };
 
       setResources((prev) => [generatedRes, ...prev]);
@@ -628,14 +852,6 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
 
   return (
     <div id="resource-library-container" className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 animate-in fade-in duration-200">
-      
-      {/* Toast notification for simulated downloads */}
-      {downloadSuccessToast && (
-        <div className="fixed bottom-24 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl border border-slate-700 flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-200">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span className="text-xs font-semibold">{downloadSuccessToast}</span>
-        </div>
-      )}
 
       {/* Top Banner & Action Controls */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
@@ -643,21 +859,55 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-bold text-xs border border-indigo-100 flex items-center gap-1.5">
               <BookOpen className="w-3.5 h-3.5" />
-              Teacher Workspace
+              {appConfig.liveApi ? 'School Library' : 'Teacher Workspace'}
             </span>
             <span className="text-xs text-slate-400">•</span>
-            <span className="text-xs font-medium text-slate-500">Curriculum Materials & OCR Scanned Archives</span>
+            <span className="text-xs font-medium text-slate-500">
+              {appConfig.liveApi
+                ? 'Live catalogue synced from your school tenant'
+                : 'Curriculum Materials & OCR Scanned Archives'}
+            </span>
           </div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight mt-1">
-            Teacher Resource Library
+            Smart Library
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Organize lesson presentations, worksheets, WAEC past questions, scanned documents with full-text OCR search, and digital study aids.
+            Publish, search and share approved teaching materials with licence-aware downloads.
           </p>
         </div>
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2.5">
+          {/* Smart Quiz Generator from Syllabus */}
+          <button
+            id="btn-smart-quiz-generator"
+            onClick={() => {
+              setQuizSourceResource(resources[0] || null);
+              setShowQuizGeneratorModal(true);
+            }}
+            className="flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-xs font-bold shadow-md shadow-orange-100 transition-all cursor-pointer"
+            title="Generate curriculum-aligned multiple choice quizzes from syllabus documents"
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            <span>Smart Quiz Generator</span>
+          </button>
+
+          {/* Batch Export Combined Student Handout */}
+          <button
+            id="btn-batch-export-handout"
+            onClick={() => setShowBatchExportModal(true)}
+            className="flex items-center gap-2 px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold shadow-md shadow-slate-200 transition-all cursor-pointer"
+            title="Combine multiple study resources into a single structured student handout PDF"
+          >
+            <FileDown className="w-3.5 h-3.5 text-indigo-300" />
+            <span>Batch Export Handout</span>
+            {selectedBatchIds.length > 0 && (
+              <span className="bg-indigo-500 text-white px-1.5 py-0.2 rounded-full text-[10px] font-extrabold">
+                {selectedBatchIds.length}
+              </span>
+            )}
+          </button>
+
           {/* ML Auto-Tag & Organize Button */}
           <button
             id="btn-batch-ml-autotag"
@@ -683,6 +933,7 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
           </button>
 
           {/* Quick AI Lesson Material Generator */}
+          {canCreate && (
           <button
             id="btn-ai-generate-resource"
             onClick={() => {
@@ -694,7 +945,10 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
             <Sparkles className="w-3.5 h-3.5" />
             <span>Generate with AI</span>
           </button>
+          )}
 
+          {canCreate && (
+            <>
           {/* Add Web Link / Reference */}
           <button
             id="btn-add-link-resource"
@@ -720,8 +974,51 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
             <Upload className="w-3.5 h-3.5" />
             <span>Upload Material</span>
           </button>
+            </>
+          )}
+
+          {appConfig.liveApi && (
+            <button
+              type="button"
+              onClick={() => void reloadLibrary()}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
+            </button>
+          )}
         </div>
       </div>
+
+      {appConfig.liveApi && loading && (
+        <div className="flex items-center gap-2 rounded-2xl border border-indigo-100 bg-indigo-50/70 px-4 py-3 text-sm text-indigo-800">
+          <ActionSpinner size="sm" />
+          Syncing school library catalogue…
+        </div>
+      )}
+
+      {appConfig.liveApi && loadError && !loading && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          <span>{loadError}</span>
+          <button
+            type="button"
+            onClick={() => void reloadLibrary()}
+            className="rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-rose-700 border border-rose-200"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {appConfig.liveApi && !loading && !loadError && resources.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-10 text-center">
+          <HardDrive className="mx-auto mb-3 h-8 w-8 text-slate-300" />
+          <p className="text-sm font-bold text-slate-800">No published library resources yet</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Upload a PDF, DOCX or link to publish the first school-approved resource.
+          </p>
+        </div>
+      )}
 
       {/* 4 Top Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1191,6 +1488,19 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
               <div>
                 <div className="flex items-start justify-between gap-2 mb-2.5">
                   <div className="flex items-center gap-2">
+                    {/* Batch Selection Checkbox */}
+                    <button
+                      onClick={(e) => handleToggleBatchSelect(item.id, e)}
+                      className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
+                        selectedBatchIds.includes(item.id)
+                          ? 'bg-indigo-600 border-indigo-600 text-white'
+                          : 'bg-white border-slate-300 hover:border-indigo-400 text-transparent'
+                      }`}
+                      title={selectedBatchIds.includes(item.id) ? 'Deselect from batch export' : 'Select for batch export'}
+                    >
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                    </button>
+
                     <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                       {getTypeIcon(item.resourceType)}
                     </div>
@@ -1320,6 +1630,29 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
 
                 {/* Quick Action Icons */}
                 <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                  {/* Sticky Notes / Annotations */}
+                  <button
+                    onClick={(e) => handleOpenAnnotations(item, e)}
+                    className="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors relative"
+                    title="Open collaborative sticky-note annotations"
+                  >
+                    <StickyNote className="w-3.5 h-3.5" />
+                    {item.annotations && item.annotations.length > 0 && (
+                      <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-500 text-white rounded-full text-[8.5px] font-bold flex items-center justify-center">
+                        {item.annotations.length}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Smart Quiz Generator button */}
+                  <button
+                    onClick={(e) => handleOpenQuizGenerator(item, e)}
+                    className="p-1.5 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded-lg transition-colors"
+                    title="Generate multiple-choice quiz from this syllabus document"
+                  >
+                    <HelpCircle className="w-3.5 h-3.5" />
+                  </button>
+
                   {/* ML Re-classify button */}
                   <button
                     onClick={(e) => handleReclassifySingle(item, e)}
@@ -1617,11 +1950,11 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
             <div className="p-6">
               {activeUploadTab === 'ai' ? (
                 /* AI Material Generation Form */
-                <form onSubmit={handleGenerateAiMaterial} className="space-y-4">
+                <form onSubmit={(event) => void handleGenerateAiMaterial(event)} className="space-y-4">
                   <div className="p-3.5 rounded-2xl bg-purple-50 border border-purple-100 flex items-start gap-3">
                     <Sparkles className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
                     <div>
-                      <h4 className="text-xs font-bold text-purple-900">Skooleo AI Curriculum Handout Generator</h4>
+                      <h4 className="text-xs font-bold text-purple-900">Skuggle AI Curriculum Handout Generator</h4>
                       <p className="text-[11px] text-purple-700 mt-0.5 leading-relaxed">
                         Instantly synthesize comprehensive class study notes, practice worksheets, and formula cheat sheets grounded in WAEC and NERDC standards.
                       </p>
@@ -1754,6 +2087,7 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
                           input.onchange = (e: any) => {
                             const file = e.target.files?.[0];
                             if (file) {
+                              setUploadedFile(file);
                               setUploadedFileName(file.name);
                               if (!newTitle) {
                                 setNewTitle(file.name.replace(/\.[^/.]+$/, ''));
@@ -2287,8 +2621,7 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
                               };
                               setPreviewResource(updated);
                               setResources((prev) => prev.map((r) => r.id === updated.id ? updated : r));
-                              setDownloadSuccessToast(`Folder updated to ${folder}`);
-                              setTimeout(() => setDownloadSuccessToast(null), 2500);
+                              feedbackBus.success(`Folder updated to ${folder}`);
                             }}
                             className={`p-2.5 rounded-xl border text-xs font-bold text-left transition-all flex items-center justify-between cursor-pointer ${
                               isCurrent
@@ -2333,12 +2666,12 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
                           <div key={sec.category} className="space-y-1">
                             <div className="flex items-center justify-between text-xs">
                               <span className="font-semibold text-slate-700">{sec.category}</span>
-                              <span className="font-mono text-slate-500">{Math.round(sec.confidence)}%</span>
+                              <span className="font-mono text-slate-500">{Math.round(sec.confidence ?? sec.probability)}%</span>
                             </div>
                             <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
                               <div
                                 className="h-full bg-slate-400 rounded-full"
-                                style={{ width: `${Math.max(5, sec.confidence)}%` }}
+                                style={{ width: `${Math.max(5, sec.confidence ?? sec.probability)}%` }}
                               />
                             </div>
                           </div>
@@ -2424,8 +2757,32 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
             </div>
 
             {/* Footer Actions */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
+                {/* Collaborative Sticky Notes button */}
+                <button
+                  onClick={() => {
+                    setAnnotatingResource(previewResource);
+                    setShowAnnotationModal(true);
+                  }}
+                  className="px-3 py-1.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-bold text-amber-900 flex items-center gap-1.5 transition-colors"
+                >
+                  <StickyNote className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Sticky Notes ({previewResource.annotations?.length || 0})</span>
+                </button>
+
+                {/* Smart Quiz Generator button */}
+                <button
+                  onClick={() => {
+                    setQuizSourceResource(previewResource);
+                    setShowQuizGeneratorModal(true);
+                  }}
+                  className="px-3 py-1.5 rounded-xl border border-orange-300 bg-orange-50 hover:bg-orange-100 text-xs font-bold text-orange-900 flex items-center gap-1.5 transition-colors"
+                >
+                  <HelpCircle className="w-3.5 h-3.5 text-orange-600" />
+                  <span>Generate Quiz</span>
+                </button>
+
                 <button
                   onClick={() => setShowQrModal(previewResource)}
                   className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700 flex items-center gap-1.5"
@@ -2518,13 +2875,16 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
         defaultSubject={selectedSubject !== 'all' ? selectedSubject : 'Physics'}
         defaultClassLevel={selectedClass !== 'all' ? selectedClass : 'SSS 2'}
         onSaveToLibrary={(newResource) => {
-          setResources((prev) => [newResource, ...prev]);
-          setDownloadSuccessToast(`Scanned PDF saved to library: "${newResource.title.slice(0, 32)}..."`);
+          setResources((prev) => {
+            const withoutDup = prev.filter((item) => item.id !== newResource.id);
+            return [newResource, ...withoutDup];
+          });
+          if (appConfig.liveApi) {
+            void reloadLibrary();
+          }
+          feedbackBus.success(`Scanned PDF saved to library: "${newResource.title.slice(0, 32)}..."`);
           setActivePreviewTab('ocr');
           setPreviewResource(newResource);
-          setTimeout(() => {
-            setDownloadSuccessToast(null);
-          }, 3500);
         }}
       />
 
@@ -2537,11 +2897,56 @@ export const ResourceLibraryView: React.FC<ResourceLibraryViewProps> = ({
         resources={resources}
         onApplyClassifications={(updated) => {
           setResources(updated);
-          setDownloadSuccessToast(`Successfully updated and organized ${updated.length} resources!`);
-          setTimeout(() => {
-            setDownloadSuccessToast(null);
-          }, 3500);
+          if (appConfig.liveApi) {
+            void reloadLibrary();
+          }
+          feedbackBus.success(`Successfully updated and organized ${updated.length} resources!`);
         }}
+      />
+
+      {/* ========================================================================= */}
+      {/* MODAL 6: Smart Quiz Generator Modal (Syllabus to MCQ) */}
+      {/* ========================================================================= */}
+      <SmartQuizGeneratorModal
+        isOpen={showQuizGeneratorModal}
+        onClose={() => setShowQuizGeneratorModal(false)}
+        initialResource={quizSourceResource}
+        availableResources={resources}
+        onSaveQuiz={handleSaveGeneratedQuiz}
+      />
+
+      {/* ========================================================================= */}
+      {/* MODAL 7: Batch Handout Export Modal (Combined PDF) */}
+      {/* ========================================================================= */}
+      <BatchExportModal
+        isOpen={showBatchExportModal}
+        onClose={() => setShowBatchExportModal(false)}
+        selectedResources={
+          selectedBatchIds.length > 0
+            ? resources.filter((r) => selectedBatchIds.includes(r.id))
+            : resources.slice(0, 3)
+        }
+        allResources={resources}
+        onUpdateSelected={(updated) => {
+          setSelectedBatchIds(updated.map((u) => u.id));
+        }}
+      />
+
+      {/* ========================================================================= */}
+      {/* MODAL 8: Document Sticky Note Annotation Layer Modal */}
+      {/* ========================================================================= */}
+      <DocumentAnnotationModal
+        isOpen={showAnnotationModal}
+        onClose={() => setShowAnnotationModal(false)}
+        resource={annotatingResource}
+        onUpdateResource={(updated) => {
+          setResources((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+          if (previewResource?.id === updated.id) {
+            setPreviewResource(updated);
+          }
+        }}
+        currentUserRole="teacher"
+        currentUserName="Mr. B. Adewale"
       />
     </div>
   );
