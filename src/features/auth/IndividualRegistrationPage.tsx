@@ -439,7 +439,7 @@ export default function IndividualRegistrationPage() {
                 .
               </span>
             </label>
-            {appConfig.enableGoogleOAuth && type !== "school" && (
+            {appConfig.enableGoogleOAuth && (
               <>
                 <button
                   type="button"

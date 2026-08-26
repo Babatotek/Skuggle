@@ -157,6 +157,11 @@ export const PrincipalFinanceView: React.FC<PrincipalFinanceViewProps> = ({
   }
 
   return (
+    <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 animate-in fade-in duration-200">
+
+      {/* Top Banner */}
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+        <div>
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[11px] uppercase tracking-wide">
               Bursary & Fiscal Governance

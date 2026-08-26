@@ -22,6 +22,8 @@ const ROLE_LABELS: Record<UserRole, string> = {
   super_admin: 'Super Admin',
   parent: 'Parent',
   student: 'Student',
+  bursar: 'Bursar',
+  examination_officer: 'Examination Officer',
 };
 
 /**

@@ -205,7 +205,7 @@ export const ParentAttendanceView: React.FC<ParentAttendanceViewProps> = ({
           <p className="text-sm text-slate-500 mt-1">Daily gate logs, term rates, and leave requests for your children will appear once the school starts taking attendance.</p>
         </div>
         <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-12 text-center">
-          <Calendar className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+          <CalendarIcon className="mx-auto mb-3 h-10 w-10 text-slate-300" />
           <p className="text-sm font-bold text-slate-700">No attendance records yet</p>
           <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">Records will appear once teachers take daily attendance and the school links your children to your account.</p>
         </div>
