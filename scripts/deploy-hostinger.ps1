@@ -59,7 +59,7 @@ try {
             Push-Location backend
             try {
                 Invoke-Native "Backend style check" { composer exec pint -- --test }
-                Invoke-Native "Backend tests" { php artisan test --no-interaction }
+                Invoke-Native "Backend tests" { php artisan test }
             } finally { Pop-Location }
         } finally { Pop-Location }
     }

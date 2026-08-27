@@ -59,7 +59,7 @@ jobs:
           cp .env.example .env
           php artisan key:generate --ansi
           vendor/bin/pint --test
-          php artisan test --no-interaction
+          php artisan test
 
       - name: Setup Node
         uses: actions/setup-node@v4

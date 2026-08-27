@@ -30,7 +30,7 @@ jobs:
       - name: Pint
         run: vendor/bin/pint --test
       - name: PHPUnit
-        run: php artisan test --no-interaction
+        run: php artisan test
 
   frontend:
     runs-on: ubuntu-latest
