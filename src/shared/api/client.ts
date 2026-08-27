@@ -207,10 +207,24 @@ export const apiRequest = async <T>(
   );
   const abortFromCaller = (): void => controller.abort("cancelled");
   callerSignal?.addEventListener("abort", abortFromCaller, { once: true });
-  // Cancel in-flight tenant requests when the active workspace changes.
-  const scopeSignal = workspaceSwitchSignal();
+
+  // Workspace switches cancel tenant-scoped traffic only — never session/auth probes.
+  const pathWithoutQuery = (path.split("?")[0] ?? path).replace(/\/+$/, "") || "/";
+  const skipWorkspaceAbort =
+    pathWithoutQuery.startsWith("/auth/") ||
+    pathWithoutQuery.startsWith("/sanctum/") ||
+    sessionNeutralPaths.has(pathWithoutQuery);
+  const scopeSignal = skipWorkspaceAbort ? null : workspaceSwitchSignal();
+  if (scopeSignal?.aborted) {
+    window.clearTimeout(timeoutId);
+    callerSignal?.removeEventListener("abort", abortFromCaller);
+    throw new ApiError({
+      message: "The request was cancelled.",
+      kind: "cancelled",
+    });
+  }
   const abortFromWorkspace = (): void => controller.abort("workspace-switch");
-  scopeSignal.addEventListener("abort", abortFromWorkspace, { once: true });
+  scopeSignal?.addEventListener("abort", abortFromWorkspace, { once: true });
 
   const headers = new Headers(requestOptions.headers);
   headers.set("Accept", "application/json");
@@ -289,7 +303,7 @@ export const apiRequest = async <T>(
   } finally {
     window.clearTimeout(timeoutId);
     callerSignal?.removeEventListener("abort", abortFromCaller);
-    scopeSignal.removeEventListener("abort", abortFromWorkspace);
+    scopeSignal?.removeEventListener("abort", abortFromWorkspace);
   }
 };
 

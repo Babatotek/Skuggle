@@ -34,8 +34,15 @@ final class ResolveTenant
             ->get();
 
         $membership = $requestedPublicId
-            ? $memberships->first(fn ($item) => hash_equals((string) $item->tenant->public_id, (string) $requestedPublicId))
-            : $memberships->first();
+            ? $memberships->first(function ($item) use ($requestedPublicId) {
+                $tenant = $item->tenant;
+                if (! $tenant) {
+                    return false;
+                }
+
+                return hash_equals((string) $tenant->public_id, (string) $requestedPublicId);
+            })
+            : $memberships->first(fn ($item) => $item->tenant !== null);
 
         if (! $membership || ! $membership->tenant) {
             return ApiResponse::error('TENANT_MEMBERSHIP_REQUIRED', 'No active school or learning workspace is available.', 403);

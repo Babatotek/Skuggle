@@ -387,9 +387,12 @@ export default function App() {
             : `${sessionUser?.tenant?.name ?? 'School'} workspace is active.`}
       </div>
 
-      {isSwitchingWorkspace ? (
-        <PageSkeleton label="Switching workspace…" />
-      ) : (
+      {isSwitchingWorkspace && (
+        <div className="fixed inset-0 z-[60] bg-[#F8FAFC]/95 backdrop-blur-[1px]">
+          <PageSkeleton label="Switching workspace…" />
+        </div>
+      )}
+
       <main className="flex-1 pb-8">
         <Routes>
           <Route
@@ -741,7 +744,6 @@ export default function App() {
           />
         </Routes>
       </main>
-      )}
 
 
 

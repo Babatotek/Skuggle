@@ -16,6 +16,7 @@ import {
 } from "@/features/public/SimplePublicPage";
 import { PublicLayout } from "@/shared/layout/PublicLayout";
 import { PageSkeleton } from "@/shared/ui";
+import { RouteErrorBoundary } from "@/shared/ui/RouteErrorBoundary";
 
 const WorkspaceApp = lazy(() => import("@/App"));
 
@@ -89,7 +90,9 @@ export function AppRouter() {
           path="app/*"
           element={
             <RequireAuth>
-              <WorkspaceApp />
+              <RouteErrorBoundary label="The workspace could not be loaded">
+                <WorkspaceApp />
+              </RouteErrorBoundary>
             </RequireAuth>
           }
         />

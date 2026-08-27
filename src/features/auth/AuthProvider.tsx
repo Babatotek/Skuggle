@@ -121,23 +121,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     setStatus((prev) => (prev === "authenticated" ? prev : "loading"));
+    const probeAbort = new AbortController();
+    const probeTimeout = window.setTimeout(() => probeAbort.abort("timeout"), 12_000);
     try {
-      const session = await authService.session();
+      const session = await authService.session(probeAbort.signal);
       markExpectsSession();
       setUser(session.user);
       setStatus("authenticated");
       setError(null);
     } catch (caught: unknown) {
       const apiError = getApiError(caught);
+      // A cancelled probe must not trap the shell on "loading" or kick a valid session.
+      if (apiError.kind === "cancelled" && !probeAbort.signal.aborted) {
+        setStatus((prev) => (prev === "authenticated" ? prev : "unauthenticated"));
+        return;
+      }
       setUser(null);
-      if (apiError.kind === "unauthorized") {
+      if (
+        apiError.kind === "unauthorized" ||
+        apiError.kind === "forbidden" ||
+        apiError.status === 401 ||
+        apiError.status === 403
+      ) {
         clearExpectsSession();
         setStatus("unauthenticated");
         setError(null);
       } else {
-        setStatus("error");
+        // Network/server/timeout: leave the public shell usable instead of spinning forever.
+        clearExpectsSession();
+        setStatus("unauthenticated");
         setError(caught instanceof Error ? caught : new Error(apiError.message));
       }
+    } finally {
+      window.clearTimeout(probeTimeout);
     }
   }, [sessionProbeEnabled]);
 
