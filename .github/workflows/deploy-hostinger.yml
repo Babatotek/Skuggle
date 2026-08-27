@@ -59,6 +59,9 @@ jobs:
 
       - name: Validate Composer lock
         working-directory: backend
+        env:
+          APP_ENV: local
+          STORAGE_LOCAL_ALLOWED: true
         run: composer validate --no-check-publish
 
       - name: Package release

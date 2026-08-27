@@ -1,8 +1,8 @@
 # withoutGlobalScopes() Audit Register
 
-**Last audited:** 2026-08-25  
-**Total call sites:** 21  
-**Risk classification:** ✅ SAFE (13) · ⚠️ REVIEW (8) · 🚨 UNSAFE (0)
+**Last audited:** 2026-08-26  
+**Total call sites:** 25  
+**Risk classification:** ✅ SAFE (17) · ⚠️ REVIEW (8) · 🚨 UNSAFE (0)
 
 All `withoutGlobalScopes()` calls in the codebase must be listed here.
 Any new usage must be reviewed, classified, and added before merging.
@@ -30,6 +30,10 @@ Any new usage must be reviewed, classified, and added before merging.
 | 11 | `app/Http/Controllers/Api/V1/PaymentController.php` | 81 | `PaymentTransaction` | Webhook handler — scoped by `WHERE provider = ? AND provider_reference = ?`. `PaymentTransaction` is NOT tenant-scoped (no `BelongsToTenant`), so bypassing TenantScope is harmless. |
 | 12 | `app/Http/Controllers/Api/V1/LibraryResourceController.php` | 99 | `LibraryResource` | Public resource — filtered `WHERE public_id=? AND is_public=1 AND status='published'`, then `setPublicTenant()` called immediately. |
 | 13 | `app/Http/Controllers/Api/V1/LibraryResourceController.php` | 46 | `LibraryResource` | `publicCurriculum()` — filters `WHERE is_public=1 AND status='published'`. No private data possible. |
+| 14 | `app/Http/Controllers/Api/V1/InviteController.php` | 193 | `TenantInvitation` | Public invite acceptance — scoped by `WHERE token_hash = ?` (SHA-256 of opaque token). No tenant context yet; loads invite + tenant for provisioning only. |
+| 15 | `app/Http/Controllers/Api/V1/RegistrationController.php` | 149 | `TenantInvitation` | Same invite-token lookup as #14 during individual registration with invite code. Validates email match before tenant membership is created. |
+| 16 | `app/Http/Controllers/Api/V1/PublicResultController.php` | 114 | `ResultPublication` | Public result view — scoped by PK from signed cache token + `status=published`, then `setPublicTenant()` before nested queries. |
+| 17 | `app/Http/Controllers/Api/V1/PlatformOpsController.php` | 260 | `Subscription` | Platform invoice generation — cross-tenant subscription iteration. Route protected by platform ops middleware; creates invoices with explicit `tenant_id`. |
 
 ---
 

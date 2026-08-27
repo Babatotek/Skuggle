@@ -13,7 +13,7 @@
  *   php scripts/check-global-scope-bypass.php --verbose
  */
 
-const REGISTERED_TOTAL = 21;
+const REGISTERED_TOTAL = 25;
 const SCAN_ROOT        = __DIR__ . '/../app';
 const AUDIT_DOC        = __DIR__ . '/../deploy/GLOBAL_SCOPE_BYPASS_AUDIT.md';
 

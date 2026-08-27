@@ -19,6 +19,9 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    env:
+      APP_ENV: local
+      STORAGE_LOCAL_ALLOWED: true
     steps:
       - uses: actions/checkout@v4
 
@@ -45,6 +48,9 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    env:
+      APP_ENV: local
+      STORAGE_LOCAL_ALLOWED: true
     steps:
       - uses: actions/checkout@v4
 

@@ -20,7 +20,7 @@ class GlobalScopeBypassTest extends TestCase
      * Update this constant when a new REVIEWED bypass is added.
      * Must match REGISTERED_TOTAL in scripts/check-global-scope-bypass.php.
      */
-    private const REGISTERED_TOTAL = 21;
+    private const REGISTERED_TOTAL = 25;
 
     #[Test]
     public function withoutGlobalScopes_call_count_matches_audit_register(): void
@@ -92,8 +92,8 @@ class GlobalScopeBypassTest extends TestCase
         $this->assertStringContainsString('withoutGlobalScopes', $content,
             'Audit register must reference withoutGlobalScopes');
 
-        $this->assertStringContainsString('21', $content,
-            'Audit register must document the registered total (21)');
+        $this->assertStringContainsString('25', $content,
+            'Audit register must document the registered total (25)');
     }
 
     #[Test]
