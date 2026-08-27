@@ -26,7 +26,7 @@ jobs:
       - name: Pint
         run: vendor/bin/pint --test
       - name: PHPUnit
-        run: php artisan test --parallel=false
+        run: php artisan test
 
   frontend:
     runs-on: ubuntu-latest
