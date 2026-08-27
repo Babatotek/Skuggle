@@ -69,9 +69,7 @@ final class PersonalWorkspaceProvisioner
         try {
             if ($accountType === 'parent') {
                 $hasGuardian = Guardian::query()
-                    ->withoutGlobalScopes()
                     ->where('user_id', $user->getKey())
-                    ->where('tenant_id', $tenant->getKey())
                     ->exists();
                 if (! $hasGuardian) {
                     Guardian::query()->create([
@@ -85,9 +83,7 @@ final class PersonalWorkspaceProvisioner
 
             if ($accountType === 'teacher') {
                 $hasIndependent = Employee::query()
-                    ->withoutGlobalScopes()
                     ->where('user_id', $user->getKey())
-                    ->where('tenant_id', $tenant->getKey())
                     ->exists();
                 if (! $hasIndependent) {
                     Employee::query()->create([
