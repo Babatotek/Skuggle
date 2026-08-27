@@ -17,13 +17,15 @@ import {
   DollarSign,
   TrendingUp,
   Activity,
-  Layers
+  Layers,
+  UserRound
 } from 'lucide-react';
 import { UserProfile, UserRole, NotificationItem } from '../types';
 import { USER_PROFILES, SAMPLE_NOTIFICATIONS } from '../data/mockData';
 import { NotificationCenter } from './NotificationCenter';
 import { InteractiveToolsWidget } from './InteractiveToolsWidget';
 import { SmartLibraryWidget } from '../shared/ui/SmartLibraryWidget';
+import { WorkspaceSelector } from '../features/workspaces/WorkspaceSelector';
 
 interface HeaderProps {
   currentRole: UserRole;
@@ -46,6 +48,8 @@ interface HeaderProps {
     current?: boolean;
   }>;
   onSwitchWorkspace?: (tenantId: string) => void;
+  workspaceType?: 'personal' | 'school';
+  isSwitchingWorkspace?: boolean;
   hqModules?: Array<{ id: string; label: string }>;
 }
 
@@ -63,11 +67,12 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectTab,
   workspaces = [],
   onSwitchWorkspace,
+  workspaceType = 'school',
+  isSwitchingWorkspace = false,
   hqModules = [],
 }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showWorkspaceMenu, setShowWorkspaceMenu] = useState(false);
   const [showHqModules, setShowHqModules] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>(SAMPLE_NOTIFICATIONS);
   const [selectedSession] = useState('2026/2027');
@@ -121,6 +126,16 @@ export const Header: React.FC<HeaderProps> = ({
 
   // Define role-specific navigation tabs exactly matching mockups
   const getNavTabs = () => {
+    if (workspaceType === 'personal') {
+      return [
+        { id: 'home', label: 'My Home', icon: Home },
+        { id: 'planner', label: 'Planner', icon: CheckSquare },
+        { id: 'resources', label: 'My Resources', icon: BookOpen },
+        { id: 'goals', label: 'Goals', icon: TrendingUp },
+        { id: 'portfolio', label: 'Portfolio', icon: FileSpreadsheet },
+        { id: 'schools', label: 'Schools', icon: Building2 },
+      ];
+    }
     switch (currentRole) {
       case 'landing':
         return [
@@ -255,40 +270,53 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           )}
 
-          {workspaces.length > 1 && (
-            <div className="relative hidden lg:block">
-              <button
-                type="button"
-                onClick={() => setShowWorkspaceMenu((v) => !v)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-700"
+          {workspaces.length > 0 && (
+            <>
+              <div
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-slate-600"
+                title={
+                  workspaceType === 'personal'
+                    ? 'Private · Only you'
+                    : 'Owned by the active school'
+                }
+                aria-label={
+                  workspaceType === 'personal'
+                    ? 'Ownership: Private, only you'
+                    : `Ownership: Owned by ${workspaces.find((w) => w.current)?.tenantName ?? 'school'}`
+                }
               >
-                <Building2 className="w-3.5 h-3.5" />
-                {workspaces.find((w) => w.current)?.tenantName ?? 'Workspace'}
-                <ChevronDown className="w-3 h-3" />
-              </button>
-              {showWorkspaceMenu && (
-                <div className="absolute left-0 top-full mt-1 z-50 w-72 rounded-xl border border-slate-200 bg-white shadow-lg p-1">
-                  {workspaces.map((workspace) => (
-                    <button
-                      key={workspace.tenantId}
-                      type="button"
-                      onClick={() => {
-                        setShowWorkspaceMenu(false);
-                        if (!workspace.current) onSwitchWorkspace?.(workspace.tenantId);
-                      }}
-                      className={`w-full rounded-lg px-3 py-2 text-left text-xs ${
-                        workspace.current ? 'bg-indigo-50 text-indigo-800 font-bold' : 'hover:bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      <p className="font-semibold truncate">{workspace.tenantName}</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">
-                        {workspace.tenantType === 'individual' ? 'Personal space' : workspace.tenantCode} · {workspace.roleLabel}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                {workspaceType === 'personal' ? (
+                  <>
+                    <UserRound className="w-3 h-3 text-indigo-600" />
+                    <span>Private · Only you</span>
+                  </>
+                ) : (
+                  <>
+                    <Building2 className="w-3 h-3 text-emerald-700" />
+                    <span className="truncate max-w-[10rem]">
+                      Owned by {workspaces.find((w) => w.current)?.tenantName ?? 'school'}
+                    </span>
+                  </>
+                )}
+              </div>
+              <div className="hidden lg:block">
+                <WorkspaceSelector
+                  workspaces={workspaces}
+                  workspaceType={workspaceType}
+                  isSwitchingWorkspace={isSwitchingWorkspace}
+                  onSwitchWorkspace={onSwitchWorkspace}
+                />
+              </div>
+              <div className="lg:hidden">
+                <WorkspaceSelector
+                  workspaces={workspaces}
+                  workspaceType={workspaceType}
+                  isSwitchingWorkspace={isSwitchingWorkspace}
+                  onSwitchWorkspace={onSwitchWorkspace}
+                  compact
+                />
+              </div>
+            </>
           )}
 
           {currentRole === 'super_admin' && hqModules.length > 0 && (

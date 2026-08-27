@@ -18,6 +18,13 @@ import {
 import { feedbackBus } from './shared/feedback/feedbackBus';
 import { getApiError } from './shared/api/client';
 import { shouldRedirectToSetup } from './features/onboarding/setupRedirect';
+import { workspaceHomeTab } from './features/workspaces/workspaceHomeTab';
+import {
+  bumpWorkspaceSwitchScope,
+  currentWorkspaceSwitchGeneration,
+  isCurrentWorkspaceSwitchGeneration,
+} from './features/workspaces/workspaceSwitchScope';
+import { ApiError } from './shared/api/client';
 
 /** Lazy-load named exports so the initial bundle only pulls the active view/modal. */
 function lazyNamed<T extends React.ComponentType<any>>(
@@ -81,6 +88,10 @@ const ReportCardModal = lazyNamed(() => import('./components/modals/ReportCardMo
 const ResultCheckerModal = lazyNamed(() => import('./components/modals/ResultCheckerModal'), 'ResultCheckerModal');
 const MakePaymentModal = lazyNamed(() => import('./components/modals/MakePaymentModal'), 'MakePaymentModal');
 const OnboardingPage = lazy(() => import('./features/onboarding/OnboardingPage'));
+const MySkuggleWorkspace = lazyNamed(
+  () => import('./features/workspaces/MySkuggleWorkspace'),
+  'MySkuggleWorkspace',
+);
 const AdminResultsWorkflowView = lazy(async () => ({
   default: (await import('./features/results/AdminResultsWorkflowView')).AdminResultsWorkflowView,
 }));
@@ -94,6 +105,7 @@ export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const sessionUser = auth.user;
+  const isPersonalWorkspace = sessionUser?.tenant?.type === 'individual';
   const [currentRole, setCurrentRole] = useState<UserRole>('school_admin');
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [students, setStudents] = useState<StudentRecord[]>(
@@ -102,6 +114,7 @@ export default function App() {
   const [studentsLoading, setStudentsLoading] = useState(false);
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [modalData, setModalData] = useState<any>(null);
+  const [isSwitchingWorkspace, setIsSwitchingWorkspace] = useState(false);
 
   const profileFromSession = useMemo<UserProfile>(() => {
     const base = USER_PROFILES[currentRole] || USER_PROFILES.school_admin;
@@ -115,7 +128,7 @@ export default function App() {
       role: currentRole,
       roleTitle: sessionUser.roleLabel || base.roleTitle,
       schoolName: isPersonal
-        ? 'Personal Learning Space'
+        ? 'My Skuggle'
         : sessionUser.tenant?.name || base.schoolName,
       schoolCode: sessionUser.tenant?.code || base.schoolCode,
       avatar: sessionUser.avatarUrl || base.avatar,
@@ -124,18 +137,24 @@ export default function App() {
 
   const loadStudents = useCallback(async () => {
     if (!appConfig.liveApi) return;
+    const generation = currentWorkspaceSwitchGeneration();
     setStudentsLoading(true);
     try {
       const page = await studentService.list({ page: 1, perPage: 100 });
+      if (!isCurrentWorkspaceSwitchGeneration(generation)) return;
       const mapped = page.data.map(mapStudentSummaryToRecord);
       if (mapped.length > 0) {
         setStudents(mapped);
       }
     } catch (error) {
+      if (!isCurrentWorkspaceSwitchGeneration(generation)) return;
+      if (error instanceof ApiError && error.kind === 'cancelled') return;
       feedbackBus.warning(getApiError(error).message);
       setStudents([]);
     } finally {
-      setStudentsLoading(false);
+      if (isCurrentWorkspaceSwitchGeneration(generation)) {
+        setStudentsLoading(false);
+      }
     }
   }, []);
 
@@ -143,23 +162,20 @@ export default function App() {
     if (!sessionUser) return;
     const uiRole = mapBackendRoleToUi(sessionUser.role);
     setCurrentRole(uiRole);
-    setActiveTab(
-      uiRole === 'super_admin' || uiRole === 'principal'
-        ? 'overview'
-        : uiRole === 'school_admin'
-          ? 'dashboard'
-          : 'home',
-    );
-  }, [sessionUser?.id, sessionUser?.role]);
+    setActiveTab(workspaceHomeTab(uiRole, sessionUser.tenant?.type));
+  }, [sessionUser?.id, sessionUser?.role, sessionUser?.tenant?.id, sessionUser?.tenant?.type]);
 
   useEffect(() => {
-    if (sessionUser && appConfig.liveApi) {
+    if (sessionUser && appConfig.liveApi && !isPersonalWorkspace) {
       void loadStudents();
+    } else if (isPersonalWorkspace) {
+      setStudents([]);
+      setStudentsLoading(false);
     }
-  }, [sessionUser, loadStudents]);
+  }, [sessionUser, isPersonalWorkspace, loadStudents]);
 
   useEffect(() => {
-    if (!sessionUser || !appConfig.liveApi) return;
+    if (!sessionUser || !appConfig.liveApi || isPersonalWorkspace) return;
     if (location.pathname.startsWith('/app/setup')) return;
     if (currentRole !== 'school_admin' && currentRole !== 'super_admin') return;
 
@@ -168,7 +184,13 @@ export default function App() {
         void navigate('/app/setup', { replace: true });
       }
     });
-  }, [sessionUser?.id, currentRole, location.pathname, navigate]);
+  }, [sessionUser?.id, currentRole, isPersonalWorkspace, location.pathname, navigate]);
+
+  useEffect(() => {
+    if (isPersonalWorkspace && location.pathname.startsWith('/app/setup')) {
+      void navigate('/app', { replace: true });
+    }
+  }, [isPersonalWorkspace, location.pathname, navigate]);
 
   const handleOpenModal = useCallback((modalName: string, data?: any) => {
     if (modalName === 'onboarding_wizard') {
@@ -247,6 +269,42 @@ export default function App() {
     await auth.logout();
   }, [auth]);
 
+  const handleSwitchWorkspace = useCallback(
+    (tenantId: string) => {
+      const previousActiveTab = activeTab;
+      void (async () => {
+        bumpWorkspaceSwitchScope();
+        setIsSwitchingWorkspace(true);
+        setStudents([]);
+        setStudentsLoading(false);
+        setActiveModal(null);
+        setModalData(null);
+        setActiveTab('home');
+        try {
+          const user = await auth.switchWorkspace(tenantId);
+          const uiRole = mapBackendRoleToUi(user.role);
+          setCurrentRole(uiRole);
+          setActiveTab(workspaceHomeTab(uiRole, user.tenant?.type));
+          const destinationLabel =
+            user.tenant?.type === 'individual'
+              ? 'My Skuggle'
+              : user.tenant?.name ?? 'workspace';
+          feedbackBus.success(`Switched to ${destinationLabel}`);
+          if (user.tenant?.type !== 'individual' && appConfig.liveApi) {
+            void loadStudents();
+          }
+        } catch (caught) {
+          setActiveTab(previousActiveTab);
+          if (sessionUser?.tenant?.type !== 'individual') void loadStudents();
+          feedbackBus.error(getApiError(caught).message);
+        } finally {
+          setIsSwitchingWorkspace(false);
+        }
+      })();
+    },
+    [activeTab, auth, loadStudents, sessionUser?.tenant?.type],
+  );
+
   const isSmartMark =
     activeModal === 'smartmark_scan' || activeModal === 'smartmark';
   const isAiLesson =
@@ -270,6 +328,8 @@ export default function App() {
         onNavigate={(path) => void navigate(path)}
         profile={profileFromSession}
         currentUser={profileFromSession}
+        workspaceType={isPersonalWorkspace ? 'personal' : 'school'}
+        isSwitchingWorkspace={isSwitchingWorkspace}
         workspaces={(auth.user?.memberships ?? []).map((m) => ({
           tenantId: m.tenantId,
           tenantName: m.tenantName,
@@ -278,25 +338,7 @@ export default function App() {
           roleLabel: m.roleLabel,
           current: m.current ?? m.tenantId === auth.user?.tenant?.id,
         }))}
-        onSwitchWorkspace={(tenantId) => {
-          void (async () => {
-            try {
-              const user = await auth.switchWorkspace(tenantId);
-              const uiRole = mapBackendRoleToUi(user.role);
-              setCurrentRole(uiRole);
-              setActiveTab(
-                uiRole === 'super_admin' || uiRole === 'principal'
-                  ? 'overview'
-                  : uiRole === 'bursar' || uiRole === 'examination_officer' || uiRole === 'teacher' || uiRole === 'parent' || uiRole === 'student'
-                    ? 'home'
-                    : 'dashboard',
-              );
-              feedbackBus.success(`Switched to ${user.tenant?.name ?? 'workspace'}`);
-            } catch (caught) {
-              feedbackBus.error(getApiError(caught).message);
-            }
-          })();
-        }}
+        onSwitchWorkspace={handleSwitchWorkspace}
         hqModules={
           currentRole === 'super_admin'
             ? [
@@ -313,7 +355,7 @@ export default function App() {
         }
       />
 
-      {auth.user?.mfaRequired && (
+      {!isPersonalWorkspace && auth.user?.mfaRequired && (
         <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-[12px] font-semibold text-amber-950">
           Privileged MFA is required before creating or changing school data.{" "}
           <button
@@ -326,12 +368,28 @@ export default function App() {
         </div>
       )}
 
-      {studentsLoading && (
+      {!isPersonalWorkspace && studentsLoading && (
         <div className="border-b border-indigo-100 bg-indigo-50/80 px-4 py-1.5 text-center text-[11px] font-semibold text-indigo-700">
           Syncing students from database…
         </div>
       )}
 
+      <div
+        className="sr-only"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {isSwitchingWorkspace
+          ? 'Switching workspace. Clearing previous school context.'
+          : isPersonalWorkspace
+            ? 'My Skuggle personal workspace is active.'
+            : `${sessionUser?.tenant?.name ?? 'School'} workspace is active.`}
+      </div>
+
+      {isSwitchingWorkspace ? (
+        <PageSkeleton label="Switching workspace…" />
+      ) : (
       <main className="flex-1 pb-8">
         <Routes>
           <Route
@@ -346,7 +404,27 @@ export default function App() {
             path="*"
             element={
               <Suspense fallback={<ViewFallback />}>
-          {activeTab === 'students' ? (
+          {isPersonalWorkspace ? (
+            <MySkuggleWorkspace
+              role={currentRole}
+              userId={profileFromSession.id}
+              userName={profileFromSession.name}
+              activeTab={activeTab}
+              schoolCount={(sessionUser?.memberships ?? []).filter((membership) => membership.tenantType !== 'individual').length}
+              schools={(sessionUser?.memberships ?? [])
+                .filter((membership) => membership.tenantType !== 'individual')
+                .map((membership) => ({
+                  tenantId: membership.tenantId,
+                  tenantName: membership.tenantName,
+                  tenantCode: membership.tenantCode,
+                  roleLabel: membership.roleLabel,
+                  current: membership.current ?? membership.tenantId === sessionUser?.tenant?.id,
+                }))}
+              onSelectTab={setActiveTab}
+              onOpenModal={handleOpenModal}
+              onSwitchWorkspace={handleSwitchWorkspace}
+            />
+          ) : activeTab === 'students' ? (
             <StudentsDirectoryView
               students={students}
               onOpenModal={handleOpenModal}
@@ -663,6 +741,7 @@ export default function App() {
           />
         </Routes>
       </main>
+      )}
 
 
 

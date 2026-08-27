@@ -1,4 +1,5 @@
 import { appConfig } from "@/app/config";
+import { workspaceSwitchSignal } from "@/features/workspaces/workspaceSwitchScope";
 
 export type ApiErrorKind =
   | "unauthorized"
@@ -206,6 +207,10 @@ export const apiRequest = async <T>(
   );
   const abortFromCaller = (): void => controller.abort("cancelled");
   callerSignal?.addEventListener("abort", abortFromCaller, { once: true });
+  // Cancel in-flight tenant requests when the active workspace changes.
+  const scopeSignal = workspaceSwitchSignal();
+  const abortFromWorkspace = (): void => controller.abort("workspace-switch");
+  scopeSignal.addEventListener("abort", abortFromWorkspace, { once: true });
 
   const headers = new Headers(requestOptions.headers);
   headers.set("Accept", "application/json");
@@ -284,6 +289,7 @@ export const apiRequest = async <T>(
   } finally {
     window.clearTimeout(timeoutId);
     callerSignal?.removeEventListener("abort", abortFromCaller);
+    scopeSignal.removeEventListener("abort", abortFromWorkspace);
   }
 };
 

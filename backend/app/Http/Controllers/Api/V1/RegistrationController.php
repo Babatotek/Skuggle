@@ -15,6 +15,7 @@ use App\Models\TenantInvitation;
 use App\Models\TenantMembership;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\PersonalWorkspaceProvisioner;
 use App\Support\ApiResponse;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
@@ -68,10 +69,12 @@ class RegistrationController extends Controller
             }
 
             $audit->record('tenant.registered', $tenant, [], ['code' => $tenant->code, 'type' => 'school']);
+            // School admins also receive My Skuggle so joining/creating a school never replaces personal ownership.
+            app(PersonalWorkspaceProvisioner::class)->ensureFor($user, 'teacher');
             $context->clear();
             $this->dispatchRegistered($user);
 
-            return ['schoolId' => $tenant->public_id, 'requiresVerification' => true];
+            return ['schoolId' => $tenant->public_id, 'requiresVerification' => true, 'personalWorkspace' => true];
         });
 
         return ApiResponse::success($result, [], 201);
@@ -201,6 +204,10 @@ class RegistrationController extends Controller
                 ]);
             }
 
+            // Personal My Skuggle remains owned by the user; school membership is additive.
+            $accountType = $request->string('accountType')->toString();
+            app(PersonalWorkspaceProvisioner::class)->ensureFor($user, $accountType);
+
             $invite->forceFill([
                 'status' => 'accepted',
                 'accepted_at' => now(),
@@ -216,6 +223,7 @@ class RegistrationController extends Controller
                 'workspace' => 'school',
                 'tenantId' => $invite->tenant->public_id,
                 'role' => $roleName,
+                'personalWorkspace' => true,
                 'requiresVerification' => false,
             ];
         });

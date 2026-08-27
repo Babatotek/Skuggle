@@ -12,6 +12,7 @@ use App\Models\TenantMembership;
 use App\Models\User;
 use App\Notifications\TenantInvitationNotification;
 use App\Services\AuditLogger;
+use App\Services\PersonalWorkspaceProvisioner;
 use App\Support\ApiResponse;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
@@ -125,7 +126,7 @@ class InviteController extends Controller
             return ApiResponse::error('INVITE_EMAIL_MISMATCH', 'Use the email address this invitation was sent to.', 422);
         }
 
-        $result = DB::transaction(function () use ($invite, $data, $email, $audit): array {
+        $result = DB::transaction(function () use ($invite, $data, $email, $audit, $context): array {
             $user = User::query()->where('email', $email)->first();
             if (! $user) {
                 $user = User::query()->create([
@@ -151,7 +152,13 @@ class InviteController extends Controller
                 ],
             );
 
-            $this->provisionRoleRecord($invite, $user, $data['name']);
+            $context->set($invite->tenant, $membership);
+            try {
+                $this->provisionRoleRecord($invite, $user, $data['name']);
+                app(PersonalWorkspaceProvisioner::class)->ensureFor($user, $invite->role->name);
+            } finally {
+                $context->clear();
+            }
 
             $invite->forceFill([
                 'status' => 'accepted',

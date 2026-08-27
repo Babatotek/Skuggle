@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\V1\MessageController;
 use App\Http\Controllers\Api\V1\MfaController;
 use App\Http\Controllers\Api\V1\OnboardingController;
 use App\Http\Controllers\Api\V1\ParentController;
+use App\Http\Controllers\Api\V1\PersonalPlanController;
 use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\PlatformController;
 use App\Http\Controllers\Api\V1\PlatformOpsController;
@@ -90,6 +91,11 @@ Route::prefix('v1')->group(function (): void {
         Route::middleware(['verified', 'mfa'])->group(function (): void {
             Route::get('/dashboards/{experience}', [DashboardController::class, 'show']);
             Route::post('/sync', [SyncController::class, 'store'])->middleware('idempotency:required');
+
+            Route::get('/personal/plans', [PersonalPlanController::class, 'index']);
+            Route::post('/personal/plans', [PersonalPlanController::class, 'store'])->middleware('idempotency:required');
+            Route::patch('/personal/plans/{planItem}', [PersonalPlanController::class, 'update'])->middleware('idempotency:required');
+            Route::delete('/personal/plans/{planItem}', [PersonalPlanController::class, 'destroy'])->middleware('idempotency:required');
 
             Route::get('/lookups/student-registration', [StudentController::class, 'lookups'])->middleware('permission:students.create');
             Route::get('/lookups/staff-registration', [EmployeeController::class, 'lookups'])->middleware('permission:users.manage');

@@ -30,6 +30,11 @@ class TenantInvitation extends Model
         return $this->belongsTo(Role::class);
     }
 
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
+
     public function inviter(): BelongsTo
     {
         return $this->belongsTo(User::class, 'invited_by');
