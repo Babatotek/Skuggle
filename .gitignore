@@ -9,6 +9,7 @@ backend/storage/framework/views/*
 backend/storage/logs/*
 build/
 dist/
+.deploy_tmp/
 coverage/
 playwright-report/
 test-results/
@@ -20,5 +21,6 @@ test-results/
 _legacy_frontend_src_backup/
 skuggleSSH/
 skoolioSSH/
+deploySample/
 *.ppk
 **/private_ppk.ppk

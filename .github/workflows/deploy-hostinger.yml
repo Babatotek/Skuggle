@@ -16,16 +16,67 @@ on:
 
 concurrency:
   group: deploy-hostinger
-  cancel-in-progress: true
+  # Never interrupt a deployment while files or migrations may be changing.
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 env:
   DOMAIN: skuggle.royalgatewayadmin.com
   PHP_VERSION: "8.3"
 
 jobs:
+  verify:
+    name: Verify release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, pdo_sqlite, sqlite3, ctype, fileinfo, openssl, tokenizer, xml, curl, zip, bcmath, intl
+          coverage: none
+          tools: composer:v2
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Test backend
+        working-directory: backend
+        env:
+          APP_ENV: testing
+          STORAGE_LOCAL_ALLOWED: true
+        run: |
+          cp .env.example .env
+          php artisan key:generate --ansi
+          vendor/bin/pint --test
+          php artisan test --no-interaction
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Test frontend
+        run: |
+          npm ci
+          npm run lint
+          npm run test
+          npm run build
+
   deploy:
+    name: Deploy production
+    needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment: production
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -64,6 +115,13 @@ jobs:
           STORAGE_LOCAL_ALLOWED: true
         run: composer validate --no-check-publish
 
+      - name: Install production Composer dependencies
+        working-directory: backend
+        env:
+          APP_ENV: local
+          STORAGE_LOCAL_ALLOWED: true
+        run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-progress
+
       - name: Package release
         run: |
           set -euo pipefail
@@ -71,7 +129,6 @@ jobs:
           mkdir -p "$STAGE/application" "$STAGE/public_html"
 
           rsync -a \
-            --exclude vendor \
             --exclude node_modules \
             --exclude .git \
             --exclude tests \
@@ -100,6 +157,7 @@ jobs:
           chmod +x "$STAGE/application/remote-release.sh"
 
           tar -C "$STAGE" -czf "${RUNNER_TEMP}/skuggle-release.tar.gz" application public_html
+          (cd "${RUNNER_TEMP}" && sha256sum skuggle-release.tar.gz > skuggle-release.tar.gz.sha256)
           ls -lh "${RUNNER_TEMP}/skuggle-release.tar.gz"
 
       - name: Configure SSH
@@ -138,6 +196,7 @@ jobs:
           SCP=(scp -i ~/.ssh/hostinger_key -P "$PORT" -o StrictHostKeyChecking=yes)
 
           "${SCP[@]}" "${RUNNER_TEMP}/skuggle-release.tar.gz" "${USER}@${HOST}:/home/${USER}/skuggle-release.tar.gz"
+          "${SCP[@]}" "${RUNNER_TEMP}/skuggle-release.tar.gz.sha256" "${USER}@${HOST}:/home/${USER}/skuggle-release.tar.gz.sha256"
 
           "${SSH[@]}" bash -s <<REMOTE
           set -euo pipefail
@@ -145,6 +204,8 @@ jobs:
           APP_DIR='${APP_DIR}'
           PUBLIC_DIR='${PUBLIC_DIR}'
           mkdir -p "\$DOMAIN_ROOT" "\$HOME/backups"
+          cd "\$HOME"
+          sha256sum -c skuggle-release.tar.gz.sha256
           if [[ -f "\$APP_DIR/.env" ]]; then
             cp "\$APP_DIR/.env" /tmp/skuggle.env.preserve
           fi
@@ -157,7 +218,7 @@ jobs:
           if [[ -f /tmp/skuggle.env.preserve ]]; then
             mv /tmp/skuggle.env.preserve "\$APP_DIR/.env"
           fi
-          rm -f "\$HOME/skuggle-release.tar.gz"
+          rm -f "\$HOME/skuggle-release.tar.gz" "\$HOME/skuggle-release.tar.gz.sha256"
           chmod +x "\$APP_DIR/remote-release.sh"
           REMOTE
 
@@ -179,7 +240,7 @@ jobs:
         run: |
           set -euo pipefail
           for i in 1 2 3 4 5 6; do
-            code=$(curl -sS -o /tmp/health.json -w "%{http_code}" "https://skuggle.royalgatewayadmin.com/health" || true)
+            code=$(curl --fail-with-body --connect-timeout 10 --max-time 20 -sS -o /tmp/health.json -w "%{http_code}" "https://skuggle.royalgatewayadmin.com/ready" || true)
             echo "Attempt $i => HTTP $code"
             if [[ "$code" == "200" ]]; then
               cat /tmp/health.json || true
@@ -188,4 +249,5 @@ jobs:
             sleep 5
           done
           echo "Health check failed"
+          cat /tmp/health.json || true
           exit 1
