@@ -90,16 +90,16 @@ class LookupCacheServiceTest extends TestCase
     #[Test]
     public function curriculum_ttl_defaults_to_300_seconds(): void
     {
-        putenv('CACHE_CURRICULUM_TTL_SECONDS');
+        unset($_ENV['CACHE_CURRICULUM_TTL_SECONDS']);
         $this->assertSame(300, $this->service->curriculumTtl());
     }
 
     #[Test]
     public function curriculum_ttl_is_configurable_via_env(): void
     {
-        putenv('CACHE_CURRICULUM_TTL_SECONDS=600');
+        $_ENV['CACHE_CURRICULUM_TTL_SECONDS'] = '600';
         $this->assertSame(600, $this->service->curriculumTtl());
-        putenv('CACHE_CURRICULUM_TTL_SECONDS');
+        unset($_ENV['CACHE_CURRICULUM_TTL_SECONDS']);
     }
 
     // -----------------------------------------------------------------------

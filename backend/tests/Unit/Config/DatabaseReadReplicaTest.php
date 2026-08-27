@@ -24,8 +24,7 @@ class DatabaseReadReplicaTest extends TestCase
     {
         // In test environment DB_READ_HOST is unset — read key should be null
         // so Laravel falls back to the write host (single-node mode)
-        putenv('DB_READ_HOST=');
-        putenv('DB_READ_HOST_2=');
+        unset($_ENV['DB_READ_HOST'], $_ENV['DB_READ_HOST_2']);
 
         $config = require config_path('database.php');
         $read = $config['connections']['mysql']['read'];
@@ -38,8 +37,8 @@ class DatabaseReadReplicaTest extends TestCase
     #[Test]
     public function read_array_contains_one_entry_when_single_replica_configured(): void
     {
-        putenv('DB_READ_HOST=replica-1.internal');
-        putenv('DB_READ_HOST_2=');
+        $_ENV['DB_READ_HOST'] = 'replica-1.internal';
+        unset($_ENV['DB_READ_HOST_2']);
 
         $config = require config_path('database.php');
         $read = $config['connections']['mysql']['read'];
@@ -54,8 +53,8 @@ class DatabaseReadReplicaTest extends TestCase
     #[Test]
     public function read_array_contains_two_entries_when_two_replicas_configured(): void
     {
-        putenv('DB_READ_HOST=replica-1.internal');
-        putenv('DB_READ_HOST_2=replica-2.internal');
+        $_ENV['DB_READ_HOST'] = 'replica-1.internal';
+        $_ENV['DB_READ_HOST_2'] = 'replica-2.internal';
 
         $config = require config_path('database.php');
         $read = $config['connections']['mysql']['read'];
@@ -71,7 +70,7 @@ class DatabaseReadReplicaTest extends TestCase
     public function sticky_is_true_by_default(): void
     {
         // Remove the var entirely so env() uses the default
-        putenv('DB_STICKY');
+        unset($_ENV['DB_STICKY']);
 
         $config = require config_path('database.php');
         $sticky = $config['connections']['mysql']['sticky'];
@@ -93,9 +92,8 @@ class DatabaseReadReplicaTest extends TestCase
 
     protected function tearDown(): void
     {
-        putenv('DB_READ_HOST=');
-        putenv('DB_READ_HOST_2=');
-        putenv('DB_STICKY=');
+        unset($_ENV['DB_READ_HOST'], $_ENV['DB_READ_HOST_2']);
+        unset($_ENV['DB_STICKY']);
         parent::tearDown();
     }
 }

@@ -13,7 +13,10 @@ class CustomFieldTest extends TestCase
 
     public function test_school_admin_can_save_student_custom_fields(): void
     {
-        ['tenant' => $tenant, 'user' => $user] = $this->makeTenantUser('school_admin');
+        ['tenant' => $tenant, 'user' => $user] = $this->makeTenantUser(
+            'school_admin',
+            userOverrides: ['two_factor_confirmed_at' => now()],
+        );
 
         $response = $this->actingAsTenantUser($user, $tenant)
             ->putJson('/api/v1/custom-fields/student', [
@@ -45,7 +48,10 @@ class CustomFieldTest extends TestCase
 
     public function test_student_registration_requires_configured_custom_fields(): void
     {
-        ['tenant' => $tenant, 'user' => $user] = $this->makeTenantUser('school_admin');
+        ['tenant' => $tenant, 'user' => $user] = $this->makeTenantUser(
+            'school_admin',
+            userOverrides: ['two_factor_confirmed_at' => now()],
+        );
 
         $this->actingAsTenantUser($user, $tenant)
             ->putJson('/api/v1/custom-fields/student', [

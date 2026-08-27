@@ -37,7 +37,7 @@ class StorageEnforcementTest extends TestCase
         $method = new \ReflectionMethod($provider, 'enforceProductionStorage');
 
         config(['skuggle.library.disk' => 'local']);
-        putenv('STORAGE_LOCAL_ALLOWED=');
+        config(['skuggle.storage_local_allowed' => false]);
 
         app()->detectEnvironment(fn () => 'production');
 
@@ -57,7 +57,7 @@ class StorageEnforcementTest extends TestCase
         $method = new \ReflectionMethod($provider, 'enforceProductionStorage');
 
         config(['skuggle.library.disk' => 'public']);
-        putenv('STORAGE_LOCAL_ALLOWED=');
+        config(['skuggle.storage_local_allowed' => false]);
 
         app()->detectEnvironment(fn () => 'production');
 
@@ -77,7 +77,7 @@ class StorageEnforcementTest extends TestCase
 
         config(['skuggle.library.disk' => 's3']);
         config(['filesystems.disks.s3' => ['driver' => 's3', 'bucket' => 'test']]);
-        putenv('STORAGE_LOCAL_ALLOWED=');
+        config(['skuggle.storage_local_allowed' => false]);
 
         app()->detectEnvironment(fn () => 'production');
 
@@ -97,7 +97,7 @@ class StorageEnforcementTest extends TestCase
         $method = new \ReflectionMethod($provider, 'enforceProductionStorage');
 
         config(['skuggle.library.disk' => 'local']);
-        putenv('STORAGE_LOCAL_ALLOWED=true');
+        config(['skuggle.storage_local_allowed' => true]);
 
         app()->detectEnvironment(fn () => 'production');
 
@@ -107,7 +107,7 @@ class StorageEnforcementTest extends TestCase
             $this->assertTrue(true, 'Local disk must be accepted when STORAGE_LOCAL_ALLOWED=true');
         } finally {
             app()->detectEnvironment(fn () => 'testing');
-            putenv('STORAGE_LOCAL_ALLOWED=');
+            config(['skuggle.storage_local_allowed' => false]);
         }
     }
 
@@ -122,7 +122,7 @@ class StorageEnforcementTest extends TestCase
         $disks = config('filesystems.disks');
         unset($disks['r2']);
         config(['filesystems.disks' => $disks]);
-        putenv('STORAGE_LOCAL_ALLOWED=');
+        config(['skuggle.storage_local_allowed' => false]);
 
         app()->detectEnvironment(fn () => 'production');
 
@@ -148,7 +148,7 @@ class StorageEnforcementTest extends TestCase
 
     protected function tearDown(): void
     {
-        putenv('STORAGE_LOCAL_ALLOWED=');
+        config(['skuggle.storage_local_allowed' => false]);
         app()->detectEnvironment(fn () => 'testing');
         parent::tearDown();
     }
