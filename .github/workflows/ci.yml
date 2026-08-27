@@ -12,7 +12,7 @@ jobs:
       run:
         working-directory: backend
     env:
-      APP_ENV: local
+      APP_ENV: testing
       STORAGE_LOCAL_ALLOWED: true
     steps:
       - uses: actions/checkout@v4
@@ -22,11 +22,15 @@ jobs:
           extensions: mbstring, pdo_sqlite, sqlite3, ctype, fileinfo, openssl, tokenizer, xml, curl, zip
           coverage: none
       - name: Install Composer dependencies
-        run: composer install --no-interaction --prefer-dist
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Prepare test environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate --ansi
       - name: Pint
         run: vendor/bin/pint --test
       - name: PHPUnit
-        run: php artisan test
+        run: php artisan test --no-interaction
 
   frontend:
     runs-on: ubuntu-latest
