@@ -53,7 +53,7 @@ class UploadSecurityScannerTest extends TestCase
     public function allowed_extensions_contains_no_dangerous_types(): void
     {
         $dangerous = ['exe', 'bat', 'cmd', 'sh', 'ps1', 'php', 'phtml', 'js', 'html', 'svg'];
-        $allowed   = UploadSecurityScanner::allowedExtensions();
+        $allowed = UploadSecurityScanner::allowedExtensions();
 
         foreach ($dangerous as $ext) {
             $this->assertNotContains($ext, $allowed,
@@ -79,15 +79,15 @@ class UploadSecurityScannerTest extends TestCase
     public static function dangerousExtensionProvider(): array
     {
         return [
-            'exe file'           => ['malware.exe'],
-            'shell script'       => ['evil.sh'],
-            'php file'           => ['shell.php'],
-            'double extension'   => ['document.pdf.exe'],
-            'powershell script'  => ['attack.ps1'],
-            'batch file'         => ['virus.bat'],
-            'javascript'         => ['payload.js'],
-            'html file'          => ['xss.html'],
-            'svg file'           => ['xss.svg'],
+            'exe file' => ['malware.exe'],
+            'shell script' => ['evil.sh'],
+            'php file' => ['shell.php'],
+            'double extension' => ['document.pdf.exe'],
+            'powershell script' => ['attack.ps1'],
+            'batch file' => ['virus.bat'],
+            'javascript' => ['payload.js'],
+            'html file' => ['xss.html'],
+            'svg file' => ['xss.svg'],
         ];
     }
 
@@ -137,7 +137,7 @@ class UploadSecurityScannerTest extends TestCase
     public function accepts_valid_jpeg_with_correct_magic_bytes(): void
     {
         // JPEG magic bytes: FF D8 FF
-        $jpegContent = "\xFF\xD8\xFF\xE0" . str_repeat("\x00", 100);
+        $jpegContent = "\xFF\xD8\xFF\xE0".str_repeat("\x00", 100);
         $file = $this->createFakeFileWithMime('photo.jpg', 'image/jpeg', $jpegContent);
 
         // Should not throw
@@ -153,13 +153,13 @@ class UploadSecurityScannerTest extends TestCase
         // PHP finfo reads the real file content to determine MIME, so we must
         // write a real (minimal) PNG header so finfo detects it as image/png.
         $pngContent = "\x89\x50\x4E\x47\x0D\x0A\x1A\x0A" // PNG signature
-                    . "\x00\x00\x00\x0D"                  // IHDR chunk length
-                    . "\x49\x48\x44\x52"                  // "IHDR"
-                    . "\x00\x00\x00\x01"                  // width: 1
-                    . "\x00\x00\x00\x01"                  // height: 1
-                    . "\x08\x02"                           // 8-bit depth, RGB
-                    . "\x00\x00\x00"                      // compression, filter, interlace
-                    . "\x90\x77\x53\xDE";                 // CRC
+                    ."\x00\x00\x00\x0D"                  // IHDR chunk length
+                    ."\x49\x48\x44\x52"                  // "IHDR"
+                    ."\x00\x00\x00\x01"                  // width: 1
+                    ."\x00\x00\x00\x01"                  // height: 1
+                    ."\x08\x02"                           // 8-bit depth, RGB
+                    ."\x00\x00\x00"                      // compression, filter, interlace
+                    ."\x90\x77\x53\xDE";                 // CRC
 
         $file = $this->createFakeFileWithMime('image.png', 'image/png', $pngContent);
 
@@ -172,7 +172,7 @@ class UploadSecurityScannerTest extends TestCase
     public function accepts_valid_pdf_with_correct_magic_bytes(): void
     {
         // PDF magic bytes: %PDF-
-        $pdfContent = '%PDF-1.4' . str_repeat("\n", 100);
+        $pdfContent = '%PDF-1.4'.str_repeat("\n", 100);
         $file = $this->createFakeFileWithMime('document.pdf', 'application/pdf', $pdfContent);
 
         $result = $this->scanner->scan($file);
@@ -201,7 +201,7 @@ class UploadSecurityScannerTest extends TestCase
     {
         config(['app.env' => 'local']);
 
-        $pdfContent = '%PDF-1.4' . str_repeat("\n", 100);
+        $pdfContent = '%PDF-1.4'.str_repeat("\n", 100);
         $file = $this->createFakeFileWithMime('document.pdf', 'application/pdf', $pdfContent);
 
         $result = $this->scanner->scan($file);
@@ -219,7 +219,7 @@ class UploadSecurityScannerTest extends TestCase
         config(['skuggle.security.clamav_enabled' => false]);
         config(['skuggle.security.clamav_required_in_production' => true]);
 
-        $pdfContent = '%PDF-1.4' . str_repeat("\n", 100);
+        $pdfContent = '%PDF-1.4'.str_repeat("\n", 100);
         $file = $this->createFakeFileWithMime('document.pdf', 'application/pdf', $pdfContent);
 
         try {
@@ -240,7 +240,7 @@ class UploadSecurityScannerTest extends TestCase
         config(['skuggle.security.clamav_enabled' => false]);
         config(['skuggle.security.clamav_required_in_production' => false]);
 
-        $pdfContent = '%PDF-1.4' . str_repeat("\n", 100);
+        $pdfContent = '%PDF-1.4'.str_repeat("\n", 100);
         $file = $this->createFakeFileWithMime('document.pdf', 'application/pdf', $pdfContent);
 
         $result = $this->scanner->scan($file);

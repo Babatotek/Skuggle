@@ -12,10 +12,11 @@ use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DepartmentController;
 use App\Http\Controllers\Api\V1\EmployeeController;
 use App\Http\Controllers\Api\V1\GeoController;
+use App\Http\Controllers\Api\V1\GoogleAuthController;
+use App\Http\Controllers\Api\V1\InviteController;
 use App\Http\Controllers\Api\V1\LibraryAnnotationController;
 use App\Http\Controllers\Api\V1\LibraryResourceController;
 use App\Http\Controllers\Api\V1\LibraryToolController;
-use App\Http\Controllers\Api\V1\InviteController;
 use App\Http\Controllers\Api\V1\MessageController;
 use App\Http\Controllers\Api\V1\MfaController;
 use App\Http\Controllers\Api\V1\OnboardingController;
@@ -42,8 +43,8 @@ Route::prefix('v1')->group(function (): void {
     Route::post('/auth/two-factor-challenge', [AuthController::class, 'twoFactorChallenge'])->middleware('throttle:two-factor');
     Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:6,1');
     Route::post('/auth/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:6,1');
-    Route::get('/auth/google/redirect', [\App\Http\Controllers\Api\V1\GoogleAuthController::class, 'redirect'])->middleware('throttle:20,1');
-    Route::get('/auth/google/callback', [\App\Http\Controllers\Api\V1\GoogleAuthController::class, 'callback'])->middleware('throttle:20,1');
+    Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])->middleware('throttle:20,1');
+    Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->middleware('throttle:20,1');
     // Logout must run even when the session is half-dead so cookies are always cleared.
     Route::post('/auth/logout', [AuthController::class, 'logout'])->middleware('throttle:api');
     Route::post('/schools/register', [RegistrationController::class, 'school'])->middleware(['throttle:5,1', 'idempotency:required']);

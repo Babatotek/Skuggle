@@ -131,9 +131,9 @@ class AppServiceProvider extends ServiceProvider
         if (in_array($libraryDisk, $localDrivers, true)) {
             throw new \RuntimeException(
                 "Production storage misconfiguration: LIBRARY_DISK is set to '{$libraryDisk}' "
-                . "(a local filesystem driver). Multi-server deployments will silently lose uploads. "
-                . "Set LIBRARY_DISK=s3 and configure AWS_BUCKET / AWS_ACCESS_KEY_ID, "
-                . "or set STORAGE_LOCAL_ALLOWED=true if this is an intentional single-node deployment."
+                .'(a local filesystem driver). Multi-server deployments will silently lose uploads. '
+                .'Set LIBRARY_DISK=s3 and configure AWS_BUCKET / AWS_ACCESS_KEY_ID, '
+                .'or set STORAGE_LOCAL_ALLOWED=true if this is an intentional single-node deployment.'
             );
         }
 
@@ -143,7 +143,7 @@ class AppServiceProvider extends ServiceProvider
         if (! $diskConfig) {
             throw new \RuntimeException(
                 "Production storage misconfiguration: LIBRARY_DISK='{$libraryDisk}' is not "
-                . "defined in config/filesystems.php disks. Add the disk configuration."
+                .'defined in config/filesystems.php disks. Add the disk configuration.'
             );
         }
     }

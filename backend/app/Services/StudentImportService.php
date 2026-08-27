@@ -75,6 +75,7 @@ final class StudentImportService
             $rowErrors = $this->validateRow($record, $rowNumber);
             if ($rowErrors !== []) {
                 array_push($errors, ...$rowErrors);
+
                 continue;
             }
 
@@ -104,6 +105,7 @@ final class StudentImportService
                     $class = $this->resolveClass($row['class_name']);
                     if (! $class) {
                         $errors[] = ['row' => $rowNumber, 'field' => 'class_name', 'message' => 'Class not found: '.$row['class_name']];
+
                         continue;
                     }
 

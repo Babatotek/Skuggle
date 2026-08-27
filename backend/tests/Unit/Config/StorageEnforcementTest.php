@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Config;
 
+use App\Providers\AppServiceProvider;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 use Tests\TestCase;
@@ -31,7 +32,7 @@ class StorageEnforcementTest extends TestCase
     public function enforcement_method_throws_for_local_disk_in_production(): void
     {
         // Instantiate the provider and call the private method directly via reflection
-        $provider = new \App\Providers\AppServiceProvider(app());
+        $provider = new AppServiceProvider(app());
 
         $method = new \ReflectionMethod($provider, 'enforceProductionStorage');
 
@@ -52,8 +53,8 @@ class StorageEnforcementTest extends TestCase
     #[Test]
     public function enforcement_method_throws_for_public_disk_in_production(): void
     {
-        $provider = new \App\Providers\AppServiceProvider(app());
-        $method   = new \ReflectionMethod($provider, 'enforceProductionStorage');
+        $provider = new AppServiceProvider(app());
+        $method = new \ReflectionMethod($provider, 'enforceProductionStorage');
 
         config(['skuggle.library.disk' => 'public']);
         putenv('STORAGE_LOCAL_ALLOWED=');
@@ -71,8 +72,8 @@ class StorageEnforcementTest extends TestCase
     #[Test]
     public function enforcement_method_accepts_s3_disk_in_production(): void
     {
-        $provider = new \App\Providers\AppServiceProvider(app());
-        $method   = new \ReflectionMethod($provider, 'enforceProductionStorage');
+        $provider = new AppServiceProvider(app());
+        $method = new \ReflectionMethod($provider, 'enforceProductionStorage');
 
         config(['skuggle.library.disk' => 's3']);
         config(['filesystems.disks.s3' => ['driver' => 's3', 'bucket' => 'test']]);
@@ -92,8 +93,8 @@ class StorageEnforcementTest extends TestCase
     #[Test]
     public function enforcement_method_is_bypassed_when_local_allowed_flag_set(): void
     {
-        $provider = new \App\Providers\AppServiceProvider(app());
-        $method   = new \ReflectionMethod($provider, 'enforceProductionStorage');
+        $provider = new AppServiceProvider(app());
+        $method = new \ReflectionMethod($provider, 'enforceProductionStorage');
 
         config(['skuggle.library.disk' => 'local']);
         putenv('STORAGE_LOCAL_ALLOWED=true');
@@ -113,8 +114,8 @@ class StorageEnforcementTest extends TestCase
     #[Test]
     public function enforcement_method_throws_for_unknown_disk(): void
     {
-        $provider = new \App\Providers\AppServiceProvider(app());
-        $method   = new \ReflectionMethod($provider, 'enforceProductionStorage');
+        $provider = new AppServiceProvider(app());
+        $method = new \ReflectionMethod($provider, 'enforceProductionStorage');
 
         config(['skuggle.library.disk' => 'r2']);
         // Don't define r2 in filesystems.disks

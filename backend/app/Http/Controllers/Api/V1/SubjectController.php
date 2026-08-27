@@ -38,9 +38,9 @@ class SubjectController extends Controller
             'data' => collect($paginator->items())->map(fn (Subject $item) => $this->present($item)),
             'meta' => [
                 'currentPage' => $paginator->currentPage(),
-                'perPage'     => $paginator->perPage(),
-                'total'       => $paginator->total(),
-                'lastPage'    => $paginator->lastPage(),
+                'perPage' => $paginator->perPage(),
+                'total' => $paginator->total(),
+                'lastPage' => $paginator->lastPage(),
             ],
         ]);
     }
@@ -48,14 +48,14 @@ class SubjectController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'name'   => ['required', 'string', 'max:120'],
-            'code'   => ['required', 'string', 'max:32'],
+            'name' => ['required', 'string', 'max:120'],
+            'code' => ['required', 'string', 'max:32'],
             'status' => ['nullable', 'string', 'max:24'],
         ]);
 
         $subject = Subject::query()->create([
-            'name'   => $data['name'],
-            'code'   => strtoupper($data['code']),
+            'name' => $data['name'],
+            'code' => strtoupper($data['code']),
             'status' => $data['status'] ?? 'active',
         ]);
 
@@ -68,9 +68,9 @@ class SubjectController extends Controller
     private function present(Subject $item): array
     {
         return [
-            'id'     => $item->public_id,
-            'name'   => $item->name,
-            'code'   => $item->code,
+            'id' => $item->public_id,
+            'name' => $item->name,
+            'code' => $item->code,
             'status' => $item->status,
         ];
     }

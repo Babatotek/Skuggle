@@ -15,8 +15,9 @@ use App\Services\AuditLogger;
 use App\Support\ApiResponse;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Password;
@@ -158,7 +159,7 @@ class AuthController extends Controller
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, TenantMembership>
+     * @return Collection<int, TenantMembership>
      */
     private function switchableMemberships(User $user)
     {

@@ -12,6 +12,8 @@ use App\Http\Middleware\RequestMetrics;
 use App\Http\Middleware\RequireMfaForPrivilegedRole;
 use App\Http\Middleware\ResolveTenant;
 use App\Http\Middleware\SecurityHeaders;
+use App\Providers\HorizonServiceProvider;
+use App\Providers\PulseServiceProvider;
 use App\Support\ApiResponse;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -30,32 +32,32 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
     )
     ->withProviders([
-        App\Providers\HorizonServiceProvider::class,
-        App\Providers\PulseServiceProvider::class,
+        HorizonServiceProvider::class,
+        PulseServiceProvider::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
         $middleware->redirectGuestsTo(fn () => rtrim((string) config('skuggle.frontend_url'), '/').'/login');
-        
+
         // Trusted proxies configuration with production safety
         // Use $_ENV because env() helper may not be available yet during app bootstrap
         $trustedProxies = $_ENV['TRUSTED_PROXIES'] ?? env('TRUSTED_PROXIES');
         $appEnv = $_ENV['APP_ENV'] ?? env('APP_ENV', 'production');
-        
+
         if ($trustedProxies === '*' && $appEnv === 'production') {
             throw new RuntimeException(
-                'TRUSTED_PROXIES cannot be "*" (wildcard) in production environment. ' .
-                'Configure explicit proxy IP addresses or CIDR ranges for security. ' .
+                'TRUSTED_PROXIES cannot be "*" (wildcard) in production environment. '.
+                'Configure explicit proxy IP addresses or CIDR ranges for security. '.
                 'See deploy/PROXY_CONFIGURATION.md for details.'
             );
         }
-        
+
         if ($trustedProxies === '*') {
             $middleware->trustProxies(at: '*');
         } elseif (! empty($trustedProxies)) {
             $middleware->trustProxies(at: array_filter(explode(',', $trustedProxies)));
         }
-        
+
         $middleware->append([AssignRequestId::class, SecurityHeaders::class, RequestMetrics::class]);
         $middleware->api(prepend: [ForceJsonResponse::class]);
         $middleware->alias([

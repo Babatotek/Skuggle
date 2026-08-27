@@ -14,14 +14,14 @@ class CiSecurityWorkflowTest extends TestCase
     private function rootWorkflowPath(string $file): string
     {
         // Workflows are at the monorepo root, two levels above base_path()
-        return dirname(base_path()) . DIRECTORY_SEPARATOR . '.github'
-            . DIRECTORY_SEPARATOR . 'workflows'
-            . DIRECTORY_SEPARATOR . $file;
+        return dirname(base_path()).DIRECTORY_SEPARATOR.'.github'
+            .DIRECTORY_SEPARATOR.'workflows'
+            .DIRECTORY_SEPARATOR.$file;
     }
 
     private function backendWorkflowPath(string $file): string
     {
-        return base_path('.github/workflows/' . $file);
+        return base_path('.github/workflows/'.$file);
     }
 
     // -----------------------------------------------------------------------

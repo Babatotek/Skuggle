@@ -32,7 +32,7 @@ class HorizonConfigTest extends TestCase
     public function production_environment_has_separate_ai_supervisor(): void
     {
         $config = $this->config();
-        $prod   = $config['environments']['production'];
+        $prod = $config['environments']['production'];
 
         $queues = collect($prod)->flatMap(fn ($s) => (array) ($s['queue'] ?? []))->all();
 
@@ -44,7 +44,7 @@ class HorizonConfigTest extends TestCase
     public function production_environment_has_separate_exports_supervisor(): void
     {
         $config = $this->config();
-        $prod   = $config['environments']['production'];
+        $prod = $config['environments']['production'];
 
         $queues = collect($prod)->flatMap(fn ($s) => (array) ($s['queue'] ?? []))->all();
 
@@ -68,8 +68,8 @@ class HorizonConfigTest extends TestCase
     #[Test]
     public function production_ai_supervisor_has_correct_timeout(): void
     {
-        $config    = $this->config();
-        $aiSup     = $config['environments']['production']['supervisor-ai'] ?? null;
+        $config = $this->config();
+        $aiSup = $config['environments']['production']['supervisor-ai'] ?? null;
 
         $this->assertNotNull($aiSup, 'supervisor-ai must exist in production');
 
@@ -115,7 +115,7 @@ class HorizonConfigTest extends TestCase
     public function horizon_requires_redis_in_production(): void
     {
         $config = $this->config();
-        $prod   = $config['environments']['production'];
+        $prod = $config['environments']['production'];
 
         foreach ($prod as $supervisor) {
             $this->assertSame('redis', $supervisor['connection'],

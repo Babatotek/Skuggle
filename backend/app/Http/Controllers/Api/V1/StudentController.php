@@ -182,6 +182,7 @@ class StudentController extends Controller
             $raw = $request->input('customFields');
             if (is_string($raw)) {
                 $decoded = json_decode($raw, true);
+
                 return is_array($decoded) ? $decoded : [];
             }
 

@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Http\Controllers\Controller;
 use App\Domain\Tenancy\TenantContext;
+use App\Http\Controllers\Controller;
 use App\Models\ResultPublication;
 use App\Models\Tenant;
 use App\Services\ResultReportService;

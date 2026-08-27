@@ -2,13 +2,13 @@
 
 namespace Database\Seeders;
 
+use App\Models\Plan;
 use App\Models\PlatformApiCredential;
 use App\Models\PlatformBackupSnapshot;
 use App\Models\PlatformBroadcast;
 use App\Models\PlatformInvoice;
 use App\Models\PlatformSupportMessage;
 use App\Models\PlatformSupportTicket;
-use App\Models\Plan;
 use App\Models\Subscription;
 use App\Models\Tenant;
 use App\Models\User;

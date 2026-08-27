@@ -2,8 +2,6 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -50,8 +48,8 @@ class HealthCheckTest extends TestCase
         // Verify all checks passed
         $checks = $response->json('checks');
         foreach ($checks as $check) {
-            $this->assertEquals('healthy', $check['status'], 
-                "Check should be healthy but got: " . json_encode($check));
+            $this->assertEquals('healthy', $check['status'],
+                'Check should be healthy but got: '.json_encode($check));
         }
     }
 
@@ -63,11 +61,11 @@ class HealthCheckTest extends TestCase
         $response = $this->getJson('/ready');
 
         $response->assertJsonStructure([
-                'status',
-                'checks' => [
-                    'database',
-                ],
-                'timestamp',
+            'status',
+            'checks' => [
+                'database',
+            ],
+            'timestamp',
         ]);
     }
 
@@ -142,7 +140,7 @@ class HealthCheckTest extends TestCase
 
         $timestamp = $response->json('timestamp');
         $this->assertNotNull($timestamp);
-        
+
         // Verify it's a valid ISO 8601 timestamp
         $this->assertMatchesRegularExpression(
             '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/',
@@ -158,7 +156,7 @@ class HealthCheckTest extends TestCase
         $response = $this->getJson('/ready');
 
         $response->assertStatus(200);
-        
+
         // Redis check might not be present if not required
         $checks = $response->json('checks');
         $this->assertIsArray($checks);

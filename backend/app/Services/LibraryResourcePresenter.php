@@ -6,7 +6,6 @@ use App\Domain\Tenancy\TenantContext;
 use App\Models\LibraryBookmark;
 use App\Models\LibraryProgress;
 use App\Models\LibraryResource;
-use App\Support\SignedStorageUrl;
 use Illuminate\Support\Facades\Storage;
 
 final class LibraryResourcePresenter

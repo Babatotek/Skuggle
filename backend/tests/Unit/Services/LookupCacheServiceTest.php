@@ -3,6 +3,7 @@
 namespace Tests\Unit\Services;
 
 use App\Domain\Tenancy\TenantContext;
+use App\Models\Tenant;
 use App\Services\LookupCacheService;
 use Illuminate\Support\Facades\Cache;
 use PHPUnit\Framework\Attributes\Test;
@@ -11,6 +12,7 @@ use Tests\TestCase;
 class LookupCacheServiceTest extends TestCase
 {
     private LookupCacheService $service;
+
     private TenantContext $context;
 
     protected function setUp(): void
@@ -21,7 +23,7 @@ class LookupCacheServiceTest extends TestCase
         $this->context = app(TenantContext::class);
 
         // Build a minimal Tenant stub using a real Tenant model without DB
-        $tenant = new \App\Models\Tenant;
+        $tenant = new Tenant;
         $tenant->forceFill(['id' => 42]);
         $this->context->setPublicTenant($tenant);
 
@@ -71,7 +73,7 @@ class LookupCacheServiceTest extends TestCase
         $key42 = $this->service->curriculumKey();
 
         // Switch to tenant 99
-        $tenant99 = new \App\Models\Tenant;
+        $tenant99 = new Tenant;
         $tenant99->forceFill(['id' => 99]);
         $this->context->setPublicTenant($tenant99);
         $service99 = new LookupCacheService($this->context);
@@ -108,12 +110,13 @@ class LookupCacheServiceTest extends TestCase
     public function remember_curriculum_caches_callback_result(): void
     {
         $callCount = 0;
-        $callback  = function () use (&$callCount): array {
+        $callback = function () use (&$callCount): array {
             $callCount++;
+
             return ['levels' => [], 'classes' => [], 'subjects' => []];
         };
 
-        $first  = $this->service->rememberCurriculum($callback);
+        $first = $this->service->rememberCurriculum($callback);
         $second = $this->service->rememberCurriculum($callback);
 
         $this->assertSame(1, $callCount, 'Callback should only be called once — second call hits cache');
@@ -124,8 +127,9 @@ class LookupCacheServiceTest extends TestCase
     public function forget_curriculum_clears_cache(): void
     {
         $callCount = 0;
-        $callback  = function () use (&$callCount): array {
+        $callback = function () use (&$callCount): array {
             $callCount++;
+
             return ['data' => $callCount];
         };
 
@@ -141,19 +145,43 @@ class LookupCacheServiceTest extends TestCase
     {
         $counts = ['curriculum' => 0, 'subjects' => 0, 'classes' => 0];
 
-        $this->service->rememberCurriculum(function () use (&$counts): array { $counts['curriculum']++; return []; });
-        $this->service->rememberSubjects(function () use (&$counts): array { $counts['subjects']++; return []; });
-        $this->service->rememberClasses(function () use (&$counts): array { $counts['classes']++; return []; });
+        $this->service->rememberCurriculum(function () use (&$counts): array {
+            $counts['curriculum']++;
+
+            return [];
+        });
+        $this->service->rememberSubjects(function () use (&$counts): array {
+            $counts['subjects']++;
+
+            return [];
+        });
+        $this->service->rememberClasses(function () use (&$counts): array {
+            $counts['classes']++;
+
+            return [];
+        });
 
         $this->service->forgetAll();
 
-        $this->service->rememberCurriculum(function () use (&$counts): array { $counts['curriculum']++; return []; });
-        $this->service->rememberSubjects(function () use (&$counts): array { $counts['subjects']++; return []; });
-        $this->service->rememberClasses(function () use (&$counts): array { $counts['classes']++; return []; });
+        $this->service->rememberCurriculum(function () use (&$counts): array {
+            $counts['curriculum']++;
+
+            return [];
+        });
+        $this->service->rememberSubjects(function () use (&$counts): array {
+            $counts['subjects']++;
+
+            return [];
+        });
+        $this->service->rememberClasses(function () use (&$counts): array {
+            $counts['classes']++;
+
+            return [];
+        });
 
         $this->assertSame(2, $counts['curriculum'], 'forgetAll() must bust curriculum cache');
-        $this->assertSame(2, $counts['subjects'],   'forgetAll() must bust subjects cache');
-        $this->assertSame(2, $counts['classes'],    'forgetAll() must bust classes cache');
+        $this->assertSame(2, $counts['subjects'], 'forgetAll() must bust subjects cache');
+        $this->assertSame(2, $counts['classes'], 'forgetAll() must bust classes cache');
     }
 
     // -----------------------------------------------------------------------

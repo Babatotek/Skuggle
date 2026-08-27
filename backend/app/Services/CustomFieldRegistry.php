@@ -86,6 +86,7 @@ final class CustomFieldRegistry
                 if ($required) {
                     $errors["customFields.{$key}"] = ["{$label} is required."];
                 }
+
                 continue;
             }
 

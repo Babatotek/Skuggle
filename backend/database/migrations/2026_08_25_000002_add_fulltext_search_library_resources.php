@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -40,11 +39,13 @@ return new class extends Migration
         if ($this->isMySQL()) {
             try {
                 DB::statement('ALTER TABLE library_resources DROP INDEX library_resources_fulltext_idx');
-            } catch (\Exception) {}
+            } catch (Exception) {
+            }
 
             try {
                 DB::statement('ALTER TABLE library_resources DROP INDEX library_resources_title_fulltext_idx');
-            } catch (\Exception) {}
+            } catch (Exception) {
+            }
         }
     }
 
@@ -62,7 +63,8 @@ return new class extends Migration
                     return true;
                 }
             }
-        } catch (\Exception) {}
+        } catch (Exception) {
+        }
 
         return false;
     }

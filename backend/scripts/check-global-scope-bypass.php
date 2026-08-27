@@ -12,10 +12,9 @@
  *   php scripts/check-global-scope-bypass.php          # from project root
  *   php scripts/check-global-scope-bypass.php --verbose
  */
-
 const REGISTERED_TOTAL = 25;
-const SCAN_ROOT        = __DIR__ . '/../app';
-const AUDIT_DOC        = __DIR__ . '/../deploy/GLOBAL_SCOPE_BYPASS_AUDIT.md';
+const SCAN_ROOT = __DIR__.'/../app';
+const AUDIT_DOC = __DIR__.'/../deploy/GLOBAL_SCOPE_BYPASS_AUDIT.md';
 
 $verbose = in_array('--verbose', $argv, true);
 
@@ -36,7 +35,7 @@ foreach ($iterator as $file) {
     foreach ($lines as $lineNo => $line) {
         if (str_contains($line, 'withoutGlobalScopes')) {
             $found[] = [
-                'file' => str_replace(SCAN_ROOT . '/', '', $file->getPathname()),
+                'file' => str_replace(SCAN_ROOT.'/', '', $file->getPathname()),
                 'line' => $lineNo + 1,
                 'code' => trim($line),
             ];
@@ -57,13 +56,13 @@ if ($verbose || $count > REGISTERED_TOTAL) {
     echo "\n";
 }
 
-echo "Found {$count} call site(s). Registered: " . REGISTERED_TOTAL . ".\n";
+echo "Found {$count} call site(s). Registered: ".REGISTERED_TOTAL.".\n";
 
 if ($count > REGISTERED_TOTAL) {
     $new = $count - REGISTERED_TOTAL;
     echo "\n❌  {$new} UNREGISTERED withoutGlobalScopes() call(s) detected.\n";
     echo "    Each new bypass MUST be reviewed and added to:\n";
-    echo "    " . realpath(AUDIT_DOC) . "\n\n";
+    echo '    '.realpath(AUDIT_DOC)."\n\n";
     echo "    Checklist:\n";
     echo "    1. Does the model use BelongsToTenant? If not, bypass is unnecessary.\n";
     echo "    2. Does an explicit WHERE tenant_id = \$id follow immediately?\n";
@@ -74,7 +73,7 @@ if ($count > REGISTERED_TOTAL) {
 }
 
 if ($count < REGISTERED_TOTAL) {
-    echo "✅  Count decreased ({$count} < " . REGISTERED_TOTAL . "). Update REGISTERED_TOTAL in this script.\n";
+    echo "✅  Count decreased ({$count} < ".REGISTERED_TOTAL."). Update REGISTERED_TOTAL in this script.\n";
     // Not a failure — could mean code was cleaned up
     exit(0);
 }

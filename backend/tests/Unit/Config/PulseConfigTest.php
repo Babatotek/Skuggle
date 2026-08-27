@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Config;
 
+use Laravel\Pulse\Recorders\SlowRequests;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -56,7 +57,7 @@ class PulseConfigTest extends TestCase
     public function slow_request_threshold_matches_app_slo(): void
     {
         $config = $this->config();
-        $recorder = $config['recorders'][\Laravel\Pulse\Recorders\SlowRequests::class] ?? null;
+        $recorder = $config['recorders'][SlowRequests::class] ?? null;
 
         $this->assertNotNull($recorder);
         $this->assertSame(500, (int) $recorder['threshold']);
@@ -66,7 +67,7 @@ class PulseConfigTest extends TestCase
     public function health_endpoints_are_ignored_by_slow_request_recorder(): void
     {
         $config = $this->config();
-        $ignore = $config['recorders'][\Laravel\Pulse\Recorders\SlowRequests::class]['ignore'] ?? [];
+        $ignore = $config['recorders'][SlowRequests::class]['ignore'] ?? [];
 
         $joined = implode(' ', $ignore);
 

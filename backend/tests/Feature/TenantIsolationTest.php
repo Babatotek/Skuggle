@@ -9,6 +9,7 @@ use App\Models\Tenant;
 use App\Models\TenantMembership;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -28,11 +29,17 @@ class TenantIsolationTest extends TestCase
     use RefreshDatabase;
 
     private Tenant $tenantA;
+
     private Tenant $tenantB;
+
     private User $userA;
+
     private User $userB;
+
     private TenantMembership $membershipA;
+
     private TenantMembership $membershipB;
+
     private Role $role;
 
     protected function setUp(): void
@@ -47,22 +54,22 @@ class TenantIsolationTest extends TestCase
         $this->role = Role::create([
             'name' => 'Admin',
             'label' => 'Administrator',
-            'slug' => 'admin-' . Str::random(6),
+            'slug' => 'admin-'.Str::random(6),
             'privileged' => false,
         ]);
 
         $this->tenantA = Tenant::create([
             'name' => 'School A',
-            'slug' => 'school-a-' . Str::random(6),
-            'code' => 'SCA' . Str::random(3),
+            'slug' => 'school-a-'.Str::random(6),
+            'code' => 'SCA'.Str::random(3),
             'type' => 'school',
             'status' => 'active',
         ]);
 
         $this->tenantB = Tenant::create([
             'name' => 'School B',
-            'slug' => 'school-b-' . Str::random(6),
-            'code' => 'SCB' . Str::random(3),
+            'slug' => 'school-b-'.Str::random(6),
+            'code' => 'SCB'.Str::random(3),
             'type' => 'school',
             'status' => 'active',
         ]);
@@ -95,7 +102,7 @@ class TenantIsolationTest extends TestCase
     public function tenant_scope_returns_no_records_when_context_not_set(): void
     {
         // Seed a student directly bypassing context
-        \Illuminate\Support\Facades\DB::table('students')->insert([
+        DB::table('students')->insert([
             'tenant_id' => $this->tenantA->getKey(),
             'public_id' => (string) Str::ulid(),
             'first_name' => 'Ghost',
@@ -195,7 +202,7 @@ class TenantIsolationTest extends TestCase
         $student = Student::create($this->studentData('Alice'));
         $context->clear();
 
-        $raw = \Illuminate\Support\Facades\DB::table('students')
+        $raw = DB::table('students')
             ->where('id', $student->getKey())
             ->first();
 
@@ -229,7 +236,7 @@ class TenantIsolationTest extends TestCase
 
         // The guarded field means tenant_id from mass assignment is ignored;
         // the creating hook should have set tenantA's id instead.
-        $raw = \Illuminate\Support\Facades\DB::table('students')
+        $raw = DB::table('students')
             ->where('id', $student->getKey())
             ->first();
 
@@ -262,8 +269,8 @@ class TenantIsolationTest extends TestCase
     {
         $inactiveTenant = Tenant::create([
             'name' => 'Closed School',
-            'slug' => 'closed-' . Str::random(6),
-            'code' => 'CLO' . Str::random(3),
+            'slug' => 'closed-'.Str::random(6),
+            'code' => 'CLO'.Str::random(3),
             'type' => 'school',
             'status' => 'suspended',
         ]);
@@ -373,10 +380,10 @@ class TenantIsolationTest extends TestCase
         $context->clear();
 
         // Bob (tenant B) should still exist
-        $raw = \Illuminate\Support\Facades\DB::table('students')->where('deleted_at', null)->count();
+        $raw = DB::table('students')->where('deleted_at', null)->count();
         $this->assertEquals(1, $raw, 'Delete scoped to tenant A must not delete Tenant B records');
 
-        $remainingId = \Illuminate\Support\Facades\DB::table('students')
+        $remainingId = DB::table('students')
             ->whereNull('deleted_at')
             ->value('tenant_id');
         $this->assertEquals($this->tenantB->getKey(), $remainingId,
@@ -397,7 +404,7 @@ class TenantIsolationTest extends TestCase
             'last_name' => 'Test',
             'gender' => 'male',
             'status' => 'active',
-            'admission_number' => 'ADM-' . $counter . '-' . Str::random(4),
+            'admission_number' => 'ADM-'.$counter.'-'.Str::random(4),
         ];
     }
 }

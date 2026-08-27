@@ -3,6 +3,7 @@
 namespace Tests\Unit\Database;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -22,7 +23,7 @@ class FullTextSearchTest extends TestCase
         // Migration already ran via RefreshDatabase.
         // Just assert the library_resources table exists.
         $this->assertTrue(
-            \Illuminate\Support\Facades\Schema::hasTable('library_resources'),
+            Schema::hasTable('library_resources'),
             'library_resources table must exist after migrations'
         );
     }
@@ -86,7 +87,7 @@ class FullTextSearchTest extends TestCase
         // Must retain LIKE fallback for SQLite / non-MySQL drivers
         $this->assertStringContainsString("'like'", $source,
             'Controller must retain LIKE fallback for non-MySQL drivers');
-        $this->assertStringContainsString("getDriverName", $source,
+        $this->assertStringContainsString('getDriverName', $source,
             'Controller must check DB driver before choosing search strategy');
     }
 }

@@ -30,24 +30,24 @@ final class UploadSecurityScanner
      * Keep this list tight — add types explicitly, never use wildcards.
      */
     private const ALLOWED = [
-        'application/pdf'                                                       => ['pdf'],
-        'application/msword'                                                    => ['doc'],
+        'application/pdf' => ['pdf'],
+        'application/msword' => ['doc'],
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => ['docx'],
-        'application/vnd.ms-excel'                                              => ['xls'],
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'    => ['xlsx'],
-        'application/vnd.ms-powerpoint'                                         => ['ppt'],
+        'application/vnd.ms-excel' => ['xls'],
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => ['xlsx'],
+        'application/vnd.ms-powerpoint' => ['ppt'],
         'application/vnd.openxmlformats-officedocument.presentationml.presentation' => ['pptx'],
-        'text/plain'                                                            => ['txt'],
-        'text/csv'                                                              => ['csv'],
-        'image/jpeg'                                                            => ['jpg', 'jpeg'],
-        'image/png'                                                             => ['png'],
-        'image/gif'                                                             => ['gif'],
-        'image/webp'                                                            => ['webp'],
-        'audio/mpeg'                                                            => ['mp3'],
-        'audio/ogg'                                                             => ['ogg'],
-        'audio/wav'                                                             => ['wav'],
-        'video/mp4'                                                             => ['mp4'],
-        'video/webm'                                                            => ['webm'],
+        'text/plain' => ['txt'],
+        'text/csv' => ['csv'],
+        'image/jpeg' => ['jpg', 'jpeg'],
+        'image/png' => ['png'],
+        'image/gif' => ['gif'],
+        'image/webp' => ['webp'],
+        'audio/mpeg' => ['mp3'],
+        'audio/ogg' => ['ogg'],
+        'audio/wav' => ['wav'],
+        'video/mp4' => ['mp4'],
+        'video/webm' => ['webm'],
     ];
 
     /**
@@ -55,13 +55,13 @@ final class UploadSecurityScanner
      * Format: [ mime => [ hex_prefix, ... ] ]
      */
     private const MAGIC_BYTES = [
-        'application/pdf'  => ['255044462d'],           // %PDF-
-        'image/jpeg'       => ['ffd8ff'],               // JPEG SOI
-        'image/png'        => ['89504e47'],             // \x89PNG
-        'image/gif'        => ['474946383761', '474946383961'], // GIF87a / GIF89a
-        'image/webp'       => ['52494646'],             // RIFF (then check WEBP at offset 8)
-        'audio/mpeg'       => ['fffb', 'fff3', 'fff2', '4944330'], // MP3 sync / ID3
-        'video/mp4'        => ['00000018667479', '00000020667479', '66747970'], // ftyp variants
+        'application/pdf' => ['255044462d'],           // %PDF-
+        'image/jpeg' => ['ffd8ff'],               // JPEG SOI
+        'image/png' => ['89504e47'],             // \x89PNG
+        'image/gif' => ['474946383761', '474946383961'], // GIF87a / GIF89a
+        'image/webp' => ['52494646'],             // RIFF (then check WEBP at offset 8)
+        'audio/mpeg' => ['fffb', 'fff3', 'fff2', '4944330'], // MP3 sync / ID3
+        'video/mp4' => ['00000018667479', '00000020667479', '66747970'], // ftyp variants
     ];
 
     /**
@@ -98,7 +98,7 @@ final class UploadSecurityScanner
             if (str_ends_with($originalName, '.'.$dangerous)) {
                 Log::warning('upload.dangerous_extension', [
                     'extension' => $dangerous,
-                    'filename'  => $file->getClientOriginalName(),
+                    'filename' => $file->getClientOriginalName(),
                 ]);
                 throw new ApiException(
                     'UNSAFE_UPLOAD',
@@ -112,7 +112,7 @@ final class UploadSecurityScanner
         if (! in_array($ext, $allowedExtensions, true)) {
             Log::warning('upload.disallowed_extension', [
                 'extension' => $ext,
-                'filename'  => $file->getClientOriginalName(),
+                'filename' => $file->getClientOriginalName(),
             ]);
             throw new ApiException(
                 'UNSAFE_UPLOAD',
@@ -133,7 +133,7 @@ final class UploadSecurityScanner
 
         if (! array_key_exists($mime, self::ALLOWED)) {
             Log::warning('upload.disallowed_mime', [
-                'mime'     => $mime,
+                'mime' => $mime,
                 'filename' => $file->getClientOriginalName(),
             ]);
             throw new ApiException(
@@ -147,9 +147,9 @@ final class UploadSecurityScanner
         $ext = strtolower($file->getClientOriginalExtension());
         if (! in_array($ext, self::ALLOWED[$mime], true)) {
             Log::warning('upload.mime_extension_mismatch', [
-                'mime'      => $mime,
+                'mime' => $mime,
                 'extension' => $ext,
-                'filename'  => $file->getClientOriginalName(),
+                'filename' => $file->getClientOriginalName(),
             ]);
             throw new ApiException(
                 'UNSAFE_UPLOAD',
@@ -190,8 +190,8 @@ final class UploadSecurityScanner
 
         if (! $matched) {
             Log::warning('upload.magic_byte_mismatch', [
-                'mime'     => $mime,
-                'header'   => substr($header, 0, 20),
+                'mime' => $mime,
+                'header' => substr($header, 0, 20),
                 'filename' => $file->getClientOriginalName(),
             ]);
             throw new ApiException(
@@ -232,7 +232,7 @@ final class UploadSecurityScanner
         if ($process->getExitCode() === 1) {
             Log::warning('upload.virus_detected', [
                 'filename' => $file->getClientOriginalName(),
-                'output'   => $process->getOutput(),
+                'output' => $process->getOutput(),
             ]);
             throw new ApiException(
                 'UNSAFE_UPLOAD',
@@ -244,7 +244,7 @@ final class UploadSecurityScanner
         if ($process->getExitCode() !== 0) {
             Log::error('upload.clamav_error', [
                 'exit_code' => $process->getExitCode(),
-                'stderr'    => $process->getErrorOutput(),
+                'stderr' => $process->getErrorOutput(),
             ]);
             throw new ApiException(
                 'MALWARE_SCANNER_UNAVAILABLE',

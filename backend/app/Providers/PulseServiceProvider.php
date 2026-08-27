@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Pulse\Pulse;
 
 /**
  * Gates the Pulse dashboard. Registers only when laravel/pulse is installed.
@@ -21,7 +22,7 @@ class PulseServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        if (! class_exists(\Laravel\Pulse\Pulse::class)) {
+        if (! class_exists(Pulse::class)) {
             return;
         }
 

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Domain\Tenancy\TenantContext;
-use App\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
 use App\Models\Department;
 use App\Models\Employee;

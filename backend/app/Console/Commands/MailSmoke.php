@@ -21,7 +21,7 @@ class MailSmoke extends Command
         $mailer = (string) config('mail.default');
 
         $this->info("Mailer: {$mailer}");
-        $this->info("From: ".config('mail.from.address'));
+        $this->info('From: '.config('mail.from.address'));
         $this->info("To: {$email}");
 
         try {

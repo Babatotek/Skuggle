@@ -23,11 +23,11 @@ class GlobalScopeBypassTest extends TestCase
     private const REGISTERED_TOTAL = 25;
 
     #[Test]
-    public function withoutGlobalScopes_call_count_matches_audit_register(): void
+    public function without_global_scopes_call_count_matches_audit_register(): void
     {
         $appDir = base_path('app');
-        $count  = 0;
-        $found  = [];
+        $count = 0;
+        $found = [];
 
         $iterator = new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator($appDir, \FilesystemIterator::SKIP_DOTS)
@@ -44,7 +44,7 @@ class GlobalScopeBypassTest extends TestCase
                     $count++;
                     $found[] = sprintf(
                         '%s:%d  →  %s',
-                        str_replace($appDir . DIRECTORY_SEPARATOR, '', $file->getPathname()),
+                        str_replace($appDir.DIRECTORY_SEPARATOR, '', $file->getPathname()),
                         $lineNo + 1,
                         trim($line)
                     );
@@ -58,18 +58,18 @@ class GlobalScopeBypassTest extends TestCase
             $count > self::REGISTERED_TOTAL
                 ? sprintf(
                     "%d UNREGISTERED withoutGlobalScopes() call(s) found (expected %d).\n\n"
-                    . "Each bypass must be:\n"
-                    . "  1. Reviewed for tenant data leakage\n"
-                    . "  2. Added to deploy/GLOBAL_SCOPE_BYPASS_AUDIT.md\n"
-                    . "  3. REGISTERED_TOTAL incremented in this test AND in scripts/check-global-scope-bypass.php\n\n"
-                    . "All found locations:\n%s",
+                    ."Each bypass must be:\n"
+                    ."  1. Reviewed for tenant data leakage\n"
+                    ."  2. Added to deploy/GLOBAL_SCOPE_BYPASS_AUDIT.md\n"
+                    ."  3. REGISTERED_TOTAL incremented in this test AND in scripts/check-global-scope-bypass.php\n\n"
+                    ."All found locations:\n%s",
                     $count - self::REGISTERED_TOTAL,
                     self::REGISTERED_TOTAL,
                     implode("\n", $found)
                 )
                 : sprintf(
                     'Call count dropped from %d to %d. '
-                    . 'Update REGISTERED_TOTAL in %s and scripts/check-global-scope-bypass.php.',
+                    .'Update REGISTERED_TOTAL in %s and scripts/check-global-scope-bypass.php.',
                     self::REGISTERED_TOTAL,
                     $count,
                     __FILE__
@@ -122,6 +122,6 @@ class GlobalScopeBypassTest extends TestCase
 
         $this->assertTrue($hasPlatformGate,
             'PlatformController routes must be protected by a platform permission/gate middleware. '
-            . 'The withoutGlobalScopes() calls inside expose cross-tenant data.');
+            .'The withoutGlobalScopes() calls inside expose cross-tenant data.');
     }
 }

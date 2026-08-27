@@ -60,15 +60,15 @@ class HealthController extends Controller
 
         // Check cache is working
         try {
-            $key = 'health_check_' . time();
+            $key = 'health_check_'.time();
             Cache::put($key, 'test', 1);
             $value = Cache::get($key);
             Cache::forget($key);
-            
-            $checks['cache'] = $value === 'test' 
-                ? ['status' => 'healthy'] 
+
+            $checks['cache'] = $value === 'test'
+                ? ['status' => 'healthy']
                 : ['status' => 'degraded', 'message' => 'Cache read/write mismatch'];
-            
+
             if ($value !== 'test') {
                 $allHealthy = false;
             }
@@ -82,9 +82,9 @@ class HealthController extends Controller
 
         // Check filesystem is writable
         try {
-            $testFile = storage_path('framework/cache/health_check_' . time() . '.tmp');
+            $testFile = storage_path('framework/cache/health_check_'.time().'.tmp');
             file_put_contents($testFile, 'test');
-            
+
             if (file_get_contents($testFile) === 'test') {
                 $checks['filesystem'] = ['status' => 'healthy'];
                 @unlink($testFile);

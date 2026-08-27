@@ -4,9 +4,7 @@ namespace App\Services;
 
 use App\Domain\Tenancy\TenantContext;
 use App\Models\Assessment;
-use App\Models\AssessmentScore;
 use App\Models\AttendanceRecord;
-use App\Models\Enrollment;
 use App\Models\ResultPublication;
 use App\Models\Tenant;
 

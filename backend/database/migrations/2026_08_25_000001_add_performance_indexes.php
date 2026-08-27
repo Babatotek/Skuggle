@@ -162,15 +162,15 @@ return new class extends Migration
         // removed automatically when the FK or table is dropped.  Only drop
         // indexes that are purely performance-oriented here.
         $safeDrops = [
-            'students'               => ['students_tenant_updated_at_idx', 'students_tenant_status_idx'],
-            'library_resources'      => ['library_res_level_idx', 'library_res_class_idx', 'library_res_published_idx', 'library_res_approved_idx'],
-            'attendance_records'     => ['attendance_term_status_idx', 'attendance_tenant_updated_idx'],
-            'assessments'            => ['assessments_class_subject_term_idx', 'assessments_tenant_updated_idx'],
-            'assessment_scores'      => ['scores_tenant_updated_idx'],
-            'ai_requests'            => ['ai_requests_user_date_idx'],
-            'result_publications'    => ['result_pub_student_term_status_idx'],
-            'audit_logs'             => ['audit_actor_occurred_idx'],
-            'outbox_events'          => ['outbox_type_processed_idx'],
+            'students' => ['students_tenant_updated_at_idx', 'students_tenant_status_idx'],
+            'library_resources' => ['library_res_level_idx', 'library_res_class_idx', 'library_res_published_idx', 'library_res_approved_idx'],
+            'attendance_records' => ['attendance_term_status_idx', 'attendance_tenant_updated_idx'],
+            'assessments' => ['assessments_class_subject_term_idx', 'assessments_tenant_updated_idx'],
+            'assessment_scores' => ['scores_tenant_updated_idx'],
+            'ai_requests' => ['ai_requests_user_date_idx'],
+            'result_publications' => ['result_pub_student_term_status_idx'],
+            'audit_logs' => ['audit_actor_occurred_idx'],
+            'outbox_events' => ['outbox_type_processed_idx'],
             'personal_access_tokens' => ['pat_tokenable_last_used_idx'],
             // library_progress.library_progress_user_updated_idx omitted:
             //   user_id is a FK column — MySQL prohibits dropping the index
@@ -182,7 +182,7 @@ return new class extends Migration
                 foreach ($indexes as $index) {
                     try {
                         $blueprint->dropIndex($index);
-                    } catch (\Exception) {
+                    } catch (Exception) {
                         // Already removed or FK-backed — skip safely
                     }
                 }
@@ -203,7 +203,7 @@ return new class extends Migration
                     return true;
                 }
             }
-        } catch (\Exception) {
+        } catch (Exception) {
             // Table doesn't exist yet — safe to proceed
         }
 

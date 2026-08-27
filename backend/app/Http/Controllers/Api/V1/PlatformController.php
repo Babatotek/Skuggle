@@ -217,7 +217,7 @@ class PlatformController extends Controller
         }
 
         try {
-            $checks['queue'] = \Illuminate\Support\Facades\Schema::hasTable('jobs');
+            $checks['queue'] = Schema::hasTable('jobs');
         } catch (\Throwable) {
             $checks['queue'] = false;
         }

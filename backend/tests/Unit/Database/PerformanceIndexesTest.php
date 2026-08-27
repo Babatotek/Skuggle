@@ -4,7 +4,6 @@ namespace Tests\Unit\Database;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
-use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -193,6 +192,7 @@ class PerformanceIndexesTest extends TestCase
             // Check every expected column is present in this index
             if (count(array_intersect($expectedColumns, $indexColumns)) === count($expectedColumns)) {
                 $this->assertTrue(true); // assertion passed
+
                 return;
             }
         }

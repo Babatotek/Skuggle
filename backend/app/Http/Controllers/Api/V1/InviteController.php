@@ -7,7 +7,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\Guardian;
 use App\Models\Role;
-use App\Models\Tenant;
 use App\Models\TenantInvitation;
 use App\Models\TenantMembership;
 use App\Models\User;
@@ -126,7 +125,7 @@ class InviteController extends Controller
             return ApiResponse::error('INVITE_EMAIL_MISMATCH', 'Use the email address this invitation was sent to.', 422);
         }
 
-        $result = DB::transaction(function () use ($invite, $data, $email, $context, $audit): array {
+        $result = DB::transaction(function () use ($invite, $data, $email, $audit): array {
             $user = User::query()->where('email', $email)->first();
             if (! $user) {
                 $user = User::query()->create([

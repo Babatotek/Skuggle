@@ -21,6 +21,7 @@ use App\Models\Term;
 use App\Services\AuditLogger;
 use App\Services\LibraryResourcePresenter;
 use App\Services\LibraryVersionService;
+use App\Services\LookupCacheService;
 use App\Services\UploadSecurityScanner;
 use App\Support\ApiResponse;
 use App\Support\SignedStorageUrl;
@@ -37,18 +38,18 @@ class LibraryResourceController extends Controller
 {
     public function curriculum(): JsonResponse
     {
-        $lookup = app(\App\Services\LookupCacheService::class);
+        $lookup = app(LookupCacheService::class);
 
         $data = $lookup->rememberCurriculum(function (): array {
-            $classes  = SchoolClass::query()->where('status', 'active')->orderBy('name')->get();
+            $classes = SchoolClass::query()->where('status', 'active')->orderBy('name')->get();
             $subjects = Subject::query()->where('status', 'active')->orderBy('name')->get();
-            $links    = DB::table('class_subject')->whereIn('class_id', $classes->pluck('id'))->get()->groupBy('subject_id');
+            $links = DB::table('class_subject')->whereIn('class_id', $classes->pluck('id'))->get()->groupBy('subject_id');
 
             return [
-                'levels'   => $classes->pluck('educational_level')->filter()->unique()->values()->map(fn ($level) => ['id' => Str::slug($level), 'name' => $level]),
-                'classes'  => $classes->map(fn ($item) => ['id' => $item->public_id, 'name' => trim($item->name.' '.$item->arm), 'levelId' => $item->educational_level ? Str::slug($item->educational_level) : null]),
+                'levels' => $classes->pluck('educational_level')->filter()->unique()->values()->map(fn ($level) => ['id' => Str::slug($level), 'name' => $level]),
+                'classes' => $classes->map(fn ($item) => ['id' => $item->public_id, 'name' => trim($item->name.' '.$item->arm), 'levelId' => $item->educational_level ? Str::slug($item->educational_level) : null]),
                 'subjects' => $subjects->map(fn ($item) => ['id' => $item->public_id, 'name' => $item->name, 'classIds' => collect($links->get($item->getKey(), []))->map(fn ($link) => $classes->firstWhere('id', $link->class_id)?->public_id)->filter()->values()]),
-                'terms'    => Term::query()->orderBy('sequence')->get()->map(fn ($item) => ['id' => $item->public_id, 'name' => $item->name]),
+                'terms' => Term::query()->orderBy('sequence')->get()->map(fn ($item) => ['id' => $item->public_id, 'name' => $item->name]),
             ];
         });
 
@@ -345,10 +346,10 @@ class LibraryResourceController extends Controller
         $query = $public ? LibraryResource::query()->withoutGlobalScopes()->where('is_public', true)->where('status', 'published') : LibraryResource::query()->where('status', 'published');
         if ($search = trim((string) $request->query('search'))) {
             // Use FULLTEXT MATCH/AGAINST on MySQL for performance; LIKE on SQLite (tests)
-            if (in_array(\Illuminate\Support\Facades\DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
                 $query->whereRaw(
                     'MATCH(title, description, topic, subject_label, author) AGAINST(? IN BOOLEAN MODE)',
-                    ['"' . str_replace('"', '', $search) . '"*']
+                    ['"'.str_replace('"', '', $search).'"*']
                 );
             } else {
                 $query->where(fn ($q) => $q->where('title', 'like', "%{$search}%")->orWhere('description', 'like', "%{$search}%")->orWhere('topic', 'like', "%{$search}%"));
@@ -450,7 +451,7 @@ class LibraryResourceController extends Controller
             $slug = $base.'-'.(++$index);
         }
 
-return $slug;
+        return $slug;
     }
 
     private function event(LibraryResource $resource, ?int $userId, string $type, array $metadata = []): void

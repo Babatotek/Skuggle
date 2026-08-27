@@ -21,7 +21,7 @@ class AuditLog extends Model
             throw new \LogicException('Audit records are immutable.');
         }
 
-return parent::save($options);
+        return parent::save($options);
     }
 
     public function delete(): ?bool

@@ -11,7 +11,7 @@ class DatabaseReadReplicaTest extends TestCase
     public function mysql_connection_has_read_write_keys(): void
     {
         $config = require config_path('database.php');
-        $mysql  = $config['connections']['mysql'];
+        $mysql = $config['connections']['mysql'];
 
         $this->assertArrayHasKey('write', $mysql,
             'mysql connection must define a write key for read/write splitting');
@@ -28,7 +28,7 @@ class DatabaseReadReplicaTest extends TestCase
         putenv('DB_READ_HOST_2=');
 
         $config = require config_path('database.php');
-        $read   = $config['connections']['mysql']['read'];
+        $read = $config['connections']['mysql']['read'];
 
         // null means "no read array" = single-node, Laravel uses write for all
         $this->assertNull($read,
@@ -42,7 +42,7 @@ class DatabaseReadReplicaTest extends TestCase
         putenv('DB_READ_HOST_2=');
 
         $config = require config_path('database.php');
-        $read   = $config['connections']['mysql']['read'];
+        $read = $config['connections']['mysql']['read'];
 
         $this->assertIsArray($read,
             'read key should be an array when DB_READ_HOST is set');
@@ -58,7 +58,7 @@ class DatabaseReadReplicaTest extends TestCase
         putenv('DB_READ_HOST_2=replica-2.internal');
 
         $config = require config_path('database.php');
-        $read   = $config['connections']['mysql']['read'];
+        $read = $config['connections']['mysql']['read'];
 
         $this->assertIsArray($read);
         $this->assertCount(2, $read,
