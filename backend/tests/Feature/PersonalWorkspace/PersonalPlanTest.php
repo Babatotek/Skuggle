@@ -15,7 +15,9 @@ class PersonalPlanTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private Tenant $personalTenant;
+
     private array $headers;
 
     protected function setUp(): void

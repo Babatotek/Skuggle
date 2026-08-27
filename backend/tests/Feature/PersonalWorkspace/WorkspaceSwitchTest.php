@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\PersonalWorkspace;
 
+use App\Domain\Tenancy\TenantContext;
 use App\Models\Campus;
 use App\Models\Role;
 use App\Models\Tenant;
@@ -58,7 +59,7 @@ class WorkspaceSwitchTest extends TestCase
         ]);
 
         $campus = null;
-        app(\App\Domain\Tenancy\TenantContext::class)->set($school);
+        app(TenantContext::class)->set($school);
         try {
             $campus = Campus::query()->create([
                 'name' => 'Main',
@@ -66,7 +67,7 @@ class WorkspaceSwitchTest extends TestCase
                 'status' => 'active',
             ]);
         } finally {
-            app(\App\Domain\Tenancy\TenantContext::class)->clear();
+            app(TenantContext::class)->clear();
         }
 
         $this->actingAsTenantUser($user, $school)

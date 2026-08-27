@@ -4,7 +4,6 @@ namespace Tests\Feature\PersonalWorkspace;
 
 use App\Domain\Tenancy\TenantContext;
 use App\Models\Role;
-use App\Models\Tenant;
 use App\Models\TenantInvitation;
 use App\Models\TenantMembership;
 use App\Models\User;

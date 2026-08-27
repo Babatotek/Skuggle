@@ -1,7 +1,7 @@
 <?php
 
-use App\Http\Controllers\Api\V1\AiToolController;
 use App\Http\Controllers\Api\V1\AcademicSessionController;
+use App\Http\Controllers\Api\V1\AiToolController;
 use App\Http\Controllers\Api\V1\AnnouncementController;
 use App\Http\Controllers\Api\V1\AssessmentController;
 use App\Http\Controllers\Api\V1\AttendanceController;
@@ -22,8 +22,8 @@ use App\Http\Controllers\Api\V1\MessageController;
 use App\Http\Controllers\Api\V1\MfaController;
 use App\Http\Controllers\Api\V1\OnboardingController;
 use App\Http\Controllers\Api\V1\ParentController;
-use App\Http\Controllers\Api\V1\PersonalPlanController;
 use App\Http\Controllers\Api\V1\PaymentController;
+use App\Http\Controllers\Api\V1\PersonalPlanController;
 use App\Http\Controllers\Api\V1\PlatformController;
 use App\Http\Controllers\Api\V1\PlatformOpsController;
 use App\Http\Controllers\Api\V1\PublicResultController;
