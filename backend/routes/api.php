@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AiToolController;
 use App\Http\Controllers\Api\V1\AcademicSessionController;
 use App\Http\Controllers\Api\V1\AnnouncementController;
 use App\Http\Controllers\Api\V1\AssessmentController;
@@ -37,6 +38,10 @@ use Illuminate\Support\Facades\Route;
 
 // Health check endpoints live in routes/web.php (no /api prefix, no auth required)
 // so load balancers and k8s probes can reach /health, /ready, /startup, /live directly.
+
+// Legacy SPA path (shared hosting routes all /api/* to Laravel).
+Route::post('/ai/lesson-plan', [AiToolController::class, 'lessonPlan'])
+    ->middleware(['auth:sanctum', 'tenant', 'throttle:api', 'verified', 'mfa', 'permission:ai.generate', 'throttle:ai', 'quota:ai_requests_per_day']);
 
 Route::prefix('v1')->group(function (): void {
     Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
@@ -136,7 +141,7 @@ Route::prefix('v1')->group(function (): void {
             Route::post('/invites', [InviteController::class, 'store'])->middleware(['permission:users.manage', 'idempotency:required']);
             Route::delete('/invites/{invitation}', [InviteController::class, 'destroy'])->middleware(['permission:users.manage', 'idempotency:required']);
 
-            Route::get('/onboarding', [OnboardingController::class, 'show'])->middleware('permission:settings.configure');
+            Route::get('/onboarding', [OnboardingController::class, 'show'])->middleware('permission:students.view');
             Route::patch('/onboarding/steps/{stepId}', [OnboardingController::class, 'updateStep'])->middleware(['permission:settings.configure', 'idempotency:required']);
 
             Route::get('/campuses', [CampusController::class, 'index'])->middleware('permission:settings.configure');
@@ -209,6 +214,8 @@ Route::prefix('v1')->group(function (): void {
             Route::post('/library/resources/{resource}/summary', [LibraryToolController::class, 'summary'])->middleware(['permission:library.view', 'throttle:ai', 'quota:ai_requests_per_day']);
             Route::get('/library/resources/{resource}/versions', [LibraryToolController::class, 'versions'])->middleware('permission:library.version.manage');
             Route::post('/library/resources/{resource}/versions/{version}/restore', [LibraryToolController::class, 'restore'])->middleware(['permission:library.version.manage', 'idempotency:required']);
+            Route::post('/ai/lesson-plan', [AiToolController::class, 'lessonPlan'])->middleware(['permission:ai.generate', 'throttle:ai', 'quota:ai_requests_per_day']);
+
             Route::post('/library/tools/quiz-generator/inspect', [LibraryToolController::class, 'inspect'])->middleware(['permission:ai.generate', 'throttle:uploads']);
             Route::post('/library/tools/quiz-generator/generate', [LibraryToolController::class, 'generate'])->middleware(['permission:ai.generate', 'throttle:ai', 'quota:ai_requests_per_day', 'idempotency:required']);
             Route::post('/library/tools/quiz-generator/{quiz}/save', [LibraryToolController::class, 'saveQuiz'])->middleware(['permission:assessment.create', 'idempotency:required']);

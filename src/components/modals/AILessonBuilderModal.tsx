@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { LessonPlan } from '../../types';
+import { apiRequest } from '@/shared/api/client';
 
 interface AILessonBuilderModalProps {
   isOpen: boolean;
@@ -26,6 +27,85 @@ export const AILessonBuilderModal: React.FC<AILessonBuilderModalProps> = ({
   onClose,
   initialTopic = 'Algebraic Fractions: Addition and Subtraction of Simple Algebraic Expressions',
 }) => {
+  const buildFallbackPlan = (
+    planTopic: string,
+    planSubject: string,
+    planClassName: string,
+    planDuration: string,
+    planCurriculum: string,
+  ): LessonPlan => ({
+    title: planTopic,
+    subject: planSubject,
+    className: planClassName,
+    duration: planDuration,
+    curriculumReference: `${planCurriculum} - Week 4 Module`,
+    learningObjectives: [
+      'Identify the Lowest Common Multiple (LCM) of algebraic denominators.',
+      'Add and subtract simple algebraic fractions with like and unlike denominators.',
+      'Solve real-world word problems translated into algebraic fractions.',
+    ],
+    previousKnowledge:
+      'Students have prior mastery of finding the LCM of whole numbers and simplifying simple algebraic expressions.',
+    instructionalMaterials: [
+      'Whiteboard and colored markers',
+      'Fraction bar manipulatives and algebraic flashcards',
+      'Interactive SmartMark diagnostic worksheet',
+    ],
+    steps: [
+      {
+        stepNumber: 1,
+        title: 'Introduction & Recall (5 mins)',
+        duration: '5 Minutes',
+        teacherActivity:
+          'Teacher writes numerical fractions 1/3 + 2/5 on board and guides students to find common denominator.',
+        studentActivity: 'Students compute LCM of 3 and 5 (= 15) and convert numerators.',
+        keyPoints: 'Fraction rules remain identical when variables replace constants.',
+      },
+      {
+        stepNumber: 2,
+        title: 'Conceptual Presentation (12 mins)',
+        duration: '12 Minutes',
+        teacherActivity: 'Teacher demonstrates (2/x) + (3/2x) step-by-step showing LCM = 2x.',
+        studentActivity:
+          'Students take notes in exercise books and copy the 3-step solution method.',
+        keyPoints: 'Denominator matching is prerequisite to combining numerators.',
+      },
+      {
+        stepNumber: 3,
+        title: 'Guided Practice & Group Challenge (15 mins)',
+        duration: '15 Minutes',
+        teacherActivity:
+          'Teacher circulates the classroom providing differentiated hints to pairs.',
+        studentActivity: 'Students work in pairs to solve (x+1)/3 - (x-2)/4.',
+        keyPoints: 'Be mindful of distributive minus sign across (x-2).',
+      },
+      {
+        stepNumber: 4,
+        title: 'Evaluation & Summary (8 mins)',
+        duration: '8 Minutes',
+        teacherActivity: 'Teacher administers 2-question quick exit ticket on board.',
+        studentActivity: 'Students solve exit ticket individually and submit.',
+        keyPoints: 'Assess mastery against objective 1 and 2.',
+      },
+    ],
+    evaluationQuestions: [
+      'Simplify: (3/2a) + (5/4a)',
+      'Express as a single fraction in its lowest term: (2x-1)/3 - (x+2)/2',
+    ],
+    homework: 'Complete Exercises 4.2 in New General Mathematics Book 2, Questions 1 through 8.',
+    teacherRemarks: `Prepared with Skuggle AI Curriculum Assistant for ${planClassName} First Term.`,
+  });
+
+  const normalizeLessonPlan = (value: unknown): LessonPlan | null => {
+    if (!value || typeof value !== 'object') return null;
+    const candidate = value as Partial<LessonPlan> & { lessonPlan?: LessonPlan };
+    const plan = candidate.lessonPlan ?? (candidate as LessonPlan);
+    if (!Array.isArray(plan.learningObjectives) || !Array.isArray(plan.steps)) {
+      return null;
+    }
+    return plan as LessonPlan;
+  };
+
   const [topic, setTopic] = useState(initialTopic);
   const [subject, setSubject] = useState('Mathematics');
   const [className, setClassName] = useState('JSS 2');
@@ -39,85 +119,27 @@ export const AILessonBuilderModal: React.FC<AILessonBuilderModalProps> = ({
   const handleGenerate = async () => {
     setIsGenerating(true);
     try {
-      const res = await fetch('/api/ai/lesson-plan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          topic,
-          subject,
-          className,
-          duration,
-          curriculum,
-        })
-      });
-      const data = await res.json();
-      setGeneratedPlan(data.lessonPlan || data);
+      const data = await apiRequest<{ lessonPlan?: LessonPlan } | LessonPlan>(
+        '/ai/lesson-plan',
+        {
+          method: 'POST',
+          body: { topic, subject, className, duration, curriculum },
+        },
+      );
+      const plan =
+        normalizeLessonPlan(data) ??
+        buildFallbackPlan(topic, subject, className, duration, curriculum);
+      setGeneratedPlan(plan);
       confetti({
         particleCount: 50,
         spread: 60,
-        origin: { y: 0.6 }
+        origin: { y: 0.6 },
       });
     } catch (err) {
       console.error('Error generating lesson plan:', err);
-      // Fallback
-      setGeneratedPlan({
-        title: topic,
-        subject,
-        className,
-        duration,
-        curriculumReference: `${curriculum} - Week 4 Module`,
-        learningObjectives: [
-          'Identify the Lowest Common Multiple (LCM) of algebraic denominators.',
-          'Add and subtract simple algebraic fractions with like and unlike denominators.',
-          'Solve real-world word problems translated into algebraic fractions.'
-        ],
-        previousKnowledge: 'Students have prior mastery of finding the LCM of whole numbers and simplifying simple algebraic expressions.',
-        instructionalMaterials: [
-          'Whiteboard and colored markers',
-          'Fraction bar manipulatives and algebraic flashcards',
-          'Interactive SmartMark diagnostic worksheet'
-        ],
-        steps: [
-          {
-            stepNumber: 1,
-            title: 'Introduction & Recall (5 mins)',
-            duration: '5 Minutes',
-            teacherActivity: 'Teacher writes numerical fractions 1/3 + 2/5 on board and guides students to find common denominator.',
-            studentActivity: 'Students compute LCM of 3 and 5 (= 15) and convert numerators.',
-            keyPoints: 'Fraction rules remain identical when variables replace constants.'
-          },
-          {
-            stepNumber: 2,
-            title: 'Conceptual Presentation (12 mins)',
-            duration: '12 Minutes',
-            teacherActivity: 'Teacher demonstrates (2/x) + (3/2x) step-by-step showing LCM = 2x.',
-            studentActivity: 'Students take notes in exercise books and copy the 3-step solution method.',
-            keyPoints: 'Denominator matching is prerequisite to combining numerators.'
-          },
-          {
-            stepNumber: 3,
-            title: 'Guided Practice & Group Challenge (15 mins)',
-            duration: '15 Minutes',
-            teacherActivity: 'Teacher circulates the classroom providing differentiated hints to pairs.',
-            studentActivity: 'Students work in pairs to solve (x+1)/3 - (x-2)/4.',
-            keyPoints: 'Be mindful of distributive minus sign across (x-2).'
-          },
-          {
-            stepNumber: 4,
-            title: 'Evaluation & Summary (8 mins)',
-            duration: '8 Minutes',
-            teacherActivity: 'Teacher administers 2-question quick exit ticket on board.',
-            studentActivity: 'Students solve exit ticket individually and submit.',
-            keyPoints: 'Assess mastery against objective 1 and 2.'
-          }
-        ],
-        evaluationQuestions: [
-          'Simplify: (3/2a) + (5/4a)',
-          'Express as a single fraction in its lowest term: (2x-1)/3 - (x+2)/2'
-        ],
-        homework: 'Complete Exercises 4.2 in New General Mathematics Book 2, Questions 1 through 8.',
-        teacherRemarks: 'Prepared with Skuggle AI Curriculum Assistant for JSS 2 First Term.'
-      });
+      setGeneratedPlan(
+        buildFallbackPlan(topic, subject, className, duration, curriculum),
+      );
     } finally {
       setIsGenerating(false);
     }
