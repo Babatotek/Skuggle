@@ -13,9 +13,11 @@ export default defineConfig(() => {
         // Keep manifest/icons available, but do not leave a controlling SW in
         // production until offline caching is intentionally QA'd. A stale SW
         // causes dynamic import failures (ERR_NAME_NOT_RESOLVED / module fetch).
+        // selfDestroying + injectRegister auto ensures any older Workbox SW is
+        // replaced by an unregistering worker on the next visit.
         selfDestroying: true,
-        registerType: "prompt",
-        injectRegister: false,
+        registerType: "autoUpdate",
+        injectRegister: "inline",
         includeAssets: ["favicon.svg", "icon.svg", "maskable-icon.svg"],
         manifest: {
           name: "Skuggle — School Operating and Learning Intelligence",
