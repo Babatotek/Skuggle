@@ -1,800 +1,377 @@
-import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
-import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { UserRole, StudentRecord, UserProfile } from './types';
-import { USER_PROFILES, INITIAL_STUDENTS } from './data/mockData';
-import { Header } from './components/Header';
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
-import {
-  ModalSkeleton,
-  PageSkeleton,
-} from './shared/ui';
-import { appConfig } from './app/config';
-import { useAuth } from './features/auth/AuthProvider';
-import { DEMO_LOGIN_BY_ROLE, mapBackendRoleToUi } from './features/auth/roleMap';
-import {
-  mapStudentSummaryToRecord,
-  studentService,
-} from './features/students/studentService';
-import { feedbackBus } from './shared/feedback/feedbackBus';
-import { getApiError } from './shared/api/client';
-import { shouldRedirectToSetup } from './features/onboarding/setupRedirect';
-import { workspaceHomeTab } from './features/workspaces/workspaceHomeTab';
-import {
-  bumpWorkspaceSwitchScope,
-  currentWorkspaceSwitchGeneration,
-  isCurrentWorkspaceSwitchGeneration,
-} from './features/workspaces/workspaceSwitchScope';
-import { ApiError } from './shared/api/client';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { AppProvider, useApp } from './context/AppContext';
+import { AppHeader } from './components/AppHeader';
+import { AppSidebar } from './components/AppSidebar';
+import { SkuggleAIBuddy } from './components/SkuggleAIBuddy';
+import { PublicLanding } from './features/public/PublicLanding';
+import { Persona, UserRole } from './types';
+import { DashboardLoading } from './components/dashboard/DashboardPrimitives';
+import { apiRequest, ApiError, describeApiError, hasLikelyBrowserSession, initializeCsrf } from './lib/apiClient';
+import { schoolKeyFromLocation } from './lib/sessionAuth';
+import { playNotificationTone } from './lib/notificationAudio';
+import { CheckCircle2, AlertTriangle, XCircle, Info, X } from 'lucide-react';
 
-/** Lazy-load named exports so the initial bundle only pulls the active view/modal. */
-function lazyNamed<T extends React.ComponentType<any>>(
-  factory: () => Promise<Record<string, T>>,
-  exportName: string
-) {
-  return lazy(async () => {
-    const mod = await factory();
-    return { default: mod[exportName] };
-  });
+interface SessionResponse {
+  success: true;
+  data: { user: { role: string } };
 }
 
-// Views — code-split by route/role tab
-const AdminDashboardView = lazyNamed(() => import('./components/views/AdminDashboardView'), 'AdminDashboardView');
-const TeacherDashboardView = lazyNamed(() => import('./components/views/TeacherDashboardView'), 'TeacherDashboardView');
-const PrincipalDashboardView = lazyNamed(() => import('./components/views/PrincipalDashboardView'), 'PrincipalDashboardView');
-const SuperAdminDashboardView = lazyNamed(() => import('./components/views/SuperAdminDashboardView'), 'SuperAdminDashboardView');
-const ParentDashboardView = lazyNamed(() => import('./components/views/ParentDashboardView'), 'ParentDashboardView');
-const StudentDashboardView = lazyNamed(() => import('./components/views/StudentDashboardView'), 'StudentDashboardView');
-const BursarDashboardView = lazyNamed(() => import('./components/views/BursarDashboardView'), 'BursarDashboardView');
-const ExamOfficerDashboardView = lazyNamed(() => import('./components/views/ExamOfficerDashboardView'), 'ExamOfficerDashboardView');
-const StudentsDirectoryView = lazyNamed(() => import('./components/views/StudentsDirectoryView'), 'StudentsDirectoryView');
-const ResourceLibraryView = lazyNamed(() => import('./components/views/ResourceLibraryView'), 'ResourceLibraryView');
-const SchoolAdminReportsView = lazyNamed(() => import('./components/views/SchoolAdminReportsView'), 'SchoolAdminReportsView');
-const SchoolAdminSettingsView = lazyNamed(() => import('./components/views/SchoolAdminSettingsView'), 'SchoolAdminSettingsView');
-const TeacherAssessmentsView = lazyNamed(() => import('./components/views/TeacherAssessmentsView'), 'TeacherAssessmentsView');
-const TeacherAttendanceView = lazyNamed(() => import('./components/views/TeacherAttendanceView'), 'TeacherAttendanceView');
-const TeacherMyClassesView = lazyNamed(() => import('./components/views/TeacherMyClassesView'), 'TeacherMyClassesView');
-const TeacherMoreView = lazyNamed(() => import('./components/views/TeacherMoreView'), 'TeacherMoreView');
-const PrincipalAcademicsView = lazyNamed(() => import('./components/views/PrincipalAcademicsView'), 'PrincipalAcademicsView');
-const PrincipalAttendanceView = lazyNamed(() => import('./components/views/PrincipalAttendanceView'), 'PrincipalAttendanceView');
-const PrincipalFinanceView = lazyNamed(() => import('./components/views/PrincipalFinanceView'), 'PrincipalFinanceView');
-const PrincipalStaffView = lazyNamed(() => import('./components/views/PrincipalStaffView'), 'PrincipalStaffView');
-const PrincipalReportsView = lazyNamed(() => import('./components/views/PrincipalReportsView'), 'PrincipalReportsView');
-const PrincipalCommunicationView = lazyNamed(() => import('./components/views/PrincipalCommunicationView'), 'PrincipalCommunicationView');
-const ParentMyChildrenView = lazyNamed(() => import('./components/views/ParentMyChildrenView'), 'ParentMyChildrenView');
-const ParentAttendanceView = lazyNamed(() => import('./components/views/ParentAttendanceView'), 'ParentAttendanceView');
-const ParentAcademicsView = lazyNamed(() => import('./components/views/ParentAcademicsView'), 'ParentAcademicsView');
-const ParentPaymentsView = lazyNamed(() => import('./components/views/ParentPaymentsView'), 'ParentPaymentsView');
-const ParentMessagesView = lazyNamed(() => import('./components/views/ParentMessagesView'), 'ParentMessagesView');
-const ParentMoreView = lazyNamed(() => import('./components/views/ParentMoreView'), 'ParentMoreView');
-const StudentProgressView = lazyNamed(() => import('./components/views/StudentProgressView'), 'StudentProgressView');
-const StudentLearningView = lazyNamed(() => import('./components/views/StudentLearningView'), 'StudentLearningView');
-const StudentAssessmentsView = lazyNamed(() => import('./components/views/StudentAssessmentsView'), 'StudentAssessmentsView');
-const StudentResultsView = lazyNamed(() => import('./components/views/StudentResultsView'), 'StudentResultsView');
-const StudentMoreView = lazyNamed(() => import('./components/views/StudentMoreView'), 'StudentMoreView');
-const SchoolsView = lazyNamed(() => import('./components/views/saas/SchoolsView'), 'SchoolsView');
-const PlansView = lazyNamed(() => import('./components/views/saas/PlansView'), 'PlansView');
-const SubscriptionsView = lazyNamed(() => import('./components/views/saas/SubscriptionsView'), 'SubscriptionsView');
-const UsageView = lazyNamed(() => import('./components/views/saas/UsageView'), 'UsageView');
-const SupportView = lazyNamed(() => import('./components/views/saas/SupportView'), 'SupportView');
-const SystemHealthView = lazyNamed(() => import('./components/views/saas/SystemHealthView'), 'SystemHealthView');
-const MoreMenuView = lazyNamed(() => import('./components/views/saas/MoreMenuView'), 'MoreMenuView');
-
-// Modals — loaded only when opened
-const SmartMarkModal = lazyNamed(() => import('./components/modals/SmartMarkModal'), 'SmartMarkModal');
-const AILessonBuilderModal = lazyNamed(() => import('./components/modals/AILessonBuilderModal'), 'AILessonBuilderModal');
-const RegisterStudentModal = lazyNamed(() => import('./components/modals/RegisterStudentModal'), 'RegisterStudentModal');
-const AttendanceModal = lazyNamed(() => import('./components/modals/AttendanceModal'), 'AttendanceModal');
-const ReportCardModal = lazyNamed(() => import('./components/modals/ReportCardModal'), 'ReportCardModal');
-const ResultCheckerModal = lazyNamed(() => import('./components/modals/ResultCheckerModal'), 'ResultCheckerModal');
-const MakePaymentModal = lazyNamed(() => import('./components/modals/MakePaymentModal'), 'MakePaymentModal');
-const OnboardingPage = lazy(() => import('./features/onboarding/OnboardingPage'));
-const MySkuggleWorkspace = lazyNamed(
-  () => import('./features/workspaces/MySkuggleWorkspace'),
-  'MySkuggleWorkspace',
-);
-const AdminResultsWorkflowView = lazy(async () => ({
-  default: (await import('./features/results/AdminResultsWorkflowView')).AdminResultsWorkflowView,
-}));
-
-function ViewFallback() {
-  return <PageSkeleton />;
+function sessionRole(role: string): UserRole {
+  const roles: Record<string, UserRole> = {
+    school_admin: 'School Admin',
+    principal: 'Principal',
+    teacher: 'Teacher',
+    parent: 'Parent',
+    student: 'Student',
+    platform_super_admin: 'Platform Owner',
+    platform_owner: 'Platform Owner',
+  };
+  return roles[role.trim().toLowerCase().replace(/[ -]+/g, '_')] || 'Student';
 }
 
-export default function App() {
-  const auth = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const sessionUser = auth.user;
-  const isPersonalWorkspace = sessionUser?.tenant?.type === 'individual';
-  const [currentRole, setCurrentRole] = useState<UserRole>('school_admin');
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
-  const [students, setStudents] = useState<StudentRecord[]>(
-    appConfig.liveApi ? [] : INITIAL_STUDENTS,
-  );
-  const [studentsLoading, setStudentsLoading] = useState(false);
-  const [activeModal, setActiveModal] = useState<string | null>(null);
-  const [modalData, setModalData] = useState<any>(null);
-  const [isSwitchingWorkspace, setIsSwitchingWorkspace] = useState(false);
+let restoreSessionPromise: Promise<SessionResponse | null> | null = null;
 
-  const profileFromSession = useMemo<UserProfile>(() => {
-    const base = USER_PROFILES[currentRole] || USER_PROFILES.school_admin;
-    if (!sessionUser) return base;
-    const isPersonal = sessionUser.tenant?.type === 'individual';
-    return {
-      ...base,
-      id: sessionUser.id,
-      name: sessionUser.name,
-      email: sessionUser.email,
-      role: currentRole,
-      roleTitle: sessionUser.roleLabel || base.roleTitle,
-      schoolName: isPersonal
-        ? 'My Skuggle'
-        : sessionUser.tenant?.name || base.schoolName,
-      schoolCode: sessionUser.tenant?.code || base.schoolCode,
-      avatar: sessionUser.avatarUrl || base.avatar,
+function restoreSession(): Promise<SessionResponse | null> {
+  if (!hasLikelyBrowserSession()) {
+    return Promise.resolve(null);
+  }
+  if (!restoreSessionPromise) {
+    restoreSessionPromise = apiRequest<SessionResponse>('/auth/me', { suppressErrorNotification: true })
+      .catch((error) => {
+        if (error instanceof ApiError && error.status !== 401) {
+          console.error('Session restoration failed', error.code, error.requestId);
+        }
+        return null;
+      });
+  }
+  return restoreSessionPromise;
+}
+
+const SchoolAdminDashboard = lazy(() => import('./features/dashboard/SchoolAdminDashboard').then((m) => ({ default: m.SchoolAdminDashboard })));
+const PrincipalDashboard = lazy(() => import('./features/dashboard/PrincipalDashboard').then((m) => ({ default: m.PrincipalDashboard })));
+const TeacherDashboard = lazy(() => import('./features/dashboard/TeacherDashboard').then((m) => ({ default: m.TeacherDashboard })));
+const ParentDashboard = lazy(() => import('./features/dashboard/ParentDashboard').then((m) => ({ default: m.ParentDashboard })));
+const StudentDashboard = lazy(() => import('./features/dashboard/StudentDashboard').then((m) => ({ default: m.StudentDashboard })));
+const PlatformOwnerDashboard = lazy(() => import('./features/dashboard/PlatformOwnerDashboard').then((m) => ({ default: m.PlatformOwnerDashboard })));
+const SchoolRegistrationStepper = lazy(() => import('./features/public/SchoolRegistrationStepper').then((m) => ({ default: m.SchoolRegistrationStepper })));
+const TenantWelcome = lazy(() => import('./features/public/TenantWelcome').then((m) => ({ default: m.TenantWelcome })));
+const TenantLogin = lazy(() => import('./features/public/TenantLogin').then((m) => ({ default: m.TenantLogin })));
+const PersonalAuthPage = lazy(() => import('./features/public/PersonalAuthPage').then((m) => ({ default: m.PersonalAuthPage })));
+const SchoolAuthPage = lazy(() => import('./features/public/SchoolAuthPage').then((m) => ({ default: m.SchoolAuthPage })));
+const PublicResultChecker = lazy(() => import('./features/public/PublicResultChecker').then((m) => ({ default: m.PublicResultChecker })));
+const BrandingStudio = lazy(() => import('./features/branding/BrandingStudio').then((m) => ({ default: m.BrandingStudio })));
+const AttendanceView = lazy(() => import('./features/attendance/AttendanceView').then((m) => ({ default: m.AttendanceView })));
+const StudentRegistryView = lazy(() => import('./features/students/StudentRegistryView').then((m) => ({ default: m.StudentRegistryView })));
+const AssessmentsView = lazy(() => import('./features/assessments/AssessmentsView').then((m) => ({ default: m.AssessmentsView })));
+const ResultsManagementView = lazy(() => import('./features/results/ResultsManagementView').then((m) => ({ default: m.ResultsManagementView })));
+const StaffManagementView = lazy(() => import('./features/staff/StaffManagementView').then((m) => ({ default: m.StaffManagementView })));
+const AcademicsConfigView = lazy(() => import('./features/academics/AcademicsConfigView').then((m) => ({ default: m.AcademicsConfigView })));
+const ReportCardGeneratorView = lazy(() => import('./features/results/ReportCardGeneratorView').then((m) => ({ default: m.ReportCardGeneratorView })));
+const FeeStructureBillingView = lazy(() => import('./features/finance/FeeStructureBillingView').then((m) => ({ default: m.FeeStructureBillingView })));
+const BroadcastCenterView = lazy(() => import('./features/communication/BroadcastCenterView').then((m) => ({ default: m.BroadcastCenterView })));
+const ClassTimetableView = lazy(() => import('./features/academics/ClassTimetableView').then((m) => ({ default: m.ClassTimetableView })));
+const CBTQuizModuleView = lazy(() => import('./features/cbt/CBTQuizModuleView').then((m) => ({ default: m.CBTQuizModuleView })));
+const AILessonPlanner = lazy(() => import('./features/teacher/AILessonPlanner').then((m) => ({ default: m.AILessonPlanner })));
+const SmartMarkScanner = lazy(() => import('./features/teacher/SmartMarkScanner').then((m) => ({ default: m.SmartMarkScanner })));
+
+function MainAppContent() {
+  const { currentRole, setCurrentRole, toast, hideToast, showToast } = useApp();
+
+  // Root View State
+  const [currentView, setCurrentView] = useState<
+    | 'landing'
+    | 'register-school'
+    | 'tenant-welcome'
+    | 'tenant-login'
+    | 'personal-auth'
+    | 'school-auth'
+    | 'result-checker'
+    | 'app'
+  >('landing');
+  const [isSessionChecking, setIsSessionChecking] = useState(() => hasLikelyBrowserSession());
+
+  // Active App Navigation Tab
+  const [activeTab, setActiveTab] = useState<string>('home');
+
+  // Sidebar Collapsed & Mobile Drawer States
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    const onApiError = (event: Event) => {
+      const error = (event as CustomEvent<ApiError>).detail;
+      if (error.status === 401 && (currentView === 'landing' || currentView === 'tenant-login' || currentView === 'personal-auth' || currentView === 'school-auth' || currentView === 'tenant-welcome' || currentView === 'register-school')) return;
+      showToast(error.status === 401 ? 'Session expired' : 'Request failed', describeApiError(error), error.status >= 500 ? 'failed' : 'error');
     };
-  }, [currentRole, sessionUser]);
+    window.addEventListener('skuggle:api-error', onApiError);
+    return () => window.removeEventListener('skuggle:api-error', onApiError);
+  }, [currentView, showToast]);
 
-  const loadStudents = useCallback(async () => {
-    if (!appConfig.liveApi) return;
-    const generation = currentWorkspaceSwitchGeneration();
-    setStudentsLoading(true);
+  useEffect(() => {
+    if (toast?.show) playNotificationTone(toast.type);
+  }, [toast]);
+
+  const [welcomeMode, setWelcomeMode] = useState<'entry' | 'preview'>('entry');
+
+  useEffect(() => {
+    let active = true;
+    void restoreSession()
+      .then((response) => {
+        if (!active || !response) {
+          if (schoolKeyFromLocation()) setCurrentView('tenant-welcome');
+          return;
+        }
+        setCurrentRole(sessionRole(response.data.user.role));
+        setCurrentView('app');
+        window.dispatchEvent(new Event('skuggle:authenticated'));
+      })
+      .finally(() => { if (active) setIsSessionChecking(false); });
+    return () => { active = false; };
+  }, [setCurrentRole]);
+
+  const handleLogout = async () => {
     try {
-      const page = await studentService.list({ page: 1, perPage: 100 });
-      if (!isCurrentWorkspaceSwitchGeneration(generation)) return;
-      const mapped = page.data.map(mapStudentSummaryToRecord);
-      if (mapped.length > 0) {
-        setStudents(mapped);
-      }
-    } catch (error) {
-      if (!isCurrentWorkspaceSwitchGeneration(generation)) return;
-      if (error instanceof ApiError && error.kind === 'cancelled') return;
-      feedbackBus.warning(getApiError(error).message);
-      setStudents([]);
+      await initializeCsrf();
+      await apiRequest('/auth/logout', { method: 'POST' });
     } finally {
-      if (isCurrentWorkspaceSwitchGeneration(generation)) {
-        setStudentsLoading(false);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!sessionUser) return;
-    const uiRole = mapBackendRoleToUi(sessionUser.role);
-    setCurrentRole(uiRole);
-    setActiveTab(workspaceHomeTab(uiRole, sessionUser.tenant?.type));
-  }, [sessionUser?.id, sessionUser?.role, sessionUser?.tenant?.id, sessionUser?.tenant?.type]);
-
-  useEffect(() => {
-    if (sessionUser && appConfig.liveApi && !isPersonalWorkspace) {
-      void loadStudents();
-    } else if (isPersonalWorkspace) {
-      setStudents([]);
-      setStudentsLoading(false);
-    }
-  }, [sessionUser, isPersonalWorkspace, loadStudents]);
-
-  useEffect(() => {
-    if (!sessionUser || !appConfig.liveApi || isPersonalWorkspace) return;
-    if (location.pathname.startsWith('/app/setup')) return;
-    if (currentRole !== 'school_admin' && currentRole !== 'super_admin') return;
-
-    void shouldRedirectToSetup().then((needsSetup) => {
-      if (needsSetup) {
-        void navigate('/app/setup', { replace: true });
-      }
-    });
-  }, [sessionUser?.id, currentRole, isPersonalWorkspace, location.pathname, navigate]);
-
-  useEffect(() => {
-    if (isPersonalWorkspace && location.pathname.startsWith('/app/setup')) {
-      void navigate('/app', { replace: true });
-    }
-  }, [isPersonalWorkspace, location.pathname, navigate]);
-
-  const handleOpenModal = useCallback((modalName: string, data?: any) => {
-    if (modalName === 'onboarding_wizard') {
-      void navigate('/app/setup');
-      return;
-    }
-    if (modalName === 'result_checker') {
-      void navigate('/result-checker');
-      return;
-    }
-    setActiveModal(modalName);
-    setModalData(data ?? null);
-  }, [navigate]);
-
-  const handleCloseModal = useCallback(() => {
-    setActiveModal(null);
-    setModalData(null);
-  }, []);
-
-  const handleSaveNewStudent = useCallback((newStudent: StudentRecord) => {
-    setStudents((prev) => {
-      const withoutDup = prev.filter((item) => item.id !== newStudent.id);
-      return [newStudent, ...withoutDup];
-    });
-  }, []);
-
-  const applyRoleTabs = (newRole: UserRole) => {
-    setCurrentRole(newRole);
-    if (newRole === 'school_admin') {
-      setActiveTab('dashboard');
-    } else if (newRole === 'super_admin' || newRole === 'principal') {
-      setActiveTab('overview');
-    } else if (newRole === 'landing') {
-      setActiveTab('home');
-    } else {
+      restoreSessionPromise = null;
+      setCurrentView('landing');
       setActiveTab('home');
     }
   };
 
-  const handleRoleChange = useCallback(
-    async (newRole: UserRole) => {
-      if (newRole === 'landing') {
-        void navigate('/');
-        return;
-      }
-      if (appConfig.liveApi && appConfig.enableDemo) {
-        const creds = DEMO_LOGIN_BY_ROLE[newRole];
-        if (!creds) {
-          applyRoleTabs(newRole);
-          return;
+  // Switch persona entry from landing page
+  const handleSelectRoleFromLanding = (persona: Persona) => {
+    switch (persona) {
+      case 'school':
+        setCurrentView('register-school');
+        break;
+      default:
+        setCurrentView('personal-auth');
+    }
+  };
+
+  const enterAuthenticatedApp = (role: UserRole) => {
+    setCurrentRole(role);
+    setCurrentView('app');
+  };
+
+  // Render main authenticated workspace tab
+  const renderAppContent = () => {
+    switch (activeTab) {
+      case 'home':
+        switch (currentRole) {
+          case 'School Admin':
+            return <SchoolAdminDashboard onNavigateTab={setActiveTab} />;
+          case 'Principal':
+            return <PrincipalDashboard onNavigateTab={setActiveTab} />;
+          case 'Teacher':
+            return <TeacherDashboard onNavigateTab={setActiveTab} />;
+          case 'Parent':
+            return <ParentDashboard onNavigateTab={setActiveTab} onOpenResultChecker={() => setCurrentView('result-checker')} />;
+          case 'Student':
+            return <StudentDashboard onNavigateTab={setActiveTab} onOpenResultChecker={() => setCurrentView('result-checker')} />;
+          case 'Platform Owner':
+            return <PlatformOwnerDashboard />;
+          default:
+            return <SchoolAdminDashboard onNavigateTab={setActiveTab} />;
         }
-        try {
-          const user = await auth.login({
-            email: creds.email,
-            password: creds.password,
-            remember: true,
-          });
-          applyRoleTabs(mapBackendRoleToUi(user.role));
-          feedbackBus.info(`Signed in as ${user.name}`);
-        } catch (error) {
-          feedbackBus.error(getApiError(error).message);
-        }
-        return;
-      }
-      applyRoleTabs(newRole);
-    },
-    [auth, navigate],
-  );
+      case 'students':
+        return <StudentRegistryView />;
+      case 'attendance':
+        return <AttendanceView />;
+      case 'academics':
+        return <AcademicsConfigView />;
+      case 'report-cards':
+        return <ReportCardGeneratorView />;
+      case 'timetable':
+        return <ClassTimetableView />;
+      case 'cbt':
+        return <CBTQuizModuleView />;
+      case 'broadcasts':
+        return <BroadcastCenterView />;
+      case 'finance':
+        return <FeeStructureBillingView />;
+      case 'people':
+      case 'staff':
+        return <StaffManagementView />;
+      case 'assessments':
+        return <AssessmentsView />;
+      case 'results':
+        return <ResultsManagementView />;
+      case 'branding':
+        return <BrandingStudio onPreviewWelcome={() => { setWelcomeMode('preview'); setCurrentView('tenant-welcome'); }} />;
+      case 'smartmark':
+        return <SmartMarkScanner />;
+      case 'teacher-ai':
+      case 'lessons':
+        return <AILessonPlanner />;
+      case 'health':
+      case 'schools':
+      case 'governance':
+        return <PlatformOwnerDashboard />;
+      default:
+        return <SchoolAdminDashboard onNavigateTab={setActiveTab} />;
+    }
+  };
 
-  const handleRequestLogin = useCallback(() => {
-    void navigate('/login?returnTo=/app');
-  }, [navigate]);
-
-  const handleLogout = useCallback(async () => {
-    feedbackBus.info('Signed out. Welcome back anytime.');
-    await auth.logout();
-  }, [auth]);
-
-  const handleSwitchWorkspace = useCallback(
-    (tenantId: string) => {
-      const previousActiveTab = activeTab;
-      void (async () => {
-        bumpWorkspaceSwitchScope();
-        setIsSwitchingWorkspace(true);
-        setStudents([]);
-        setStudentsLoading(false);
-        setActiveModal(null);
-        setModalData(null);
-        setActiveTab('home');
-        try {
-          const user = await auth.switchWorkspace(tenantId);
-          const uiRole = mapBackendRoleToUi(user.role);
-          setCurrentRole(uiRole);
-          setActiveTab(workspaceHomeTab(uiRole, user.tenant?.type));
-          const destinationLabel =
-            user.tenant?.type === 'individual'
-              ? 'My Skuggle'
-              : user.tenant?.name ?? 'workspace';
-          feedbackBus.success(`Switched to ${destinationLabel}`);
-          if (user.tenant?.type !== 'individual' && appConfig.liveApi) {
-            void loadStudents();
-          }
-        } catch (caught) {
-          setActiveTab(previousActiveTab);
-          if (sessionUser?.tenant?.type !== 'individual') void loadStudents();
-          feedbackBus.error(getApiError(caught).message);
-        } finally {
-          setIsSwitchingWorkspace(false);
-        }
-      })();
-    },
-    [activeTab, auth, loadStudents, sessionUser?.tenant?.type],
-  );
-
-  const isSmartMark =
-    activeModal === 'smartmark_scan' || activeModal === 'smartmark';
-  const isAiLesson =
-    activeModal === 'ai_lesson_builder' || activeModal === 'ai_lesson';
-
-  if (appConfig.liveApi && auth.status === 'loading') {
-    return <PageSkeleton label="Connecting to Skuggle…" />;
+  if (isSessionChecking) {
+    return <div className="min-h-screen bg-[#FFFCF7] p-6"><DashboardLoading /></div>;
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F8FAFC] font-sans text-slate-800 antialiased selection:bg-indigo-500 selection:text-white overflow-x-hidden">
-      <Header
-        currentRole={currentRole === 'landing' ? 'school_admin' : currentRole}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onSelectTab={setActiveTab}
-        onSelectRole={handleRoleChange}
-        onRequestLogin={handleRequestLogin}
-        onLogout={handleLogout}
-        onOpenModal={handleOpenModal}
-        onNavigate={(path) => void navigate(path)}
-        profile={profileFromSession}
-        currentUser={profileFromSession}
-        workspaceType={isPersonalWorkspace ? 'personal' : 'school'}
-        isSwitchingWorkspace={isSwitchingWorkspace}
-        workspaces={(auth.user?.memberships ?? []).map((m) => ({
-          tenantId: m.tenantId,
-          tenantName: m.tenantName,
-          tenantCode: m.tenantCode,
-          tenantType: m.tenantType,
-          roleLabel: m.roleLabel,
-          current: m.current ?? m.tenantId === auth.user?.tenant?.id,
-        }))}
-        onSwitchWorkspace={handleSwitchWorkspace}
-        hqModules={
-          currentRole === 'super_admin'
-            ? [
-                { id: 'overview', label: 'Overview' },
-                { id: 'schools', label: 'Schools' },
-                { id: 'plans', label: 'Plans' },
-                { id: 'subscriptions', label: 'Billing' },
-                { id: 'usage', label: 'Usage' },
-                { id: 'support', label: 'Support desk' },
-                { id: 'system_health', label: 'System health' },
-                { id: 'more', label: 'Ops / broadcasts' },
-              ]
-            : []
-        }
-      />
-
-      {!isPersonalWorkspace && auth.user?.mfaRequired && (
-        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-[12px] font-semibold text-amber-950">
-          Privileged MFA is required before creating or changing school data.{" "}
-          <button
-            type="button"
-            className="underline font-extrabold"
-            onClick={() => void navigate("/security/mfa")}
+    <div className="min-h-screen bg-[#FFFCF7] text-slate-900 flex flex-col font-sans selection:bg-indigo-100 selection:text-indigo-900">
+      {/* Toast Notification Container */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            role={toast.type === 'error' || toast.type === 'failed' ? 'alert' : 'status'}
+            aria-live={toast.type === 'error' || toast.type === 'failed' ? 'assertive' : 'polite'}
+            className={`fixed top-4 right-4 z-50 w-[min(92vw,390px)] text-white p-4 rounded-2xl shadow-2xl border flex items-start gap-3 ${toast.type === 'success' ? 'bg-emerald-700 border-emerald-500' : toast.type === 'warning' ? 'bg-amber-700 border-amber-500' : toast.type === 'info' ? 'bg-indigo-700 border-indigo-500' : toast.type === 'failed' ? 'bg-rose-950 border-rose-700' : 'bg-rose-700 border-rose-500'}`}
           >
-            Enable authenticator
-          </button>
-        </div>
-      )}
+            {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : toast.type === 'warning' ? <AlertTriangle className="w-5 h-5 shrink-0" /> : toast.type === 'info' ? <Info className="w-5 h-5 shrink-0" /> : <XCircle className="w-5 h-5 shrink-0" />}
+            <div className="min-w-0 flex-1">
+              <h4 className="font-bold text-xs text-white">{toast.title}</h4>
+              {toast.description && (
+                <p className="text-[11px] text-slate-300 mt-0.5 leading-relaxed">{toast.description}</p>
+              )}
+            </div>
+            <button type="button" onClick={hideToast} aria-label="Dismiss notification" className="p-1 rounded-lg hover:bg-white/15"><X className="w-4 h-4" /></button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {!isPersonalWorkspace && studentsLoading && (
-        <div className="border-b border-indigo-100 bg-indigo-50/80 px-4 py-1.5 text-center text-[11px] font-semibold text-indigo-700">
-          Syncing students from database…
-        </div>
-      )}
-
-      <div
-        className="sr-only"
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-      >
-        {isSwitchingWorkspace
-          ? 'Switching workspace. Clearing previous school context.'
-          : isPersonalWorkspace
-            ? 'My Skuggle personal workspace is active.'
-            : `${sessionUser?.tenant?.name ?? 'School'} workspace is active.`}
-      </div>
-
-      {isSwitchingWorkspace && (
-        <div className="fixed inset-0 z-[60] bg-[#F8FAFC]/95 backdrop-blur-[1px]">
-          <PageSkeleton label="Switching workspace…" />
-        </div>
-      )}
-
-      <main className="flex-1 pb-8">
-        <Routes>
-          <Route
-            path="setup"
-            element={
-              <Suspense fallback={<ViewFallback />}>
-                <OnboardingPage />
-              </Suspense>
-            }
+      {/* Main Views Routing */}
+      {currentView === 'landing' ? (
+        <PublicLanding
+          onSelectRole={handleSelectRoleFromLanding}
+          onOpenResultChecker={() => setCurrentView('result-checker')}
+          onTenantLogin={() => setCurrentView('school-auth')}
+          onEnterAppDirectly={() => setCurrentView('school-auth')}
+          onOpenPersonalAuth={() => setCurrentView('personal-auth')}
+          onOpenSchoolAuth={() => setCurrentView('school-auth')}
+        />
+      ) : currentView === 'personal-auth' ? (
+        <Suspense fallback={<div className="min-h-screen bg-[#FFFCF7] p-6"><DashboardLoading /></div>}>
+          <PersonalAuthPage
+            onSuccess={enterAuthenticatedApp}
+            onBack={() => setCurrentView('landing')}
           />
-          <Route
-            path="*"
-            element={
-              <Suspense fallback={<ViewFallback />}>
-          {isPersonalWorkspace ? (
-            <MySkuggleWorkspace
-              role={currentRole}
-              userId={profileFromSession.id}
-              userName={profileFromSession.name}
+        </Suspense>
+      ) : currentView === 'school-auth' ? (
+        <Suspense fallback={<div className="min-h-screen bg-[#FFFCF7] p-6"><DashboardLoading /></div>}>
+          <SchoolAuthPage
+            onSuccess={enterAuthenticatedApp}
+            onBack={() => setCurrentView('landing')}
+            onRegisterSchool={() => setCurrentView('register-school')}
+          />
+        </Suspense>
+      ) : currentView === 'register-school' ? (
+        <SchoolRegistrationStepper
+          onCancel={() => setCurrentView('landing')}
+          onComplete={() => {
+            setWelcomeMode('entry');
+            setCurrentView('tenant-welcome');
+          }}
+          onPreviewWelcome={() => {
+            setWelcomeMode('preview');
+            setCurrentView('tenant-welcome');
+          }}
+        />
+      ) : currentView === 'tenant-welcome' ? (
+        <TenantWelcome
+          previewOnly={welcomeMode === 'preview'}
+          onContinue={() => {
+            if (welcomeMode === 'preview') {
+              setCurrentView('app');
+            } else {
+              setCurrentView('tenant-login');
+            }
+          }}
+          onSkip={() => setCurrentView(welcomeMode === 'preview' ? 'app' : 'tenant-login')}
+          onOpenResultChecker={() => setCurrentView('result-checker')}
+          onBackToLanding={() => setCurrentView('landing')}
+        />
+      ) : currentView === 'tenant-login' ? (
+        <TenantLogin
+          onSuccess={enterAuthenticatedApp}
+          onBackToLanding={() => setCurrentView('landing')}
+          onOpenResultChecker={() => setCurrentView('result-checker')}
+        />
+      ) : currentView === 'result-checker' ? (
+        <PublicResultChecker onBack={() => setCurrentView('app')} />
+      ) : (
+        /* Authenticated Tenant & Personal Workspace Layout with Sidebar */
+        <div className="flex-1 flex min-h-screen bg-[#FFFCF7]">
+          {/* Responsive Collapsible Navigation Sidebar */}
+          <AppSidebar
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            isCollapsed={isSidebarCollapsed}
+            setIsCollapsed={setIsSidebarCollapsed}
+            isMobileOpen={isMobileSidebarOpen}
+            setIsMobileOpen={setIsMobileSidebarOpen}
+            onOpenResultChecker={() => setCurrentView('result-checker')}
+            onOpenPublicLanding={() => setCurrentView('landing')}
+            onOpenBrandingStudio={() => setActiveTab('branding')}
+          />
+
+          {/* Main Content Workspace Column */}
+          <div
+            className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out ${
+              isSidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64'
+            }`}
+          >
+            <AppHeader
               activeTab={activeTab}
-              schoolCount={(sessionUser?.memberships ?? []).filter((membership) => membership.tenantType !== 'individual').length}
-              schools={(sessionUser?.memberships ?? [])
-                .filter((membership) => membership.tenantType !== 'individual')
-                .map((membership) => ({
-                  tenantId: membership.tenantId,
-                  tenantName: membership.tenantName,
-                  tenantCode: membership.tenantCode,
-                  roleLabel: membership.roleLabel,
-                  current: membership.current ?? membership.tenantId === sessionUser?.tenant?.id,
-                }))}
-              onSelectTab={setActiveTab}
-              onOpenModal={handleOpenModal}
-              onSwitchWorkspace={handleSwitchWorkspace}
+              setActiveTab={setActiveTab}
+              onOpenResultChecker={() => setCurrentView('result-checker')}
+              onOpenPublicLanding={() => setCurrentView('landing')}
+              onOpenBrandingStudio={() => setActiveTab('branding')}
+              onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+              isSidebarCollapsed={isSidebarCollapsed}
+              onToggleSidebarCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              onLogout={() => void handleLogout()}
             />
-          ) : activeTab === 'students' ? (
-            <StudentsDirectoryView
-              students={students}
-              onOpenModal={handleOpenModal}
-              onNavigateTab={setActiveTab}
-            />
-          ) : activeTab === 'resources' || activeTab === 'lessons' ? (
-            <ResourceLibraryView
-              onOpenModal={handleOpenModal}
-              onNavigateTab={setActiveTab}
-            />
-          ) : (
-            <>
-              {currentRole === 'school_admin' && (
-                <>
-                  {activeTab === 'reports' ? (
-                    <SchoolAdminReportsView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : activeTab === 'results' ? (
-                    <AdminResultsWorkflowView onOpenModal={handleOpenModal} />
-                  ) : activeTab === 'settings' ? (
-                    <SchoolAdminSettingsView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : (
-                    <AdminDashboardView
-                      students={students}
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  )}
-                </>
-              )}
 
-              {currentRole === 'bursar' && (
-                <>
-                  {activeTab === 'reports' ? (
-                    <SchoolAdminReportsView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : activeTab === 'settings' ? (
-                    <SchoolAdminSettingsView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : activeTab === 'payments' ||
-                    activeTab === 'receipts' ||
-                    activeTab === 'reminders' ? (
-                    <ParentPaymentsView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : (
-                    <BursarDashboardView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  )}
-                </>
-              )}
+            <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={`${currentRole}-${activeTab}`}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <Suspense fallback={<DashboardLoading />}>{renderAppContent()}</Suspense>
+                </motion.div>
+              </AnimatePresence>
+            </main>
 
-              {currentRole === 'examination_officer' && (
-                <>
-                  {activeTab === 'assessments' ? (
-                    <TeacherAssessmentsView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : activeTab === 'results' ? (
-                    <AdminResultsWorkflowView onOpenModal={handleOpenModal} />
-                  ) : activeTab === 'reports' ? (
-                    <SchoolAdminReportsView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : activeTab === 'settings' ? (
-                    <SchoolAdminSettingsView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : (
-                    <ExamOfficerDashboardView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  )}
-                </>
-              )}
-
-              {currentRole === 'teacher' && (
-                <>
-                  {activeTab === 'assessments' ? (
-                    <TeacherAssessmentsView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : activeTab === 'attendance' ? (
-                    <TeacherAttendanceView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : activeTab === 'my_classes' ? (
-                    <TeacherMyClassesView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : activeTab === 'more' ||
-                    activeTab === 'scheme' ||
-                    activeTab === 'homework' ? (
-                    <TeacherMoreView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : (
-                    <TeacherDashboardView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  )}
-                </>
-              )}
-
-              {currentRole === 'principal' && (
-                <>
-                  {activeTab === 'academics' ? (
-                    <PrincipalAcademicsView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : activeTab === 'attendance' ? (
-                    <PrincipalAttendanceView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : activeTab === 'finance' ? (
-                    <PrincipalFinanceView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : activeTab === 'staff' ? (
-                    <PrincipalStaffView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : activeTab === 'reports' ? (
-                    <PrincipalReportsView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : activeTab === 'results' ? (
-                    <AdminResultsWorkflowView onOpenModal={handleOpenModal} />
-                  ) : activeTab === 'communication' ? (
-                    <PrincipalCommunicationView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : activeTab === 'settings' ? (
-                    <SchoolAdminSettingsView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : (
-                    <PrincipalDashboardView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  )}
-                </>
-              )}
-
-              {currentRole === 'super_admin' && (
-                <>
-                  {activeTab === 'schools' && (
-                    <SchoolsView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  )}
-                  {activeTab === 'plans' && (
-                    <PlansView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  )}
-                  {activeTab === 'subscriptions' && (
-                    <SubscriptionsView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  )}
-                  {activeTab === 'usage' && (
-                    <UsageView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  )}
-                  {activeTab === 'support' && (
-                    <SupportView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  )}
-                  {activeTab === 'system_health' && (
-                    <SystemHealthView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  )}
-                  {activeTab === 'more' && (
-                    <MoreMenuView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  )}
-                  {(activeTab === 'overview' ||
-                    (activeTab !== 'schools' &&
-                      activeTab !== 'plans' &&
-                      activeTab !== 'subscriptions' &&
-                      activeTab !== 'usage' &&
-                      activeTab !== 'support' &&
-                      activeTab !== 'system_health' &&
-                      activeTab !== 'more')) && (
-                    <SuperAdminDashboardView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  )}
-                </>
-              )}
-
-              {currentRole === 'parent' && (
-                <>
-                  {activeTab === 'my_children' ? (
-                    <ParentMyChildrenView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : activeTab === 'attendance' ? (
-                    <ParentAttendanceView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : activeTab === 'academics' ? (
-                    <ParentAcademicsView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : activeTab === 'payments' ? (
-                    <ParentPaymentsView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : activeTab === 'messages' ? (
-                    <ParentMessagesView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : activeTab === 'more' ? (
-                    <ParentMoreView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : (
-                    <ParentDashboardView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  )}
-                </>
-              )}
-
-              {currentRole === 'student' && (
-                <>
-                  {activeTab === 'my_progress' ? (
-                    <StudentProgressView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : activeTab === 'learning' ? (
-                    <StudentLearningView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : activeTab === 'assessments' ? (
-                    <StudentAssessmentsView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : activeTab === 'results' ? (
-                    <StudentResultsView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : activeTab === 'more' ? (
-                    <StudentMoreView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  ) : (
-                    <StudentDashboardView
-                      onOpenModal={handleOpenModal}
-                      onNavigateTab={setActiveTab}
-                    />
-                  )}
-                </>
-              )}
-            </>
-          )}
-              </Suspense>
-            }
-          />
-        </Routes>
-      </main>
-
-
-
-      {/* Mount only the active modal to avoid idle re-renders and heavy JS */}
-      <Suspense fallback={<ModalSkeleton />}>
-        {isSmartMark && (
-          <SmartMarkModal isOpen onClose={handleCloseModal} />
-        )}
-        {isAiLesson && (
-          <AILessonBuilderModal
-            isOpen
-            onClose={handleCloseModal}
-            initialTopic={modalData?.topic}
-          />
-        )}
-        {activeModal === 'register_student' && (
-          <RegisterStudentModal
-            isOpen
-            onClose={handleCloseModal}
-            onSaveStudent={handleSaveNewStudent}
-          />
-        )}
-        {activeModal === 'attendance' && (
-          <AttendanceModal
-            isOpen
-            onClose={handleCloseModal}
-            initialClassArm={modalData?.classArm}
-          />
-        )}
-        {activeModal === 'report_card' && (
-          <ReportCardModal
-            isOpen
-            onClose={handleCloseModal}
-            student={modalData}
-          />
-        )}
-        {activeModal === 'result_checker' && (
-          <ResultCheckerModal
-            isOpen
-            onClose={handleCloseModal}
-            student={modalData}
-          />
-        )}
-        {activeModal === 'make_payment' && (
-          <MakePaymentModal
-            isOpen
-            onClose={handleCloseModal}
-            student={modalData}
-          />
-        )}
-      </Suspense>
+            {/* Persistent Skuggle AI Buddy Floating Action Button & Assistant Drawer */}
+            <SkuggleAIBuddy variant="floating" />
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AppProvider>
+      <Suspense fallback={<div className="min-h-screen bg-[#FFFCF7] p-6"><DashboardLoading /></div>}>
+        <MainAppContent />
+      </Suspense>
+    </AppProvider>
   );
 }

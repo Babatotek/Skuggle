@@ -1,7 +1,8 @@
 {
   "name": "Skuggle",
-  "description": "Smart, simple school operating and learning intelligence platform for modern schools.",
-  "requestFramePermissions": ["camera"],
+  "description": "Multi-tenant School Operating and Learning Intelligence Platform for Nigerian nursery, primary, and secondary schools.",
+  "requestFramePermissions": [
+    "camera"
+  ],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
-

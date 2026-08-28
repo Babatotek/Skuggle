@@ -28,10 +28,16 @@ final class RequireMfaForPrivilegedRole
         }
 
         $membership = $this->context->membership();
-        if ($membership->role->privileged && ! $request->user()?->two_factor_confirmed_at) {
+        $policyEnabled = (bool) data_get(
+            $membership->tenant->settings,
+            'security.require_mfa_for_privileged_roles',
+            false,
+        );
+
+        if ($policyEnabled && (bool) $membership->role->privileged && ! filled($request->user()?->two_factor_confirmed_at)) {
             return ApiResponse::error(
-                'MFA_REQUIRED',
-                'Multi-factor authentication must be enabled before this privileged action.',
+                'MFA_ENROLLMENT_REQUIRED',
+                'Multi-factor authentication must be configured before performing privileged changes.',
                 403,
             );
         }

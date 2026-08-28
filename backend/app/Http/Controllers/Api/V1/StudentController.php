@@ -133,6 +133,32 @@ class StudentController extends Controller
         return ApiResponse::success($this->summary($student), [], 201);
     }
 
+    public function update(string $student, Request $request, AuditLogger $audit): JsonResponse
+    {
+        $record = Student::query()->where('public_id', $student)->with(['enrollments.schoolClass', 'guardians'])->firstOrFail();
+        $this->authorize('update', $record);
+        $data = $request->validate([
+            'firstName' => ['sometimes', 'string', 'max:100'], 'middleName' => ['nullable', 'string', 'max:100'],
+            'lastName' => ['sometimes', 'string', 'max:100'], 'gender' => ['sometimes', 'string', 'max:24'],
+            'dateOfBirth' => ['sometimes', 'date'], 'status' => ['sometimes', 'in:active,suspended,graduated,transferred'],
+            'nationality' => ['nullable', 'string', 'max:80'], 'stateOfOrigin' => ['nullable', 'string', 'max:120'],
+        ]);
+        $before = $record->only(['first_name', 'middle_name', 'last_name', 'gender', 'date_of_birth', 'status', 'nationality', 'state_of_origin']);
+        $record->fill([
+            'first_name' => $data['firstName'] ?? $record->first_name,
+            'middle_name' => array_key_exists('middleName', $data) ? $data['middleName'] : $record->middle_name,
+            'last_name' => $data['lastName'] ?? $record->last_name,
+            'gender' => $data['gender'] ?? $record->gender,
+            'date_of_birth' => $data['dateOfBirth'] ?? $record->date_of_birth,
+            'status' => $data['status'] ?? $record->status,
+            'nationality' => array_key_exists('nationality', $data) ? $data['nationality'] : $record->nationality,
+            'state_of_origin' => array_key_exists('stateOfOrigin', $data) ? $data['stateOfOrigin'] : $record->state_of_origin,
+        ])->save();
+        $audit->record('student.updated', $record, $before, $record->getChanges());
+
+        return ApiResponse::success($this->summary($record->fresh(['enrollments.schoolClass', 'guardians'])));
+    }
+
     private function summary(Student $student): array
     {
         $enrollment = $student->enrollments->first();

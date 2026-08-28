@@ -28,7 +28,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * Seeds Royal Gateway Academy (Demo) as a full walkthrough school:
+ * Seeds DemoTenant as a full walkthrough school from the frontend mock data:
  * classes, students, staff links, attendance, assessments, results,
  * announcements, messages, payments, and library — for every school role.
  * Local / XAMPP only.
@@ -254,7 +254,7 @@ class DemoTenantDataSeeder extends Seeder
             $context->clear();
         }
 
-        $this->command?->info('Demo school walkthrough data seeded for all roles (Royal Gateway Academy).');
+        $this->command?->info('DemoTenant walkthrough data seeded for all roles.');
     }
 
     /**
@@ -401,21 +401,24 @@ class DemoTenantDataSeeder extends Seeder
                     $status = 'absent';
                 }
 
-                AttendanceRecord::query()->updateOrCreate(
-                    [
-                        'tenant_id' => $school->getKey(),
-                        'student_id' => $student->getKey(),
-                        'class_id' => $class->getKey(),
-                        'attendance_date' => $date,
-                    ],
-                    [
-                        'academic_session_id' => $session->getKey(),
-                        'term_id' => $term->getKey(),
-                        'status' => $status,
-                        'recorded_by' => $teacher->getKey(),
-                        'public_id' => (string) Str::ulid(),
-                    ],
-                );
+                $record = AttendanceRecord::query()
+                    ->where('student_id', $student->getKey())
+                    ->where('class_id', $class->getKey())
+                    ->whereDate('attendance_date', $date)
+                    ->first();
+
+                $record ??= new AttendanceRecord([
+                    'student_id' => $student->getKey(),
+                    'class_id' => $class->getKey(),
+                    'attendance_date' => $date,
+                    'public_id' => (string) Str::ulid(),
+                ]);
+                $record->fill([
+                    'academic_session_id' => $session->getKey(),
+                    'term_id' => $term->getKey(),
+                    'status' => $status,
+                    'recorded_by' => $teacher->getKey(),
+                ])->save();
             }
         }
     }
@@ -603,7 +606,7 @@ class DemoTenantDataSeeder extends Seeder
 
         $payments = [
             [
-                'ref' => 'RGA-PAY-DEMO-001',
+                'ref' => 'DEMO-TENANT-PAY-001',
                 'amount' => 15000000,
                 'status' => 'succeeded',
                 'student' => $nathan,
@@ -611,7 +614,7 @@ class DemoTenantDataSeeder extends Seeder
                 'paid' => true,
             ],
             [
-                'ref' => 'RGA-PAY-DEMO-002',
+                'ref' => 'DEMO-TENANT-PAY-002',
                 'amount' => 4500000,
                 'status' => 'pending',
                 'student' => $nathan,
@@ -619,7 +622,7 @@ class DemoTenantDataSeeder extends Seeder
                 'paid' => false,
             ],
             [
-                'ref' => 'RGA-PAY-DEMO-003',
+                'ref' => 'DEMO-TENANT-PAY-003',
                 'amount' => 2500000,
                 'status' => 'succeeded',
                 'student' => $michael,

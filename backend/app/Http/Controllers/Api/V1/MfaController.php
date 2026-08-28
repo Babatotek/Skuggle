@@ -20,12 +20,37 @@ class MfaController extends Controller
     {
         $user = $request->user();
         $privileged = $context->hasTenant() && (bool) $context->membership()->role->privileged;
+        $policyEnabled = $context->hasTenant() && (bool) data_get(
+            $context->membership()->tenant->settings,
+            'security.require_mfa_for_privileged_roles',
+            false,
+        );
 
         return ApiResponse::success([
             'privileged' => $privileged,
             'enabled' => filled($user->two_factor_secret),
             'confirmed' => filled($user->two_factor_confirmed_at),
-            'required' => $privileged && ! filled($user->two_factor_confirmed_at),
+            'policyEnabled' => $policyEnabled,
+            'required' => $privileged && $policyEnabled,
+        ]);
+    }
+
+    public function updatePolicy(Request $request, TenantContext $context): JsonResponse
+    {
+        $data = $request->validate([
+            'requireForPrivilegedRoles' => ['required', 'boolean'],
+        ]);
+
+        $tenant = $context->membership()->tenant;
+        $settings = $tenant->settings ?? [];
+        data_set($settings, 'security.require_mfa_for_privileged_roles', $data['requireForPrivilegedRoles']);
+        $tenant->update(['settings' => $settings]);
+
+        return ApiResponse::success([
+            'policyEnabled' => (bool) $data['requireForPrivilegedRoles'],
+            'message' => $data['requireForPrivilegedRoles']
+                ? 'MFA is now required for privileged school roles.'
+                : 'MFA remains available but is no longer required by this school.',
         ]);
     }
 
@@ -75,16 +100,8 @@ class MfaController extends Controller
         ]);
     }
 
-    public function disable(Request $request, DisableTwoFactorAuthentication $disable, TenantContext $context): JsonResponse
+    public function disable(Request $request, DisableTwoFactorAuthentication $disable): JsonResponse
     {
-        if ($context->hasTenant() && $context->membership()->role->privileged) {
-            return ApiResponse::error(
-                'MFA_REQUIRED',
-                'Privileged accounts cannot disable multi-factor authentication.',
-                403,
-            );
-        }
-
         $disable($request->user());
 
         return ApiResponse::success(['enabled' => false, 'confirmed' => false]);

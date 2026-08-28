@@ -116,6 +116,7 @@ class PaymentController extends Controller
             'status' => $payment->status,
             'paidAt' => $payment->paid_at?->toIso8601String(),
             'createdAt' => $payment->created_at?->toIso8601String(),
+            'metadata' => $payment->metadata,
         ];
     }
 }

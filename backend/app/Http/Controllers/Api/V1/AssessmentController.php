@@ -79,6 +79,27 @@ class AssessmentController extends Controller
         return ApiResponse::success(['assessmentId' => $item->public_id, 'title' => $item->title, 'className' => trim($item->schoolClass->name.' '.$item->schoolClass->arm), 'subject' => $item->subject->name, 'maxScore' => (float) $item->maximum_score, 'revision' => $this->scoreRevision($item), 'students' => $enrollments->map(fn ($enrollment) => ['id' => $enrollment->student->public_id, 'admissionNumber' => $enrollment->student->admission_number, 'fullName' => trim("{$enrollment->student->first_name} {$enrollment->student->middle_name} {$enrollment->student->last_name}"), 'score' => ($score = $scores->get($enrollment->student_id)) && $score->score !== null ? (float) $score->score : null])]);
     }
 
+    public function update(string $assessment, Request $request, AuditLogger $audit): JsonResponse
+    {
+        $item = Assessment::query()->where('public_id', $assessment)->firstOrFail();
+        $this->authorize('updateScores', $item);
+        $data = $request->validate([
+            'title' => ['sometimes', 'string', 'max:180'], 'date' => ['sometimes', 'date'],
+            'status' => ['sometimes', 'in:draft,submitted,under_review,validated,approved,reopened,published'],
+            'instructions' => ['nullable', 'string', 'max:5000'],
+        ]);
+        $before = $item->only(['title', 'scheduled_at', 'status', 'metadata']);
+        if (isset($data['title'])) $item->title = $data['title'];
+        if (isset($data['date'])) $item->scheduled_at = $data['date'];
+        if (isset($data['status'])) $item->status = $data['status'];
+        if (array_key_exists('instructions', $data)) $item->metadata = array_merge($item->metadata ?? [], ['instructions' => $data['instructions']]);
+        $item->revision++;
+        $item->save();
+        $audit->record('assessment.updated', $item, $before, $item->getChanges());
+
+        return ApiResponse::success(['id' => $item->public_id, 'status' => $item->status, 'revision' => $item->revision]);
+    }
+
     public function updateScores(string $assessment, SaveScoresRequest $request, AuditLogger $audit): JsonResponse
     {
         $item = Assessment::query()->where('public_id', $assessment)->firstOrFail();

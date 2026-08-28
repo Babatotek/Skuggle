@@ -29,10 +29,7 @@ class HorizonServiceProvider extends HorizonApplicationServiceProvider
                 return true;
             }
 
-            $allowed = array_filter(array_map(
-                'trim',
-                explode(',', (string) env('HORIZON_ADMIN_EMAILS', ''))
-            ));
+            $allowed = (array) config('skuggle.observability.horizon_admin_emails', []);
 
             return in_array($user->email, $allowed, true);
         });

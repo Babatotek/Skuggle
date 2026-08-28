@@ -163,12 +163,22 @@ return [
                 'timeout' => 360,
                 'nice' => 10,
             ],
+            'supervisor-ocr' => [
+                'connection' => 'redis', 'queue' => ['ocr'], 'balance' => 'simple',
+                'minProcesses' => 1, 'maxProcesses' => (int) env('HORIZON_OCR_MAX_PROCESSES', 3),
+                'memory' => 512, 'tries' => 3, 'timeout' => 240, 'nice' => 10,
+            ],
+            'supervisor-communications' => [
+                'connection' => 'redis', 'queue' => ['communications'], 'balance' => 'auto',
+                'minProcesses' => 1, 'maxProcesses' => (int) env('HORIZON_COMMUNICATIONS_MAX_PROCESSES', 5),
+                'memory' => 128, 'tries' => 4, 'timeout' => 60, 'nice' => 5,
+            ],
         ],
 
         'local' => [
             'supervisor-local' => [
                 'connection' => 'redis',
-                'queue' => ['default', 'ai', 'exports', 'reports'],
+                'queue' => ['default', 'ai', 'exports', 'reports', 'ocr', 'communications'],
                 'balance' => 'simple',
                 'minProcesses' => 1,
                 'maxProcesses' => 2,

@@ -18,6 +18,10 @@ final class SignedStorageUrl
             }
         }
 
+        if (app()->environment('production')) {
+            throw new \RuntimeException('The configured private object-storage disk cannot create temporary signed URLs.');
+        }
+
         return $filesystem->url($path);
     }
 }

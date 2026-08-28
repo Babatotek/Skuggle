@@ -7,10 +7,13 @@ use App\Http\Controllers\Api\V1\AssessmentController;
 use App\Http\Controllers\Api\V1\AttendanceController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CampusController;
+use App\Http\Controllers\Api\V1\BrandingController;
 use App\Http\Controllers\Api\V1\ClassController;
+use App\Http\Controllers\Api\V1\CbtController;
 use App\Http\Controllers\Api\V1\CustomFieldController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DepartmentController;
+use App\Http\Controllers\Api\V1\DeliveryWebhookController;
 use App\Http\Controllers\Api\V1\EmployeeController;
 use App\Http\Controllers\Api\V1\GeoController;
 use App\Http\Controllers\Api\V1\GoogleAuthController;
@@ -18,8 +21,11 @@ use App\Http\Controllers\Api\V1\InviteController;
 use App\Http\Controllers\Api\V1\LibraryAnnotationController;
 use App\Http\Controllers\Api\V1\LibraryResourceController;
 use App\Http\Controllers\Api\V1\LibraryToolController;
+use App\Http\Controllers\Api\V1\LessonPlanController;
 use App\Http\Controllers\Api\V1\MessageController;
+use App\Http\Controllers\Api\V1\ModuleDataController;
 use App\Http\Controllers\Api\V1\MfaController;
+use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\OnboardingController;
 use App\Http\Controllers\Api\V1\ParentController;
 use App\Http\Controllers\Api\V1\PaymentController;
@@ -33,6 +39,7 @@ use App\Http\Controllers\Api\V1\ResultController;
 use App\Http\Controllers\Api\V1\StudentController;
 use App\Http\Controllers\Api\V1\StudentImportController;
 use App\Http\Controllers\Api\V1\SubjectController;
+use App\Http\Controllers\Api\V1\SmartmarkController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
 use App\Http\Controllers\Api\V1\SyncController;
 use Illuminate\Support\Facades\Route;
@@ -60,6 +67,8 @@ Route::prefix('v1')->group(function (): void {
     Route::post('/public/results/check', [PublicResultController::class, 'check'])->middleware('throttle:public-results');
     Route::get('/public/results/view', [PublicResultController::class, 'view'])->middleware('throttle:public-results');
     Route::post('/webhooks/payments/{provider}', [PaymentController::class, 'webhook'])->middleware('throttle:api');
+    Route::get('/webhooks/whatsapp', [DeliveryWebhookController::class, 'verifyWhatsapp'])->middleware('throttle:api');
+    Route::post('/webhooks/whatsapp', [DeliveryWebhookController::class, 'whatsapp'])->middleware('throttle:api');
 
     Route::get('/public/library/curriculum', [LibraryResourceController::class, 'publicCurriculum'])->middleware('throttle:api');
     Route::get('/public/library/resources', [LibraryResourceController::class, 'publicIndex'])->middleware('throttle:api');
@@ -82,6 +91,8 @@ Route::prefix('v1')->group(function (): void {
             ->middleware('throttle:6,1');
 
         Route::get('/auth/mfa', [MfaController::class, 'status']);
+        Route::put('/auth/mfa/policy', [MfaController::class, 'updatePolicy'])
+            ->middleware(['permission:settings.configure', 'idempotency:required']);
         Route::post('/auth/mfa/enable', [MfaController::class, 'enable']);
         Route::post('/auth/mfa/confirm', [MfaController::class, 'confirm']);
         Route::get('/auth/mfa/qr-code', [MfaController::class, 'qrCode']);
@@ -90,9 +101,17 @@ Route::prefix('v1')->group(function (): void {
 
         Route::middleware(['verified', 'mfa'])->group(function (): void {
             Route::get('/dashboards/{experience}', [DashboardController::class, 'show']);
+            Route::get('/cbt/quizzes', [CbtController::class, 'index']);
+            Route::post('/cbt/quizzes', [CbtController::class, 'store'])->middleware(['permission:assessment.create','idempotency:required']);
+            Route::post('/cbt/quizzes/{quiz}/attempts', [CbtController::class, 'submit'])->middleware('idempotency:required');
+            Route::post('/ai/assistant', [AiToolController::class, 'assistant'])->middleware(['permission:ai.generate', 'throttle:ai', 'quota:ai_requests_per_day']);
+            Route::post('/ai/assessment', [AiToolController::class, 'assessment'])->middleware(['permission:assessment.create', 'throttle:ai', 'quota:ai_requests_per_day']);
             Route::post('/sync', [SyncController::class, 'store'])->middleware('idempotency:required');
 
             Route::get('/personal/plans', [PersonalPlanController::class, 'index']);
+            Route::get('/lesson-plans', [LessonPlanController::class, 'index'])->middleware('permission:ai.generate');
+            Route::post('/lesson-plans', [LessonPlanController::class, 'store'])->middleware(['permission:ai.generate', 'idempotency:required']);
+            Route::put('/lesson-plans/{lessonPlan}', [LessonPlanController::class, 'update'])->middleware(['permission:ai.generate', 'idempotency:required']);
             Route::post('/personal/plans', [PersonalPlanController::class, 'store'])->middleware('idempotency:required');
             Route::patch('/personal/plans/{planItem}', [PersonalPlanController::class, 'update'])->middleware('idempotency:required');
             Route::delete('/personal/plans/{planItem}', [PersonalPlanController::class, 'destroy'])->middleware('idempotency:required');
@@ -100,10 +119,14 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/lookups/student-registration', [StudentController::class, 'lookups'])->middleware('permission:students.create');
             Route::get('/lookups/staff-registration', [EmployeeController::class, 'lookups'])->middleware('permission:users.manage');
             Route::get('/custom-fields/{entity}', [CustomFieldController::class, 'show'])->middleware('permission:settings.configure');
+            Route::put('/settings/branding', [BrandingController::class, 'update'])->middleware(['permission:settings.configure', 'idempotency:required']);
+            Route::get('/module-data/{module}', [ModuleDataController::class, 'show'])->middleware('permission:students.view');
+            Route::put('/module-data/{module}', [ModuleDataController::class, 'update'])->middleware(['permission:settings.configure', 'idempotency:required']);
             Route::put('/custom-fields/{entity}', [CustomFieldController::class, 'update'])->middleware(['permission:settings.configure', 'idempotency:required']);
             Route::get('/students', [StudentController::class, 'index'])->middleware('permission:students.view');
             Route::get('/students/{student}', [StudentController::class, 'show'])->middleware('permission:students.view');
             Route::post('/students', [StudentController::class, 'store'])->middleware(['permission:students.create', 'quota:students', 'idempotency:required']);
+            Route::patch('/students/{student}', [StudentController::class, 'update'])->middleware(['permission:students.create', 'idempotency:required']);
 
             Route::get('/attendance/classes', [AttendanceController::class, 'classes'])->middleware('permission:attendance.view');
             Route::get('/attendance/classes/{class}', [AttendanceController::class, 'show'])->middleware('permission:attendance.view');
@@ -112,6 +135,7 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/lookups/assessment-creation', [AssessmentController::class, 'lookups'])->middleware('permission:assessment.create');
             Route::get('/assessments', [AssessmentController::class, 'index'])->middleware('permission:assessments.view');
             Route::post('/assessments', [AssessmentController::class, 'store'])->middleware(['permission:assessment.create', 'idempotency:required']);
+            Route::patch('/assessments/{assessment}', [AssessmentController::class, 'update'])->middleware(['permission:assessment.create', 'idempotency:required']);
             Route::get('/assessments/{assessment}/scores', [AssessmentController::class, 'scores'])->middleware('permission:assessments.view');
             Route::put('/assessments/{assessment}/scores', [AssessmentController::class, 'updateScores'])->middleware(['permission:scores.edit', 'idempotency:required']);
 
@@ -137,11 +161,20 @@ Route::prefix('v1')->group(function (): void {
             Route::post('/announcements', [AnnouncementController::class, 'store'])->middleware(['permission:settings.configure', 'idempotency:required']);
             Route::get('/messages', [MessageController::class, 'index'])->middleware('permission:students.view');
             Route::post('/messages', [MessageController::class, 'store'])->middleware(['permission:students.view', 'idempotency:required']);
+            Route::get('/smartmark/batches', [SmartmarkController::class, 'index'])->middleware('permission:assessments.view');
+            Route::post('/smartmark/batches', [SmartmarkController::class, 'store'])->middleware(['permission:scores.edit', 'throttle:uploads', 'idempotency:required']);
+            Route::get('/smartmark/batches/{batch}', [SmartmarkController::class, 'show'])->middleware('permission:assessments.view');
+            Route::patch('/smartmark/sheets/{sheet}', [SmartmarkController::class, 'review'])->middleware(['permission:scores.edit', 'idempotency:required']);
+            Route::post('/smartmark/batches/{batch}/commit', [SmartmarkController::class, 'commit'])->middleware(['permission:scores.edit', 'idempotency:required']);
+            Route::get('/notifications', [NotificationController::class, 'index']);
+            Route::patch('/notifications/read-all', [NotificationController::class, 'markAllRead'])->middleware('idempotency:required');
+            Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markRead'])->middleware('idempotency:required');
 
             Route::get('/departments', [DepartmentController::class, 'index'])->middleware('permission:users.manage');
             Route::post('/departments', [DepartmentController::class, 'store'])->middleware(['permission:users.manage', 'idempotency:required']);
             Route::get('/employees', [EmployeeController::class, 'index'])->middleware('permission:users.manage');
             Route::post('/employees', [EmployeeController::class, 'store'])->middleware(['permission:users.manage', 'idempotency:required']);
+            Route::patch('/employees/{employee}', [EmployeeController::class, 'update'])->middleware(['permission:users.manage', 'idempotency:required']);
 
             Route::get('/invites', [InviteController::class, 'index'])->middleware('permission:users.manage');
             Route::post('/invites', [InviteController::class, 'store'])->middleware(['permission:users.manage', 'idempotency:required']);
@@ -165,6 +198,7 @@ Route::prefix('v1')->group(function (): void {
             Route::middleware('permission:platform.view')->prefix('platform')->group(function (): void {
                 Route::get('/overview', [PlatformController::class, 'overview']);
                 Route::get('/schools', [PlatformController::class, 'schools']);
+                Route::patch('/schools/{tenant}/status', [PlatformController::class, 'updateSchoolStatus'])->middleware('idempotency:required');
                 Route::get('/subscriptions', [PlatformController::class, 'subscriptions']);
                 Route::get('/usage', [PlatformController::class, 'usage']);
                 Route::get('/support', [PlatformController::class, 'support']);

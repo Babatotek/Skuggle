@@ -21,7 +21,7 @@ Laravel 13 requires **PHP 8.3+**.
 
 ## Environment
 
-1. Copy `.env.shared.example` to `application/.env`.
+1. Copy `.env.example` to `application/.env` and apply the shared-hosting values below.
 2. Set `DB_HOST=localhost`, database name/user/password from hPanel → Databases.
 3. Shared profile uses **database** drivers for session, cache, and queue.
 4. Set `READY_REQUIRES_REDIS=false`, `STORAGE_LOCAL_ALLOWED=true`, `CLAMAV_REQUIRED_IN_PRODUCTION=false`.

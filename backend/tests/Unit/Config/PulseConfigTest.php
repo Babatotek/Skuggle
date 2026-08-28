@@ -87,7 +87,7 @@ class PulseConfigTest extends TestCase
         $source = file_get_contents(app_path('Providers/PulseServiceProvider.php'));
 
         $this->assertStringContainsString('viewPulse', $source);
-        $this->assertStringContainsString('PULSE_ADMIN_EMAILS', $source);
+        $this->assertStringContainsString("config('skuggle.observability.pulse_admin_emails'", $source);
     }
 
     #[Test]

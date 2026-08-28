@@ -5,7 +5,7 @@ namespace Tests\Unit\Services;
 use App\Domain\Tenancy\TenantContext;
 use App\Models\Tenant;
 use App\Services\LookupCacheService;
-use Illuminate\Support\Env;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Cache;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -91,19 +91,16 @@ class LookupCacheServiceTest extends TestCase
     #[Test]
     public function curriculum_ttl_defaults_to_300_seconds(): void
     {
-        unset($_ENV['CACHE_CURRICULUM_TTL_SECONDS'], $_SERVER['CACHE_CURRICULUM_TTL_SECONDS']);
-        Env::enablePutenv();
+        Config::set('skuggle.cache_ttl.curriculum', 300);
         $this->assertSame(300, $this->service->curriculumTtl());
     }
 
     #[Test]
     public function curriculum_ttl_is_configurable_via_env(): void
     {
-        $_ENV['CACHE_CURRICULUM_TTL_SECONDS'] = $_SERVER['CACHE_CURRICULUM_TTL_SECONDS'] = '600';
-        Env::enablePutenv();
+        Config::set('skuggle.cache_ttl.curriculum', 600);
         $this->assertSame(600, $this->service->curriculumTtl());
-        unset($_ENV['CACHE_CURRICULUM_TTL_SECONDS'], $_SERVER['CACHE_CURRICULUM_TTL_SECONDS']);
-        Env::enablePutenv();
+        Config::set('skuggle.cache_ttl.curriculum', 300);
     }
 
     // -----------------------------------------------------------------------

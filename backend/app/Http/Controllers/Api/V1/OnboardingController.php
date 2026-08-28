@@ -175,10 +175,11 @@ class OnboardingController extends Controller
         $data = $request->validate([
             'ca1Weight' => ['required', 'integer', 'min:0', 'max:100'],
             'ca2Weight' => ['required', 'integer', 'min:0', 'max:100'],
+            'midTermWeight' => ['nullable', 'integer', 'min:0', 'max:100'],
             'examWeight' => ['required', 'integer', 'min:0', 'max:100'],
         ]);
 
-        if (($data['ca1Weight'] + $data['ca2Weight'] + $data['examWeight']) !== 100) {
+        if (($data['ca1Weight'] + $data['ca2Weight'] + ($data['midTermWeight'] ?? 0) + $data['examWeight']) !== 100) {
             return ApiResponse::error('INVALID_WEIGHTS', 'Assessment weights must total 100%.', 422);
         }
 
@@ -187,6 +188,7 @@ class OnboardingController extends Controller
         data_set($settings, 'assessment_structure', [
             'ca1_weight' => $data['ca1Weight'],
             'ca2_weight' => $data['ca2Weight'],
+            'mid_term_weight' => $data['midTermWeight'] ?? 0,
             'exam_weight' => $data['examWeight'],
         ]);
         $tenant->update(['settings' => $settings]);

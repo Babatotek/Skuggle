@@ -40,6 +40,7 @@ class RegistrationController extends Controller
                     'contact' => ['email' => $request->string('schoolEmail')->toString(), 'phone' => $request->string('phone')->toString(), 'address' => $request->string('address')->toString()],
                     'profile' => ['school_type' => $request->string('schoolType')->toString(), 'school_level' => $request->string('schoolLevel')->toString()],
                     'branding' => ['primary_colour' => $request->input('primaryColor', '#5B36E8')],
+                    'security' => ['require_mfa_for_privileged_roles' => false],
                 ],
                 'quota_limits' => ['users' => 250, 'students' => 1000, 'storage_bytes' => 5368709120, 'ai_requests_per_day' => 250],
                 'quota_usage' => ['users' => 1, 'students' => 0, 'storage_bytes' => 0],

@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Auth;
 
-use Illuminate\Auth\Notifications\VerifyEmail;
+use App\Notifications\SubscriptionApprovedNotification;
+use App\Notifications\VerifyEmailNotification;
+use App\Notifications\WelcomeToSkuggleNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\URL;
@@ -29,6 +31,7 @@ class EmailVerificationTest extends TestCase
 
     public function test_signed_verification_link_marks_email_verified(): void
     {
+        Notification::fake();
         ['user' => $user] = $this->makeTenantUser('school_admin', [], [
             'email_verified_at' => null,
         ]);
@@ -44,6 +47,7 @@ class EmailVerificationTest extends TestCase
         $response->assertRedirect();
         $this->assertTrue($user->fresh()->hasVerifiedEmail());
         $this->assertStringContainsString('status=success', (string) $response->headers->get('Location'));
+        Notification::assertSentTo($user, WelcomeToSkuggleNotification::class);
     }
 
     public function test_resend_verification_sends_notification(): void
@@ -58,6 +62,22 @@ class EmailVerificationTest extends TestCase
             ->postJson('/api/v1/auth/email/verification-notification');
 
         $response->assertOk();
-        Notification::assertSentTo($user, VerifyEmail::class);
+        Notification::assertSentTo($user, VerifyEmailNotification::class);
+    }
+
+    public function test_transactional_email_templates_are_branded_and_actionable(): void
+    {
+        $user = new \App\Models\User(['name' => 'Demo Client', 'email' => 'client@example.test']);
+        $user->public_id = '01TESTPUBLICID0000000000000';
+
+        $verification = (new VerifyEmailNotification)->toMail($user)->render();
+        $welcome = (new WelcomeToSkuggleNotification)->toMail($user)->render();
+        $subscription = (new SubscriptionApprovedNotification('Enterprise', '30 September 2026'))->toMail($user)->render();
+
+        foreach ([$verification, $welcome, $subscription] as $html) {
+            $this->assertStringContainsString('Skuggle', $html);
+            $this->assertStringContainsString('skuggle-logo.png', $html);
+            $this->assertStringContainsString('One identity. Every learning space.', $html);
+        }
     }
 }

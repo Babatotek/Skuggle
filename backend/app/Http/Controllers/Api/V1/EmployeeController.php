@@ -89,6 +89,18 @@ class EmployeeController extends Controller
         return ApiResponse::success($this->present($employee->load('department')), [], 201);
     }
 
+    public function update(string $employee, Request $request): JsonResponse
+    {
+        $record = Employee::query()->where('public_id', $employee)->firstOrFail();
+        $data = $request->validate([
+            'name' => ['sometimes', 'string', 'max:180'], 'employment_type' => ['sometimes', 'string', 'max:48'],
+            'status' => ['sometimes', 'in:active,suspended,inactive'], 'started_at' => ['nullable', 'date'],
+        ]);
+        $record->fill($data)->save();
+
+        return ApiResponse::success($this->present($record->fresh('department')));
+    }
+
     private function present(Employee $item): array
     {
         $meta = is_array($item->metadata) ? $item->metadata : [];

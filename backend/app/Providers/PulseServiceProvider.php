@@ -35,10 +35,7 @@ class PulseServiceProvider extends ServiceProvider
                 return true;
             }
 
-            $allowed = array_filter(array_map(
-                'trim',
-                explode(',', (string) env('PULSE_ADMIN_EMAILS', env('HORIZON_ADMIN_EMAILS', '')))
-            ));
+            $allowed = (array) config('skuggle.observability.pulse_admin_emails', []);
 
             return in_array($user->email, $allowed, true);
         });

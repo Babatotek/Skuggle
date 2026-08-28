@@ -37,7 +37,7 @@ final class LookupCacheService
 
     public function curriculumTtl(): int
     {
-        return (int) (env('CACHE_CURRICULUM_TTL_SECONDS') ?: 300);
+        return (int) config('skuggle.cache_ttl.curriculum', 300);
     }
 
     /** @param callable(): array $callback */
@@ -62,7 +62,7 @@ final class LookupCacheService
 
     public function subjectsTtl(): int
     {
-        return (int) (env('CACHE_SUBJECTS_TTL_SECONDS') ?: 120);
+        return (int) config('skuggle.cache_ttl.subjects', 120);
     }
 
     /** @param callable(): array $callback */
@@ -87,7 +87,7 @@ final class LookupCacheService
 
     public function classesTtl(): int
     {
-        return (int) (env('CACHE_CLASSES_TTL_SECONDS') ?: 120);
+        return (int) config('skuggle.cache_ttl.classes', 120);
     }
 
     /** @param callable(): array $callback */

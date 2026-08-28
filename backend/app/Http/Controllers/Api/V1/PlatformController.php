@@ -14,6 +14,7 @@ use App\Models\Tenant;
 use App\Models\TenantMembership;
 use App\Models\User;
 use App\Support\ApiResponse;
+use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -96,6 +97,16 @@ class PlatformController extends Controller
                 'lastPage' => $paginator->lastPage(),
             ],
         ]);
+    }
+
+    public function updateSchoolStatus(Request $request, string $tenant, AuditLogger $audit): JsonResponse
+    {
+        $record = Tenant::query()->where('public_id', $tenant)->where('type', 'school')->firstOrFail();
+        $data = $request->validate(['status' => ['required', 'in:active,suspended,trial']]);
+        $before = $record->status;
+        $record->update(['status' => $data['status']]);
+        $audit->record('platform.tenant.status_updated', $record, ['status' => $before], ['status' => $record->status]);
+        return ApiResponse::success($this->presentTenant($record));
     }
 
     public function usage(): JsonResponse

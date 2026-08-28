@@ -11,6 +11,7 @@ use App\Models\Campus;
 use App\Models\TenantMembership;
 use App\Models\Term;
 use App\Models\User;
+use App\Notifications\WelcomeToSkuggleNotification;
 use App\Services\AuditLogger;
 use App\Support\ApiResponse;
 use Illuminate\Auth\Events\Verified;
@@ -287,6 +288,7 @@ class AuthController extends Controller
             $user->markEmailAsVerified();
             event(new Verified($user));
             $this->auditVerification($user);
+            $user->notify(new WelcomeToSkuggleNotification);
         }
 
         return redirect()->away("{$frontend}/verify-email?status=success");

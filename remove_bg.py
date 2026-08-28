@@ -9,8 +9,8 @@ try:
     from rembg import remove
     from PIL import Image
     
-    input_path = r"c:\Skuggle\figma\SkuggleAI.png"
-    output_path = r"c:\Skuggle\public\skuggle-ai-login-new.png"
+    input_path = r"c:\Skuggle\figma\skuggleAi_.png"
+    output_path = r"c:\Skuggle\src\assets\images\skuggle-mascot-transparent.png"
     
     print("Loading image...")
     input_img = Image.open(input_path)

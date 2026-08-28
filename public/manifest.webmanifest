@@ -1,0 +1,16 @@
+{
+  "name": "Skuggle School Operating & Learning Intelligence Platform",
+  "short_name": "Skuggle",
+  "description": "Secure school operations and learning intelligence for Nigerian schools.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#fffcf7",
+  "theme_color": "#4f46e5",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/maskable-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

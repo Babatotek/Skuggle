@@ -13,6 +13,8 @@ use App\Models\PlatformSupportMessage;
 use App\Models\PlatformSupportTicket;
 use App\Models\Subscription;
 use App\Models\Tenant;
+use App\Models\TenantMembership;
+use App\Notifications\SubscriptionApprovedNotification;
 use App\Services\AuditLogger;
 use App\Services\DatabaseBackupService;
 use App\Support\ApiResponse;
@@ -218,6 +220,7 @@ class PlatformOpsController extends Controller
             'gateway' => ['nullable', 'string', 'max:40'],
         ]);
 
+        $wasPaid = $invoice->status === 'paid';
         $invoice->forceFill([
             'status' => 'paid',
             'paid_at' => now(),
@@ -225,6 +228,37 @@ class PlatformOpsController extends Controller
             'gateway' => $data['gateway'] ?? $invoice->gateway,
             'receipt_url' => $invoice->receipt_url ?: '/platform/invoices/'.$invoice->public_id.'/receipt',
         ])->save();
+
+        if (! $wasPaid && $invoice->subscription_id) {
+            $subscription = Subscription::query()->withoutGlobalScopes()->with('plan')->find($invoice->subscription_id);
+            if ($subscription) {
+                $subscription->forceFill(['status' => 'active', 'starts_at' => $subscription->starts_at ?: now()])->save();
+                Tenant::query()->whereKey($invoice->tenant_id)->update([
+                    'subscription_plan' => $subscription->plan?->code,
+                    'subscription_status' => 'active',
+                    'subscription_started_at' => $subscription->starts_at,
+                    'subscription_expires_at' => $subscription->current_period_ends_at,
+                ]);
+
+                $admins = TenantMembership::query()
+                    ->with(['user', 'role'])
+                    ->where('tenant_id', $invoice->tenant_id)
+                    ->where('status', 'active')
+                    ->get()
+                    ->filter(fn (TenantMembership $membership): bool => in_array($membership->role?->name, ['school_admin', 'admin'], true));
+
+                foreach ($admins as $membership) {
+                    try {
+                        $membership->user?->notify(new SubscriptionApprovedNotification(
+                            $subscription->plan?->name ?? 'School',
+                            $subscription->current_period_ends_at?->toFormattedDateString(),
+                        ));
+                    } catch (\Throwable $e) {
+                        report($e);
+                    }
+                }
+            }
+        }
 
         $audit->record('platform.invoice.paid', $invoice);
         $invoice->load(['tenant:id,public_id,name,code', 'plan:id,public_id,code,name']);

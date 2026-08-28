@@ -1,587 +1,611 @@
 export type UserRole =
-  | 'landing'
-  | 'school_admin'
-  | 'teacher'
-  | 'principal'
-  | 'super_admin'
-  | 'parent'
-  | 'student'
-  | 'bursar'
-  | 'examination_officer';
+  | 'School Admin'
+  | 'Principal'
+  | 'Teacher'
+  | 'Parent'
+  | 'Student'
+  | 'Bursar'
+  | 'Platform Owner';
 
-export interface UserProfile {
+export type Persona = 'school' | 'teacher' | 'parent' | 'student' | 'platform';
+
+// Short convenience aliases for components
+export interface Student {
   id: string;
-  name: string;
-  roleTitle: string;
-  role: UserRole;
-  avatar: string;
-  schoolName: string;
-  schoolCode: string;
-  email?: string;
-  unreadNotifications?: number;
-}
-
-export type StudentStatus =
-  | 'Active'
-  | 'Applicant'
-  | 'Suspended'
-  | 'Withdrawn'
-  | 'Transferred'
-  | 'Graduated'
-  | 'Alumni'
-  | 'Archived';
-
-export interface StudentRecord {
-  id: string;
-  admissionNo: string;
-  name: string;
   firstName: string;
   lastName: string;
-  photo: string;
-  class: string;
-  classArm: string;
+  admissionNo: string;
+  classLevel: string;
+  arm: string;
   gender: 'Male' | 'Female';
-  status: StudentStatus;
-  dob: string;
-  stateOfOrigin: string;
-  localGovernmentArea?: string;
-  countryCode?: string;
-  nationality: string;
-  admissionDate: string;
+  dateOfBirth: string;
   guardianName: string;
   guardianPhone: string;
   guardianEmail: string;
-  guardianRelationship: string;
-  currentAverage: number;
   attendanceRate: number;
-  feesStatus: 'Paid' | 'Partial' | 'Overdue';
-  outstandingFees: number;
-  trend: 'improving' | 'steady' | 'declining';
-  trendPercent: number;
+  termAverage: number;
+  feeStatus: 'paid' | 'partial' | 'unpaid';
+  positionInClass: number;
+  totalStudentsInClass: number;
 }
 
-export interface ClassScheduleItem {
+export interface FeeTransaction {
   id: string;
-  time: string;
-  class: string;
-  subject: string;
-  room: string;
-  status: 'Upcoming' | 'In Progress' | 'Completed';
-  attendanceTaken: boolean;
-}
-
-export interface ClassPerformanceItem {
-  id: string;
-  class: string;
-  averageScore: number;
-  trend: number;
-  sparkline: number[];
-}
-
-export interface StudentAttentionItem {
-  id: string;
-  name: string;
-  avatar: string;
-  initials: string;
-  class: string;
-  type: 'attendance' | 'low_score' | 'missing_assignment' | 'declining_performance' | 'fees';
-  tag: string;
-  detail: string;
-  severity: 'high' | 'medium' | 'low';
-}
-
-export type NotificationCategory = 'alert' | 'payment' | 'student_update' | 'system';
-export type NotificationPriority = 'urgent' | 'high' | 'normal' | 'info';
-
-export interface NotificationItem {
-  id: string;
-  title: string;
-  message?: string;
-  subtitle?: string;
-  category?: NotificationCategory;
-  priority?: NotificationPriority;
-  timestamp?: string;
-  timeAgo: string;
-  isRead?: boolean;
-  read?: boolean;
-  iconType?: 'assignment' | 'result' | 'parent' | 'meeting' | 'payment' | 'curriculum' | 'alert' | 'student' | string;
-  actionLabel?: string;
-  actionType?: string;
-  targetId?: string;
-  metadata?: {
-    amount?: number;
-    studentName?: string;
-    studentClass?: string;
-    admissionNo?: string;
-    sender?: string;
-    badgeText?: string;
-  };
-}
-
-export interface SchoolRegistrationItem {
-  id: string;
-  name: string;
-  location: string;
-  plan: 'Starter' | 'Basic' | 'Standard' | 'Growth' | 'Premium' | 'Enterprise';
-  status: 'Active' | 'Trial' | 'Pending';
-  created: string;
-  studentsCount: number;
-}
-
-export interface LessonPlan {
-  title: string;
-  subject: string;
-  className: string;
-  duration: string;
-  curriculumReference: string;
-  learningObjectives: string[];
-  previousKnowledge: string;
-  instructionalMaterials: string[];
-  steps: {
-    stepNumber: number;
-    title: string;
-    duration: string;
-    teacherActivity: string;
-    studentActivity: string;
-    keyPoints: string;
-  }[];
-  evaluationQuestions: string[];
-  homework: string;
-  teacherRemarks: string;
-}
-
-export interface AssessmentQuestion {
-  id: string;
-  question: string;
-  options: string[];
-  correctAnswer: string;
-  explanation: string;
-  topic: string;
-  difficulty: 'easy' | 'medium' | 'hard';
-}
-
-export interface SmartMarkScanResult {
-  assessmentId: string;
-  detectedStudentId: string;
+  studentId: string;
   studentName: string;
-  classArm: string;
-  subject: string;
-  totalQuestions: number;
-  score: number;
-  percentage: number;
-  status: 'Auto Marked' | 'Review Required';
-  flaggedExceptions: number;
-  responses: Record<number, {
-    selected: string;
-    confidence: number;
-    isUncertain: boolean;
-    correct: string;
-  }>;
-  scannedAt: string;
-}
-
-export interface TerminalReportCard {
-  student: StudentRecord;
-  school: {
-    name: string;
-    address: string;
-    motto: string;
-    logo: string;
-    contact: string;
-  };
-  session: string;
-  term: string;
-  classAverage: number;
-  position: string;
-  totalSubjects: number;
-  subjects: {
-    name: string;
-    ca1: number; // /10
-    ca2: number; // /10
-    assignment: number; // /10
-    project: number; // /10
-    exam: number; // /60
-    total: number; // /100
-    grade: string;
-    remark: string;
-    classAverage: number;
-  }[];
-  behavioral: {
-    punctuality: number; // 1-5
-    attentiveness: number;
-    neatness: number;
-    politeness: number;
-    honesty: number;
-    leadership: number;
-  };
-  attendance: {
-    daysPresent: number;
-    daysSchoolOpened: number;
-    daysLate: number;
-    daysAbsent: number;
-  };
-  classTeacherRemarks: string;
-  principalRemarks: string;
-  nextTermBegins: string;
-}
-
-export type ResourceType =
-  | 'document'
-  | 'presentation'
-  | 'worksheet'
-  | 'past_question'
-  | 'scheme_of_work'
-  | 'link'
-  | 'video'
-  | 'audio';
-
-export type ResourceFolderCategory =
-  | 'Syllabus'
-  | 'Assignments'
-  | 'Exams'
-  | 'Lecture Notes'
-  | 'Lab & Practicals'
-  | 'General'
-  | string;
-
-export interface MLClassificationResult {
-  predictedCategory: ResourceFolderCategory;
-  /** Alias used by some library UI surfaces; prefer predictedCategory. */
-  primaryCategory?: ResourceFolderCategory;
-  confidence: number; // 0 - 100
-  reasoning: string;
-  keyFeatures: string[]; // trigger terms/keywords extracted
-  secondaryPredictions: { category: ResourceFolderCategory; probability: number }[];
-  /** Alias for secondaryPredictions in older UI bindings. */
-  secondaryCategories?: {
-    category: ResourceFolderCategory;
-    probability: number;
-    confidence?: number;
-  }[];
-  suggestedTags: string[];
-  difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
-  readingTimeMinutes?: number;
-  classifiedAt: string;
-  modelType: 'ML-Bayes-NLP' | 'Gemini-3.7-Flash' | 'Hybrid-Ensemble';
-  /** Optional classifier provenance tag (e.g. gemini_flash). */
-  source?: string;
-}
-
-export interface ResourceFolderInfo {
-  id: string;
-  name: ResourceFolderCategory;
-  description: string;
-  color: string;
-  iconName: string;
-  isSystem: boolean;
-}
-
-export interface OcrPageResult {
-  pageNumber: number;
-  text: string;
-  confidence: number;
-  wordCount: number;
-  highlightSnippets?: string[];
-}
-
-export interface ResourceAISummary {
-  briefSummary: string;
-  keyTakeaways: string[];
-  coreConcepts: string[];
-  studentActionableTip: string;
-  readingLevel: string;
-  estimatedReadTime: string;
-  targetExam?: string;
-  generatedAt: string;
-  model: string;
-}
-
-export interface ResourceItem {
-  id: string;
+  admissionNo: string;
+  amount: number;
+  currency: string;
   title: string;
-  description: string;
-  subject: string;
-  classLevels: string[];
-  term: string;
-  resourceType: ResourceType;
-  fileFormat: string;
-  fileSize?: string;
-  url?: string;
-  externalLink?: string;
-  tags: string[];
-  author: string;
-  authorRole: string;
-  authorAvatar?: string;
-  uploadedAt: string;
-  downloadCount: number;
-  viewCount: number;
-  isPinned?: boolean;
-  isSharedWithStudents: boolean;
-  isSharedWithParents: boolean;
-  curriculumStandard?: string;
-  contentPreview?: string;
-  weekNumber?: number;
-  // AI Summary for student quick preview
-  aiSummary?: ResourceAISummary;
-  // Folder & ML Categorization properties
-  folderCategory?: ResourceFolderCategory;
-  mlClassification?: MLClassificationResult;
-  // OCR searchable properties
-  ocrText?: string;
-  ocrPages?: OcrPageResult[];
-  ocrStatus?: 'ready' | 'processing' | 'failed' | 'none';
-  ocrLanguage?: string;
-  ocrConfidence?: number;
-  // Sticky-note style annotations
-  annotations?: ResourceAnnotation[];
+  status: 'paid' | 'pending' | 'failed';
+  paymentMethod: string;
+  receiptNumber: string;
+  date: string;
 }
 
-export interface ResourceAnnotation {
+export interface TenantBranding {
+  schoolId: string;
+  schoolName: string;
+  shortName?: string; // e.g. 'Crown Heights' or 'CHIA'
+  schoolCode: string;
+  motto?: string;
+  logoUrl: string;
+  primaryColor: string; // e.g. '#4F46E5'
+  secondaryColor: string; // e.g. '#7C3AED'
+  accentColor?: string; // e.g. '#F59E0B'
+  backgroundStyle?: 'dark-slate' | 'deep-primary' | 'crest-glow' | 'minimal-clean';
+  animationStyle?: 'smooth-scale' | 'kinetic-reveal' | 'crest-focal';
+  portalSlug?: string; // e.g. 'crownheights' (skuggle.app/crownheights)
+  welcomeMessage?: string;
+  showPoweredBySkuggle?: boolean;
+  address: string;
+  city: string;
+  state: string;
+  email: string;
+  phone: string;
+  isPublished: boolean;
+  contrastRatio?: number;
+  contrastValid?: boolean;
+  academicSession: string; // e.g. '2025/2026'
+  currentTerm: string; // e.g. 'First Term'
+}
+
+export interface WorkspaceItem {
   id: string;
-  resourceId: string;
-  author: string;
-  authorRole: 'teacher' | 'student' | 'admin';
-  authorAvatar?: string;
-  text: string;
-  color: 'yellow' | 'blue' | 'green' | 'pink' | 'purple';
-  positionX: number; // percentage 0-100 on page
-  positionY: number; // percentage 0-100 on page
-  pageNumber: number;
+  name: string;
+  type: 'personal' | 'school' | 'platform';
+  role: UserRole;
+  persona?: Persona;
+  logoUrl?: string;
+  schoolCode?: string;
+  portalSlug?: string;
+  attentionCount?: number;
+  unreadMessages?: number;
+  activeSession?: string;
+  activeTerm?: string;
+  isOwner?: boolean;
+}
+
+export interface TeacherProfileData {
+  photoUrl?: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  subjectsTaught: string[];
+  classesTaught: string[];
+  curriculumUsed: string; // 'NERDC', 'British/Cambridge', 'Hybrid NERDC-Cambridge', 'Montessori'
+  yearsOfExperience: number;
+  qualifications: string; // 'B.Ed, TRCN Certified', 'PGDE', 'B.Sc'
+  location: string;
+  teachingPreferences: string[];
+  schoolAffiliations: string[];
+}
+
+export interface ChildLinkData {
+  childId: string;
+  childName: string;
+  admissionNo: string;
+  schoolName: string;
+  schoolCode: string;
+  classLevel: string;
+  arm: string;
+  linkCode: string;
+  linkedDate: string;
+  status: 'Verified' | 'Pending Verification';
+}
+
+export interface InvitationRecord {
+  id: string;
+  schoolId: string;
+  schoolName: string;
+  recipientName: string;
+  recipientEmail?: string;
+  recipientPhone?: string;
+  targetRole: UserRole;
+  token: string;
+  inviteLink: string;
+  expiresAt: string;
+  isUsed: boolean;
+  isRevoked: boolean;
   createdAt: string;
-  isResolved?: boolean;
-  replies?: {
-    id: string;
-    author: string;
-    authorRole: string;
-    text: string;
-    createdAt: string;
+}
+
+export interface PrintableCredentialCard {
+  id: string;
+  schoolId: string;
+  schoolName: string;
+  fullName: string;
+  role: UserRole;
+  identifier: string; // Username or Admission No
+  temporaryPassword: string;
+  classOrDepartment: string;
+  qrCodeValue: string;
+  mustChangePasswordOnLogin: boolean;
+  generatedDate: string;
+}
+
+export type SubscriptionPlanType =
+  | 'personal_teacher_free'
+  | 'student_free'
+  | 'parent_free'
+  | 'school_starter_free'
+  | 'personal_pro'
+  | 'school_core'
+  | 'intelligence_addon'
+  | 'enterprise';
+
+export interface PlanFeature {
+  name: string;
+  included: boolean;
+  limit?: string;
+  description?: string;
+}
+
+export interface SubscriptionPlan {
+  id: SubscriptionPlanType;
+  category: 'personal' | 'school' | 'addon';
+  name: string;
+  tagline: string;
+  priceNGN: number;
+  billingPeriod: 'free' | 'per_term_per_student' | 'monthly' | 'yearly';
+  features: PlanFeature[];
+  studentLimit?: number;
+  staffLimit?: number;
+  highlight?: boolean;
+}
+
+export interface CurrentUser {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  avatarUrl?: string;
+  verified: boolean;
+  currentWorkspace: WorkspaceItem;
+  availableWorkspaces: WorkspaceItem[];
+  teachingGrowthStreak?: number;
+  timeSavedMinutes?: number;
+  teacherProfile?: TeacherProfileData;
+  linkedChildren?: ChildLinkData[];
+}
+
+// Student 360 Record
+export interface StudentRecord {
+  id: string;
+  admissionNo: string;
+  firstName: string;
+  lastName: string;
+  otherName?: string;
+  gender: 'Male' | 'Female';
+  dateOfBirth: string;
+  classLevel: string; // e.g. 'JSS 2'
+  arm: string; // e.g. 'Gold', 'A'
+  status: 'Active' | 'Suspended' | 'Graduated' | 'Transferred';
+  photoUrl: string;
+  guardianId: string;
+  guardianName: string;
+  guardianRelationship: 'Father' | 'Mother' | 'Guardian';
+  guardianPhone: string;
+  guardianEmail: string;
+  attendanceRate: number; // e.g. 96 (%)
+  termAverage: number; // e.g. 84.5 (%)
+  positionInClass?: number;
+  totalStudentsInClass?: number;
+  feesStatus: 'Paid' | 'Partial' | 'Pending';
+  balanceDue: number;
+  academicHistory?: {
+    term: string;
+    session: string;
+    average: number;
+    grade: string;
+    remarks: string;
   }[];
 }
 
-export interface SmartQuizQuestion {
+// Staff Member
+export interface StaffMember {
   id: string;
-  question: string;
-  options: string[];
-  correctIndex: number;
-  explanation: string;
-  learningOutcome: string;
-  difficulty: 'Easy' | 'Medium' | 'Hard';
+  staffNo: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  role: UserRole;
+  campus: string;
+  assignedClasses: string[];
+  assignedSubjects: string[];
+  /** Compatibility alias used by compact staff cards. */
+  subjects?: string[];
+  status: 'Active' | 'Pending Invitation' | 'Suspended';
+  temporaryPassword?: string;
+  invitedAt?: string;
+  avatarUrl?: string;
 }
 
-export interface SmartQuiz {
+// Academic Setup
+export interface AcademicSession {
+  id: string;
+  name: string; // e.g. '2025/2026'
+  isCurrent: boolean;
+  startDate: string;
+  endDate: string;
+}
+
+export interface AcademicTerm {
+  id: string;
+  sessionId: string;
+  name: string; // e.g. 'First Term'
+  isCurrent: boolean;
+  startDate: string;
+  endDate: string;
+}
+
+export interface ClassLevel {
+  id: string;
+  name: string; // e.g. 'JSS 1', 'JSS 2', 'Primary 4'
+  category: 'Nursery' | 'Primary' | 'Junior Secondary' | 'Senior Secondary';
+  arms: string[]; // e.g. ['Diamond', 'Gold', 'Emerald']
+  subjects: string[];
+}
+
+export interface SubjectItem {
+  id: string;
+  code: string;
+  name: string; // e.g. 'Mathematics', 'Basic Science', 'English Language'
+  category: 'General' | 'Science' | 'Arts' | 'Commercial' | 'Vocational';
+  applicableLevels: string[];
+}
+
+// Attendance
+export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
+
+export interface AttendanceEntry {
+  studentId: string;
+  status: AttendanceStatus;
+  remark?: string;
+}
+
+export interface AttendanceSheet {
+  id: string;
+  classLevel: string;
+  arm: string;
+  date: string; // YYYY-MM-DD
+  term: string;
+  session: string;
+  takenBy: string;
+  entries: AttendanceEntry[];
+  isSynced: boolean;
+  lastUpdated: string;
+}
+
+// Assessment & Grading
+export interface AssessmentWeightConfig {
+  ca1Weight: number; // e.g. 15
+  ca2Weight: number; // e.g. 15
+  midTermWeight: number; // e.g. 10
+  terminalExamWeight: number; // e.g. 60
+  total: number; // 100
+}
+
+export interface StudentScoreEntry {
+  id?: string;
+  studentId: string;
+  studentName?: string;
+  ca1: number;
+  ca2: number;
+  midTerm: number;
+  exam: number;
+  total: number;
+  grade: 'A1' | 'B2' | 'B3' | 'C4' | 'C5' | 'C6' | 'D7' | 'E8' | 'F9';
+  teacherRemark: string;
+}
+
+export interface AssessmentRecord {
   id: string;
   title: string;
-  sourceDocumentId?: string;
-  sourceDocumentTitle?: string;
   subject: string;
   classLevel: string;
-  learningOutcomes: string[];
-  questions: SmartQuizQuestion[];
-  totalPoints: number;
-  timeLimitMinutes: number;
-  createdAt: string;
+  arm: string;
+  term: string;
+  session: string;
+  teacherId: string;
+  teacherName: string;
+  weights: AssessmentWeightConfig;
+  scores: StudentScoreEntry[];
+  status: 'Draft' | 'Submitted' | 'Validated' | 'Approved' | 'Published';
+  reopenReason?: string;
+  submittedAt?: string;
+  approvedAt?: string;
+  publishedAt?: string;
 }
 
-// SaaS Management Types for Super Admin & Platform Menu
-export type SaaSPlanTier = 'Starter' | 'Growth' | 'Premium' | 'Enterprise';
-export type SaaSSchoolStatus = 'Active' | 'Trial' | 'Pending' | 'Suspended' | 'Archived';
-
-export interface SaaSSchoolTenant {
-  id: string;
-  name: string;
-  code: string;
-  subdomain: string;
-  location: string;
-  state: string;
-  zone: 'South West' | 'South East' | 'South South' | 'North Central' | 'North West' | 'North East';
-  plan: SaaSPlanTier;
-  status: SaaSSchoolStatus;
-  studentsCount: number;
-  teachersCount: number;
-  adminName: string;
-  adminEmail: string;
-  adminPhone: string;
-  created: string;
-  lastActive: string;
-  storageUsedGB: number;
-  smartMarkScansCount: number;
-  geminiTokensUsed: number;
-  renewalDate: string;
-  healthScore: number; // 0-100
-  paymentGateway: 'Paystack' | 'Flutterwave' | 'Direct Bank';
+// Result PINs
+export interface ResultPINRecord {
+  id?: string;
+  pin: string;
+  serialNo: string;
+  batchId: string;
+  assignedAdmissionNo?: string;
+  term: string;
+  session: string;
+  usageCount: number;
+  maxUsage: number;
+  usedCount?: number;
+  maxUses?: number;
+  isUsed: boolean;
+  generatedDate: string;
 }
 
-export interface SaaSPlanDefinition {
+// Fees and Finance
+export interface FeeInvoice {
   id: string;
-  name: SaaSPlanTier;
-  tagline: string;
-  termlyPriceNGN: number;
-  annualPriceNGN: number;
-  maxStudents: number | 'Unlimited';
-  maxTeachers: number | 'Unlimited';
-  storageGB: number;
-  smartMarkMonthlyScans: number | 'Unlimited';
-  geminiAICredits: string;
-  smsCreditsPerTerm: number;
-  badge?: string;
-  popular?: boolean;
-  features: {
-    title: string;
-    included: boolean;
-  }[];
-  activeSchoolsCount: number;
-}
-
-export interface SaaSSubscriptionInvoice {
-  id: string;
-  invoiceNumber: string;
-  schoolId: string;
-  schoolName: string;
-  plan: SaaSPlanTier;
-  cycle: 'Termly' | 'Annual' | 'Monthly';
-  amountNGN: number;
-  discountNGN?: number;
-  status: 'Paid' | 'Pending' | 'Overdue' | 'Canceled';
-  issueDate: string;
+  invoiceNo: string;
+  studentId: string;
+  studentName: string;
+  admissionNo: string;
+  classLevel: string;
+  term: string;
+  session: string;
+  totalAmount: number;
+  paidAmount: number;
+  balance: number;
+  status: 'Paid' | 'Partial' | 'Pending' | 'Overdue';
   dueDate: string;
-  paidDate?: string;
-  gateway: 'Paystack' | 'Flutterwave' | 'NIBSS Transfer';
-  reference: string;
-  receiptUrl?: string;
+  items: {
+    name: string;
+    amount: number;
+  }[];
+  receipts: {
+    receiptNo: string;
+    amountPaid: number;
+    paymentMethod: 'Bank Transfer' | 'Card' | 'Cash' | 'POS';
+    date: string;
+    reference: string;
+  }[];
 }
 
-export interface SaaSTelemetryMetric {
-  timestamp: string;
-  apiRequests: number;
-  geminiTokens: number;
-  smartMarkScans: number;
-  activeUsers: number;
-  storageGB: number;
+// Teacher Lesson Draft
+export interface LessonPlanActivity {
+  step: string;
+  teacherActivity: string;
+  learnerActivity: string;
 }
 
-export interface SaaSSupportTicket {
+export interface TeacherLessonPlan {
   id: string;
-  ticketNumber: string;
-  schoolId: string;
-  schoolName: string;
-  requesterName: string;
-  requesterRole: string;
-  requesterEmail: string;
+  title: string;
   subject: string;
-  category: 'SmartMark OCR' | 'Gradebook & Results' | 'Billing & Subscription' | 'Portal Access' | 'Feature Request';
-  priority: 'Urgent' | 'High' | 'Medium' | 'Low';
-  status: 'Open' | 'In Progress' | 'Waiting on School' | 'Resolved' | 'Closed';
+  topic: string;
+  level: string;
+  duration: string;
+  curriculum: string;
+  theme: string;
+  behavioralObjectives: string[];
+  instructionalMaterials: string[];
+  previousKnowledge: string;
+  introduction: string;
+  activities: LessonPlanActivity[];
+  evaluation: string[];
+  homework: string;
+  provenance: string;
+  isAIGenerated: boolean;
+  isReviewed: boolean;
+  isPublished: boolean;
   createdAt: string;
-  updatedAt: string;
-  assignedAgent: string;
-  slaMinutesRemaining: number;
-  satisfactionRating?: number;
-  messages: {
-    id: string;
-    sender: string;
-    senderType: 'school' | 'support_agent' | 'system';
-    avatar?: string;
-    content: string;
-    timestamp: string;
-    attachments?: string[];
-  }[];
 }
 
-export interface SaaSSystemNode {
-  id: string;
-  name: string;
-  region: string;
-  type: 'API Microservice' | 'Database Cluster' | 'AI Inference Pool' | 'Vision OCR Worker' | 'Payment Webhook' | 'Edge CDN';
-  status: 'Healthy' | 'Degraded' | 'Maintenance' | 'Offline';
-  uptimePercentage: number;
-  latencyMs: number;
-  cpuUsage: number;
-  memoryUsage: number;
-  activeConnections: number;
+// SmartMark Optical Scanner
+export interface SmartMarkSheet {
+  sheetId: string;
+  studentId: string;
+  studentName: string;
+  admissionNo: string;
+  rawScore: number;
+  totalQuestions: number;
+  confidence: number; // 0 - 100
+  needsReview: boolean;
+  flagReason?: string;
+  detectedAnswers: Record<number, string>;
+  isReviewed: boolean;
 }
 
-export interface SaaSSystemIncident {
+export interface SmartMarkBatch {
   id: string;
   title: string;
-  impact: 'None' | 'Minor' | 'Major' | 'Critical';
-  status: 'Investigating' | 'Identified' | 'Monitoring' | 'Resolved';
-  servicesAffected: string[];
-  startTime: string;
-  resolvedTime?: string;
-  updates: {
-    time: string;
-    message: string;
-    author: string;
-  }[];
+  subject: string;
+  classLevel: string;
+  totalSheets: number;
+  processedCount: number;
+  highConfidenceCount: number;
+  flaggedCount: number;
+  status: 'Uploading' | 'Processing' | 'Requires Review' | 'Completed' | 'Posted';
+  sheets: SmartMarkSheet[];
+  createdAt: string;
 }
 
-export interface SaaSAuditLog {
+// Launch Checklist for School Admin
+export interface LaunchChecklistItem {
   id: string;
-  actor: string;
-  actorEmail: string;
-  actorRole: string;
-  action: string;
-  target: string;
-  category: 'Security' | 'Tenant' | 'Billing' | 'System' | 'AI Model';
-  ipAddress: string;
+  title: string;
+  description: string;
+  category: 'institution' | 'academics' | 'people' | 'preview';
+  isCompleted: boolean;
+  actionUrl: string;
+  requiredForLaunch: boolean;
+}
+
+export interface GuidedSetupStep {
+  id: string;
+  order: number;
+  title: string;
+  description: string;
+  completed: boolean;
+  routeTab?: string;
+  category: 'foundation' | 'academics' | 'people' | 'launch';
+}
+
+// Offline Action Queue
+export interface OfflineQueueItem {
+  id: string;
+  actionType: 'attendance_mark' | 'score_save' | 'lesson_draft_save' | 'fee_payment';
+  entityName: string;
   timestamp: string;
-  status: 'Success' | 'Warning' | 'Blocked';
+  status: 'synced' | 'pending' | 'failed';
+  retryCount: number;
+  payload?: Record<string, unknown>;
 }
 
-export interface AuthenticatedUser {
+// 1. Report Card Types
+export interface SubjectReportScore {
+  subject: string;
+  ca1: number;
+  ca2: number;
+  midTerm: number;
+  exam: number;
+  total: number;
+  grade: 'A1' | 'B2' | 'B3' | 'C4' | 'C5' | 'C6' | 'D7' | 'E8' | 'F9';
+  classAverage: number;
+  highestInClass: number;
+  lowestInClass: number;
+  teacherRemark: string;
+}
+
+export interface PsychomotorRating {
+  skill: string;
+  rating: 1 | 2 | 3 | 4 | 5; // 5 = Excellent
+}
+
+export interface ReportCard {
+  id: string;
+  studentId: string;
+  studentName: string;
+  admissionNo: string;
+  classLevel: string;
+  arm: string;
+  gender: 'Male' | 'Female';
+  term: string;
+  session: string;
+  totalScore: number;
+  averageScore: number;
+  grade: string;
+  position: number;
+  totalInClass: number;
+  timesSchoolOpened: number;
+  timesPresent: number;
+  timesAbsent: number;
+  nextTermResumption: string;
+  classTeacherRemark: string;
+  principalRemark: string;
+  isPublished: boolean;
+  generatedDate: string;
+  subjects: SubjectReportScore[];
+  affectiveDomain: PsychomotorRating[];
+  psychomotorDomain: PsychomotorRating[];
+}
+
+// 2. Fee Structure & Invoicing
+export interface FeeStructureItem {
   id: string;
   name: string;
-  roleTitle?: string;
-  role: UserRole;
-  avatar?: string;
-  schoolName?: string;
-  schoolCode?: string;
-  email?: string;
-  tenant?: string | null;
-  hasSubscription?: boolean;
-  subscriptionPlan?: 'free' | 'learn_plus' | 'school' | 'enterprise';
-  unreadNotifications?: number;
+  applicableClass: string; // e.g. 'All Junior Secondary', 'JSS 1', 'All Senior Secondary'
+  amount: number;
+  isMandatory: boolean;
+  category: 'Tuition' | 'Development' | 'STEM & Lab' | 'Uniform & Books' | 'Boarding & Lunch' | 'Exam Levy';
 }
 
-export interface SaaSAnnouncement {
+// 3. Broadcast Announcement Center
+export interface BroadcastMessage {
   id: string;
   title: string;
-  summary: string;
-  body: string;
-  channel: 'In-App Banner' | 'Email Digest' | 'SMS Alert' | 'All Channels';
-  targetAudience:
-    | 'All Schools'
-    | 'School Admins Only'
-    | 'Teachers & Principals'
-    | 'Teachers Only'
-    | 'Trial Accounts';
-  publishedAt: string;
-  status: 'Sent' | 'Scheduled' | 'Draft';
+  content: string;
+  channels: ('sms' | 'whatsapp' | 'email' | 'portal')[];
+  recipients: 'all_parents' | 'all_staff' | 'all_students' | 'jss_parents' | 'sss_parents' | 'debtors';
   recipientCount: number;
-  openRatePercent: number;
+  sentBy: string;
+  sentAt: string;
+  status: 'sent' | 'scheduled' | 'draft';
+  category: 'Fee Reminder' | 'Academic Notice' | 'Emergency Alert' | 'PTA & Events' | 'Holiday Notice';
+  deliveredCount: number;
 }
 
-// Tenant Branding & Welcome Experience Types
-export type WelcomeBackgroundStyle = 'subtle_glow' | 'solid' | 'gradient';
-export type WelcomeAnimationType = 'soft_zoom' | 'fade' | 'float' | 'minimal';
-export type AuthStage = 'welcome' | 'transitioning' | 'login' | 'authenticated';
-
-export interface TenantBrandingConfig {
-  tenantId: string;
-  school_name: string;
-  school_code: string;
-  school_logo: string;
-  logo_badge_text?: string;
-  welcome_tagline?: string;
-  primary_color: string;
-  secondary_color: string;
-  accent_color?: string;
-  background_style: WelcomeBackgroundStyle;
-  welcome_animation: WelcomeAnimationType;
-  animation_duration: number; // In seconds (e.g. 2.4s)
-  show_skuggle_branding: boolean;
-  audio_enabled: boolean;
-  motto?: string;
-  crestIcon?: string;
+// 4. Timetable & Master Schedule
+export interface TimetablePeriod {
+  id: string;
+  day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday';
+  periodNumber: number;
+  startTime: string;
+  endTime: string;
+  subject: string;
+  teacherName: string;
+  teacherId: string;
+  room?: string;
 }
 
+export interface ClassTimetable {
+  id: string;
+  classLevel: string;
+  arm: string;
+  session: string;
+  term: string;
+  periods: TimetablePeriod[];
+}
+
+// 5. CBT & Quiz Module
+export interface CBTQuestion {
+  id: string;
+  text: string;
+  options: { id: string; text: string }[];
+  correctOptionId: string;
+  explanation?: string;
+}
+
+export interface CBTQuiz {
+  id: string;
+  title: string;
+  subject: string;
+  classLevel: string;
+  term: string;
+  session: string;
+  durationMinutes: number;
+  totalQuestions: number;
+  totalMarks: number;
+  passPercentage: number;
+  isPublished: boolean;
+  shuffleQuestions: boolean;
+  questions: CBTQuestion[];
+  status: 'active' | 'upcoming' | 'closed' | 'draft';
+  attemptCount: number;
+  avgScore: number;
+}
+
+export interface CBTAttempt {
+  id: string;
+  quizId: string;
+  studentId: string;
+  studentName: string;
+  score: number;
+  totalMarks: number;
+  percentage: number;
+  passed: boolean;
+  submittedAt: string;
+  answers: Record<string, string>;
+}

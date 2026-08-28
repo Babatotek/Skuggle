@@ -1,8 +1,8 @@
 # withoutGlobalScopes() Audit Register
 
-**Last audited:** 2026-08-26  
-**Total call sites:** 25  
-**Risk classification:** ✅ SAFE (17) · ⚠️ REVIEW (8) · 🚨 UNSAFE (0)
+**Last audited:** 2026-08-28  
+**Total call sites:** 27  
+**Risk classification:** ✅ SAFE (19) · ⚠️ REVIEW (8) · 🚨 UNSAFE (0)
 
 All `withoutGlobalScopes()` calls in the codebase must be listed here.
 Any new usage must be reviewed, classified, and added before merging.
@@ -34,6 +34,7 @@ Any new usage must be reviewed, classified, and added before merging.
 | 15 | `app/Http/Controllers/Api/V1/RegistrationController.php` | 149 | `TenantInvitation` | Same invite-token lookup as #14 during individual registration with invite code. Validates email match before tenant membership is created. |
 | 16 | `app/Http/Controllers/Api/V1/PublicResultController.php` | 114 | `ResultPublication` | Public result view — scoped by PK from signed cache token + `status=published`, then `setPublicTenant()` before nested queries. |
 | 17 | `app/Http/Controllers/Api/V1/PlatformOpsController.php` | 260 | `Subscription` | Platform invoice generation — cross-tenant subscription iteration. Route protected by platform ops middleware; creates invoices with explicit `tenant_id`. |
+| 26 | `app/Http/Controllers/Api/V1/PlatformOpsController.php` | 233 | `Subscription` | Platform invoice approval — loads only the subscription referenced by the platform invoice's internal foreign key. Route requires platform permission; activates that tenant's entitlement and notifies its active school administrators. |
 
 ---
 
@@ -88,7 +89,7 @@ Before adding a new bypass:
 ## Static analysis enforcement
 
 `scripts/check-global-scope-bypass.php` counts `withoutGlobalScopes()` calls
-at CI time. If the count exceeds the registered total (21), the build fails.
+at CI time. If the count exceeds the registered total (27), the build fails.
 
 Run manually:
 ```bash

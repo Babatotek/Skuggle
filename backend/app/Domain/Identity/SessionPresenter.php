@@ -18,6 +18,7 @@ final class SessionPresenter
         $membership ??= $this->context->membership();
         $tenant = $membership->tenant;
         $role = $membership->role;
+        $mfaPolicyEnabled = (bool) data_get($tenant->settings, 'security.require_mfa_for_privileged_roles', false);
         $campus = $this->findContextModel(Campus::class, session('campus_public_id'));
         $academicSession = $this->findContextModel(AcademicSession::class, session('academic_session_public_id'));
         $term = $this->findContextModel(Term::class, session('term_public_id'));
@@ -33,7 +34,8 @@ final class SessionPresenter
             'avatarUrl' => $user->avatar_url ?: data_get($user->preferences, 'avatar_url'),
             'privileged' => (bool) $role->privileged,
             'mfaConfirmed' => filled($user->two_factor_confirmed_at),
-            'mfaRequired' => (bool) $role->privileged && ! filled($user->two_factor_confirmed_at),
+            'mfaPolicyEnabled' => $mfaPolicyEnabled,
+            'mfaRequired' => $mfaPolicyEnabled && (bool) $role->privileged,
             'tenant' => [
                 'id' => $tenant->public_id,
                 'name' => $tenant->name,

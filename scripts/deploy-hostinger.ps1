@@ -84,12 +84,20 @@ try {
     New-Item -ItemType Directory -Force -Path (Join-Path $stage "application"), (Join-Path $stage "public_html") | Out-Null
 
     Invoke-Native "Stage backend" {
-        tar.exe -C (Join-Path $repo "backend") -cf - --exclude=.env --exclude=.env.* --exclude=vendor --exclude=node_modules --exclude=tests --exclude=load-tests --exclude=storage/logs . |
-            tar.exe -C (Join-Path $stage "application") -xf -
+        # public/storage is a local/development symlink and may be dangling on
+        # Windows. Production recreates it after the release is activated.
+        # Do not pipe two native tar processes in Windows PowerShell: the text
+        # pipeline can corrupt the binary tar stream.
+        $backendStageArchive = Join-Path $work "backend-stage.tar"
+        tar.exe -C (Join-Path $repo "backend") -cf $backendStageArchive --exclude=.env --exclude=.env.* --exclude=vendor --exclude=node_modules --exclude=tests --exclude=load-tests --exclude=storage/logs --exclude=public/storage .
+        if ($LASTEXITCODE -ne 0) { return }
+        tar.exe -C (Join-Path $stage "application") -xf $backendStageArchive
     }
     Invoke-Native "Stage frontend" {
-        tar.exe -C (Join-Path $repo "dist") -cf - --exclude=server.cjs --exclude=server.cjs.map . |
-            tar.exe -C (Join-Path $stage "public_html") -xf -
+        $frontendStageArchive = Join-Path $work "frontend-stage.tar"
+        tar.exe -C (Join-Path $repo "dist") -cf $frontendStageArchive --exclude=server.cjs --exclude=server.cjs.map .
+        if ($LASTEXITCODE -ne 0) { return }
+        tar.exe -C (Join-Path $stage "public_html") -xf $frontendStageArchive
     }
     Copy-Item (Join-Path $repo "backend\deploy\shared-hosting\public_html\index.php") (Join-Path $stage "public_html\index.php") -Force
     Copy-Item (Join-Path $repo "backend\deploy\shared-hosting\public_html\.htaccess") (Join-Path $stage "public_html\.htaccess") -Force
@@ -98,12 +106,23 @@ try {
     $hash = (Get-FileHash $release -Algorithm SHA256).Hash.ToLowerInvariant()
     [IO.File]::WriteAllText($checksum, "$hash  skuggle-release.tar.gz`n", [Text.UTF8Encoding]::new($false))
 
-    $ssh = @("-i", $identity, "-p", "$Port", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new", "$UserName@$HostName")
-    $scp = @("-i", $identity, "-P", "$Port", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new")
+    $sshOpts = @(
+        "-o", "BatchMode=yes",
+        "-o", "StrictHostKeyChecking=accept-new",
+        "-o", "ServerAliveInterval=15",
+        "-o", "ServerAliveCountMax=12",
+        "-o", "TCPKeepAlive=yes",
+        "-o", "Compression=yes"
+    )
+    $ssh = @("-i", $identity, "-p", "$Port") + $sshOpts + @("$UserName@$HostName")
+    $scp = @("-i", $identity, "-P", "$Port") + $sshOpts
     Invoke-Native "Test SSH connection" { ssh.exe @ssh "echo SSH_OK" }
 
     if (-not $PSCmdlet.ShouldProcess("$UserName@$HostName", "Deploy Skuggle to $domainRoot")) { return }
-    Invoke-Native "Upload release" { scp.exe @scp $release $checksum "$UserName@$HostName`:$remoteHome/" }
+    # Upload archive then checksum separately — large transfers over this host
+    # have been dropping mid-stream when both files share one scp session.
+    Invoke-Native "Upload release archive" { scp.exe @scp $release "$UserName@$HostName`:$remoteHome/skuggle-release.tar.gz" }
+    Invoke-Native "Upload release checksum" { scp.exe @scp $checksum "$UserName@$HostName`:$remoteHome/skuggle-release.tar.gz.sha256" }
 
     $remote = @'
 set -euo pipefail

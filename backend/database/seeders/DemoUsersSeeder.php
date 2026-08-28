@@ -24,7 +24,9 @@ class DemoUsersSeeder extends Seeder
 
     public const DEMO_PASSWORD = 'SkuggleDemo!2026';
 
-    public const DEMO_SCHOOL_SLUG = 'demo-royal-gateway-academy';
+    public const DEMO_SCHOOL_SLUG = 'demo-tenant';
+
+    public const DEMO_TENANT_EMAIL = 'admin@demotenant.test';
 
     public function run(): void
     {
@@ -54,8 +56,8 @@ class DemoUsersSeeder extends Seeder
         $school = Tenant::query()->updateOrCreate(
             ['slug' => self::DEMO_SCHOOL_SLUG],
             [
-                'name' => 'Royal Gateway Academy (Demo)',
-                'code' => 'RGA',
+                'name' => 'DemoTenant',
+                'code' => 'DEMO-TENANT',
                 'type' => 'school',
                 'status' => 'active',
                 'subscription_plan' => 'pilot',
@@ -64,11 +66,11 @@ class DemoUsersSeeder extends Seeder
                 'quota_limits' => ['users' => 250, 'students' => 1000, 'storage_bytes' => 5368709120, 'ai_requests_per_day' => 250],
                 'quota_usage' => ['users' => 0, 'students' => 0, 'storage_bytes' => 0],
                 'settings' => [
-                    'contact' => ['email' => 'admin@royalgateway.edu.ng', 'phone' => '08000000000'],
+                    'contact' => ['email' => self::DEMO_TENANT_EMAIL, 'phone' => '08000000000'],
                     'profile' => ['school_type' => 'private', 'school_level' => 'secondary'],
                     'branding' => [
                         'primary_color' => '#4F46E5',
-                        'display_name' => 'Royal Gateway Academy',
+                        'display_name' => 'DemoTenant School',
                     ],
                     'is_demo' => true,
                 ],
@@ -95,6 +97,7 @@ class DemoUsersSeeder extends Seeder
 
         // Single demonstration school — one login per school role for full walkthrough.
         $schoolAccounts = [
+            [self::DEMO_TENANT_EMAIL, 'DemoTenant Administrator', 'school_admin'],
             ['admin@royalgateway.edu.ng', 'Demo School Admin', 'school_admin'],
             ['principal@royalgateway.edu.ng', 'Mrs. Adeyemi', 'principal'],
             ['adewale.o@royalgateway.edu.ng', 'Mr. Adewale', 'teacher'],
@@ -141,12 +144,13 @@ class DemoUsersSeeder extends Seeder
         $this->call(DemoTenantDataSeeder::class);
         $this->call(PlatformOpsSeeder::class);
 
-        $this->command?->info('Demo school ready for demonstration only: Royal Gateway Academy (Demo).');
+        $this->command?->info('Local database fixture ready: DemoTenant.');
         $this->command?->table(
             ['Role', 'Email', 'Password'],
             [
                 ['platform_super_admin', self::OWNER_EMAIL, self::OWNER_PASSWORD],
                 ['platform_super_admin (alias)', 'owner@skuggle.com', self::OWNER_PASSWORD],
+                ['DemoTenant school_admin', self::DEMO_TENANT_EMAIL, self::DEMO_PASSWORD],
                 ['school_admin', 'admin@royalgateway.edu.ng', self::DEMO_PASSWORD],
                 ['principal', 'principal@royalgateway.edu.ng', self::DEMO_PASSWORD],
                 ['teacher', 'adewale.o@royalgateway.edu.ng', self::DEMO_PASSWORD],
