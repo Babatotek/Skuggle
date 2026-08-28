@@ -10,7 +10,9 @@ final class ChannelDeliveryService
     public function send(string $channel, string $to, string $body): array
     {
         return match ($channel) {
-            'sms' => $this->sms($to, $body),'whatsapp' => $this->whatsapp($to, $body),default => throw new ApiException('CHANNEL_UNSUPPORTED', 'Unsupported delivery channel.', 422),
+            'sms' => $this->sms($to, $body),
+            'whatsapp' => $this->whatsapp($to, $body),
+            default => throw new ApiException('CHANNEL_UNSUPPORTED', 'Unsupported delivery channel.', 422),
         };
     }
 
@@ -29,7 +31,7 @@ final class ChannelDeliveryService
             throw new ApiException('SMS_PROVIDER_FAILED', 'The SMS provider rejected the message.', 502);
         }
 
-return ['provider' => 'termii', 'reference' => (string) ($r->json('message_id') ?? $r->json('request_id') ?? '')];
+        return ['provider' => 'termii', 'reference' => (string) ($r->json('message_id') ?? $r->json('request_id') ?? '')];
     }
 
     private function whatsapp(string $to, string $body): array
@@ -44,6 +46,6 @@ return ['provider' => 'termii', 'reference' => (string) ($r->json('message_id') 
             throw new ApiException('WHATSAPP_PROVIDER_FAILED', 'WhatsApp rejected the message.', 502);
         }
 
-return ['provider' => 'meta', 'reference' => (string) $r->json('messages.0.id')];
+        return ['provider' => 'meta', 'reference' => (string) $r->json('messages.0.id')];
     }
 }

@@ -49,10 +49,10 @@ final class CbtController extends Controller
     {
         $questions = collect($q->questions)->map(function ($item) use ($answers) {
             if (! $answers) {
-                unset($item['correctOptionId'],$item['explanation']);
+                unset($item['correctOptionId'], $item['explanation']);
             }
 
-return $item;
+            return $item;
         })->values();
 
         return ['id' => $q->public_id, 'title' => $q->title, 'subject' => $q->subject, 'classLevel' => $q->class_name, 'durationMinutes' => (int) $q->duration_minutes, 'totalQuestions' => $questions->count(), 'totalMarks' => (int) $q->total_marks, 'passPercentage' => (int) $q->pass_percentage, 'isPublished' => $q->status === 'published', 'shuffleQuestions' => (bool) $q->shuffle_questions, 'status' => $q->status === 'published' ? 'active' : 'draft', 'questions' => $questions];
