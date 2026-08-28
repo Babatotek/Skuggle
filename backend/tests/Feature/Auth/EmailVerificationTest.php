@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\User;
 use App\Notifications\SubscriptionApprovedNotification;
 use App\Notifications\VerifyEmailNotification;
 use App\Notifications\WelcomeToSkuggleNotification;
@@ -67,7 +68,7 @@ class EmailVerificationTest extends TestCase
 
     public function test_transactional_email_templates_are_branded_and_actionable(): void
     {
-        $user = new \App\Models\User(['name' => 'Demo Client', 'email' => 'client@example.test']);
+        $user = new User(['name' => 'Demo Client', 'email' => 'client@example.test']);
         $user->public_id = '01TESTPUBLICID0000000000000';
 
         $verification = (new VerifyEmailNotification)->toMail($user)->render();

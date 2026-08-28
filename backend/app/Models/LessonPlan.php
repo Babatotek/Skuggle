@@ -11,5 +11,6 @@ final class LessonPlan extends Model
     use BelongsToTenant, HasPublicId;
 
     protected $guarded = ['id', 'tenant_id'];
+
     protected $hidden = ['id', 'tenant_id'];
 }

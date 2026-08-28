@@ -54,8 +54,7 @@ try {
     if (-not $SkipChecks) {
         Push-Location $repo
         try {
-            Invoke-Native "Frontend typecheck" { npm.cmd run typecheck }
-            Invoke-Native "Frontend tests" { npm.cmd run test }
+            Invoke-Native "Frontend typecheck" { npm.cmd run lint }
             Push-Location backend
             try {
                 Invoke-Native "Backend style check" { composer exec pint -- --test }

@@ -5,8 +5,8 @@ namespace Tests\Unit\Services;
 use App\Domain\Tenancy\TenantContext;
 use App\Models\Tenant;
 use App\Services\LookupCacheService;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Config;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 

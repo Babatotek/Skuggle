@@ -1859,7 +1859,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       attendanceTimer.current = window.setTimeout(() => {
         const batches = attendancePending.current;
         attendancePending.current = {};
-        void Promise.all(Object.entries(batches).map(async ([classId, batch]) => {
+        void Promise.all(Object.entries(batches).map(async ([classId, batch]: [string, { date: string; statuses: Record<string, AttendanceStatus> }]) => {
           const sheet = await apiRequest<{ success: true; data: { revision: string; students: Array<{ id: string; status: AttendanceStatus | null }> } }>(`/attendance/classes/${encodeURIComponent(classId)}?date=${encodeURIComponent(batch.date)}`, { suppressErrorNotification: true });
           const statuses = Object.fromEntries(sheet.data.students.map((item) => [item.id, batch.statuses[item.id] ?? item.status ?? 'present']));
           return apiMutation(`/attendance/classes/${encodeURIComponent(classId)}`, 'PUT', { date: batch.date, revision: sheet.data.revision, statuses });

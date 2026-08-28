@@ -16,6 +16,7 @@ class AiToolController extends Controller
     {
         $data = $request->validate(['message' => ['required', 'string', 'max:4000'], 'persona' => ['nullable', 'string', 'max:80'], 'context' => ['nullable', 'array']]);
         $result = $ai->generate('workspace_assistant', 'Answer as Skuggle, a concise school operations and learning assistant. Never invent private records. Return JSON with a reply string.', json_encode($data, JSON_THROW_ON_ERROR), $request->user()->getKey());
+
         return ApiResponse::success(['reply' => (string) ($result['reply'] ?? 'I could not prepare a response. Please try again.')]);
     }
 
@@ -23,6 +24,7 @@ class AiToolController extends Controller
     {
         $data = $request->validate(['assessmentType' => ['required', 'string', 'max:80'], 'subject' => ['required', 'string', 'max:120'], 'classLevel' => ['required', 'string', 'max:80'], 'topics' => ['required'], 'totalMarks' => ['required', 'integer', 'min:1', 'max:500'], 'timeAllowed' => ['nullable', 'string', 'max:80'], 'mcqCount' => ['nullable', 'integer', 'min:0', 'max:100'], 'theoryCount' => ['nullable', 'integer', 'min:0', 'max:50'], 'difficulty' => ['nullable', 'string', 'max:40'], 'instructions' => ['nullable', 'string', 'max:2000']]);
         $result = $ai->generate('assessment_builder', 'Create a curriculum-aligned assessment. Return JSON with title, instructions, questions array, and markingScheme array. Ensure total marks match the request.', json_encode($data, JSON_THROW_ON_ERROR), $request->user()->getKey());
+
         return ApiResponse::success(['assessment' => $result]);
     }
 

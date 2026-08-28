@@ -10,6 +10,7 @@ final class TenantModuleData extends Model
     use BelongsToTenant;
 
     protected $table = 'tenant_module_data';
+
     protected $guarded = ['id', 'tenant_id'];
 
     protected function casts(): array

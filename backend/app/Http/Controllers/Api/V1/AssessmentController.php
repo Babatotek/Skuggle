@@ -89,10 +89,18 @@ class AssessmentController extends Controller
             'instructions' => ['nullable', 'string', 'max:5000'],
         ]);
         $before = $item->only(['title', 'scheduled_at', 'status', 'metadata']);
-        if (isset($data['title'])) $item->title = $data['title'];
-        if (isset($data['date'])) $item->scheduled_at = $data['date'];
-        if (isset($data['status'])) $item->status = $data['status'];
-        if (array_key_exists('instructions', $data)) $item->metadata = array_merge($item->metadata ?? [], ['instructions' => $data['instructions']]);
+        if (isset($data['title'])) {
+            $item->title = $data['title'];
+        }
+        if (isset($data['date'])) {
+            $item->scheduled_at = $data['date'];
+        }
+        if (isset($data['status'])) {
+            $item->status = $data['status'];
+        }
+        if (array_key_exists('instructions', $data)) {
+            $item->metadata = array_merge($item->metadata ?? [], ['instructions' => $data['instructions']]);
+        }
         $item->revision++;
         $item->save();
         $audit->record('assessment.updated', $item, $before, $item->getChanges());

@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Domain\Tenancy\TenantContext;
 use App\Http\Controllers\Controller;
+use App\Jobs\SendOutboundDelivery;
 use App\Models\Announcement;
 use App\Models\Guardian;
 use App\Models\OutboundDelivery;
-use App\Jobs\SendOutboundDelivery;
-use App\Domain\Tenancy\TenantContext;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -59,14 +59,19 @@ class AnnouncementController extends Controller
             $guardians = Guardian::query()->whereNotNull('phone')->where('phone', '!=', 'not-provided')->get(['id', 'phone']);
             foreach ($guardians as $guardian) {
                 $destination = preg_replace('/\D+/', '', (string) $guardian->phone);
-                if ($destination === '') continue;
+                if ($destination === '') {
+                    continue;
+                }
                 foreach ($channels as $channel) {
                     $hash = hash_hmac('sha256', $destination, (string) config('app.key'));
                     $delivery = OutboundDelivery::query()->firstOrCreate(
                         ['announcement_id' => $announcement->getKey(), 'channel' => $channel, 'destination_hash' => $hash],
                         ['destination' => $destination, 'provider' => $channel === 'sms' ? (string) config('skuggle.messaging.sms.provider') : 'meta', 'status' => 'queued'],
                     );
-                    if ($delivery->wasRecentlyCreated) { SendOutboundDelivery::dispatch($delivery->getKey(), app(TenantContext::class)->tenantId(), $announcement->title."\n".$announcement->body); $queued++; }
+                    if ($delivery->wasRecentlyCreated) {
+                        SendOutboundDelivery::dispatch($delivery->getKey(), app(TenantContext::class)->tenantId(), $announcement->title."\n".$announcement->body);
+                        $queued++;
+                    }
                 }
             }
         }

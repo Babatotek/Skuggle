@@ -13,8 +13,8 @@ use App\Models\Subscription;
 use App\Models\Tenant;
 use App\Models\TenantMembership;
 use App\Models\User;
-use App\Support\ApiResponse;
 use App\Services\AuditLogger;
+use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -106,6 +106,7 @@ class PlatformController extends Controller
         $before = $record->status;
         $record->update(['status' => $data['status']]);
         $audit->record('platform.tenant.status_updated', $record, ['status' => $before], ['status' => $record->status]);
+
         return ApiResponse::success($this->presentTenant($record));
     }
 

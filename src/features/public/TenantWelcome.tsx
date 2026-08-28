@@ -22,6 +22,7 @@ import { useApp } from '../../context/AppContext';
 import { BrandMark } from '../../components/BrandMark';
 
 interface TenantWelcomeProps {
+  previewOnly?: boolean;
   onContinue: () => void;
   onSkip?: () => void;
   onOpenResultChecker?: () => void;

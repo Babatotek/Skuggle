@@ -23,9 +23,21 @@ final class BrandingController extends Controller
         $tenant = $context->tenant();
         $before = $tenant->settings ?? [];
         $settings = $before;
-        foreach (['motto', 'address', 'city', 'state'] as $key) if (array_key_exists($key, $data)) data_set($settings, "profile.{$key}", $data[$key]);
-        foreach (['email', 'phone'] as $key) if (array_key_exists($key, $data)) data_set($settings, "contact.{$key}", $data[$key]);
-        foreach (['primaryColor' => 'primary_colour', 'secondaryColor' => 'secondary_colour', 'logoUrl' => 'logo_url'] as $input => $key) if (array_key_exists($input, $data)) data_set($settings, "branding.{$key}", $data[$input]);
+        foreach (['motto', 'address', 'city', 'state'] as $key) {
+            if (array_key_exists($key, $data)) {
+                data_set($settings, "profile.{$key}", $data[$key]);
+            }
+        }
+        foreach (['email', 'phone'] as $key) {
+            if (array_key_exists($key, $data)) {
+                data_set($settings, "contact.{$key}", $data[$key]);
+            }
+        }
+        foreach (['primaryColor' => 'primary_colour', 'secondaryColor' => 'secondary_colour', 'logoUrl' => 'logo_url'] as $input => $key) {
+            if (array_key_exists($input, $data)) {
+                data_set($settings, "branding.{$key}", $data[$input]);
+            }
+        }
         $tenant->update(['name' => $data['schoolName'] ?? $tenant->name, 'settings' => $settings]);
         $audit->record('tenant.branding.updated', $tenant, $before, $settings);
 
