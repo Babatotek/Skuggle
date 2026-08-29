@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mail } from 'lucide-react';
-import { apiRequest, describeApiError, initializeCsrf } from '../../lib/apiClient';
+import { apiRequest, describeApiError, initializeCsrf } from '../lib/apiClient';
 
 interface EmailVerificationModalProps {
   email: string;
