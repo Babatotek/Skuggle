@@ -175,7 +175,46 @@ jobs:
           mkdir -p ~/.ssh
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/hostinger_key
           chmod 600 ~/.ssh/hostinger_key
-          ssh-keyscan -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts
+          # Retry keyscan — Hostinger shared SSH can be briefly unreachable from Actions IPs.
+          for i in 1 2 3 4 5; do
+            if ssh-keyscan -T 15 -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null; then
+              break
+            fi
+            echo "ssh-keyscan attempt $i failed; retrying..."
+            sleep $((i * 3))
+            if [[ "$i" -eq 5 ]]; then
+              echo "Unable to reach ${HOST}:${PORT} for ssh-keyscan"
+              exit 1
+            fi
+          done
+          cat > ~/.ssh/config <<EOF
+          Host hostinger
+            HostName ${HOST}
+            Port ${PORT}
+            User ${{ secrets.HOSTINGER_SSH_USER }}
+            IdentityFile ~/.ssh/hostinger_key
+            StrictHostKeyChecking yes
+            UserKnownHostsFile ~/.ssh/known_hosts
+            ConnectTimeout 30
+            ConnectionAttempts 5
+            ServerAliveInterval 15
+            ServerAliveCountMax 6
+            ControlMaster auto
+            ControlPath ~/.ssh/cm-%r@%h:%p
+            ControlPersist 10m
+          EOF
+          chmod 600 ~/.ssh/config
+          # Open one persistent control socket so later scp/ssh reuse the TCP session.
+          for i in 1 2 3 4 5; do
+            if ssh -fN hostinger; then
+              echo "SSH control master is up"
+              exit 0
+            fi
+            echo "SSH master connect attempt $i failed; retrying..."
+            sleep $((i * 4))
+          done
+          echo "Could not open SSH control master to Hostinger"
+          exit 1
 
       - name: Upload + release
         env:
@@ -188,18 +227,17 @@ jobs:
           APP_KEY: ${{ secrets.HOSTINGER_APP_KEY }}
         run: |
           set -euo pipefail
-          HOST="${SSH_HOST:-147.93.54.101}"
-          PORT="${SSH_PORT:-65002}"
           USER="${SSH_USER:-u237094395}"
           DOMAIN_ROOT="/home/${USER}/domains/skuggle.royalgatewayadmin.com"
           APP_DIR="${DOMAIN_ROOT}/application"
           PUBLIC_DIR="${DOMAIN_ROOT}/public_html"
-          SSH=(ssh -i ~/.ssh/hostinger_key -p "$PORT" -o StrictHostKeyChecking=yes "${USER}@${HOST}")
-          SCP=(scp -i ~/.ssh/hostinger_key -P "$PORT" -o StrictHostKeyChecking=yes)
+          SSH=(ssh hostinger)
+          SCP=(scp -O)
 
-          "${SCP[@]}" "${RUNNER_TEMP}/skuggle-release.tar.gz" "${USER}@${HOST}:/home/${USER}/skuggle-release.tar.gz"
-          "${SCP[@]}" "${RUNNER_TEMP}/skuggle-release.tar.gz.sha256" "${USER}@${HOST}:/home/${USER}/skuggle-release.tar.gz.sha256"
+          "${SCP[@]}" "${RUNNER_TEMP}/skuggle-release.tar.gz" "hostinger:/home/${USER}/skuggle-release.tar.gz"
+          "${SCP[@]}" "${RUNNER_TEMP}/skuggle-release.tar.gz.sha256" "hostinger:/home/${USER}/skuggle-release.tar.gz.sha256"
 
+          # One remote session: extract, optional first-time .env bootstrap, release.
           "${SSH[@]}" bash -s <<REMOTE
           set -euo pipefail
           DOMAIN_ROOT='${DOMAIN_ROOT}'
@@ -222,21 +260,17 @@ jobs:
           fi
           rm -f "\$HOME/skuggle-release.tar.gz" "\$HOME/skuggle-release.tar.gz.sha256"
           chmod +x "\$APP_DIR/remote-release.sh"
-          REMOTE
 
-          # First-time .env bootstrap from secrets
-          if ! "${SSH[@]}" "test -f '${APP_DIR}/.env'"; then
-            : "${DB_DATABASE:?Missing HOSTINGER_DB_DATABASE}"
-            : "${DB_USERNAME:?Missing HOSTINGER_DB_USERNAME}"
-            : "${DB_PASSWORD:?Missing HOSTINGER_DB_PASSWORD}"
-            "${SCP[@]}" backend/deploy/shared-hosting/.env.shared.example "${USER}@${HOST}:${APP_DIR}/.env"
-            "${SSH[@]}" "sed -i \"s|^DB_DATABASE=.*|DB_DATABASE=${DB_DATABASE}|; s|^DB_USERNAME=.*|DB_USERNAME=${DB_USERNAME}|; s|^DB_PASSWORD=.*|DB_PASSWORD=${DB_PASSWORD}|\" '${APP_DIR}/.env'"
-            if [[ -n "${APP_KEY:-}" ]]; then
-              "${SSH[@]}" "sed -i \"s|^APP_KEY=.*|APP_KEY=${APP_KEY}|\" '${APP_DIR}/.env'"
-            fi
+          if [[ ! -f "\$APP_DIR/.env" ]]; then
+            echo "Missing \$APP_DIR/.env after extract — create it on the host or set Hostinger env secrets for first boot."
+            exit 1
           fi
 
-          "${SSH[@]}" "export APP_DIR='${APP_DIR}' PUBLIC_DIR='${PUBLIC_DIR}' PHP_BIN=/opt/alt/php83/usr/bin/php; bash '${APP_DIR}/remote-release.sh'"
+          export APP_DIR PUBLIC_DIR PHP_BIN=/opt/alt/php83/usr/bin/php
+          bash "\$APP_DIR/remote-release.sh"
+          REMOTE
+
+          ssh -O exit hostinger 2>/dev/null || true
 
       - name: Health check
         run: |
