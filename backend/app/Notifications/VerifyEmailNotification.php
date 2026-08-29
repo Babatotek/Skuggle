@@ -4,13 +4,13 @@ namespace App\Notifications;
 
 use App\Mail\SkuggleBrandedMail;
 use Illuminate\Auth\Notifications\VerifyEmail;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 
-final class VerifyEmailNotification extends VerifyEmail implements ShouldQueue
+/**
+ * Sent synchronously so shared hosting / local setups without a queue worker
+ * still deliver the verification link immediately after registration.
+ */
+final class VerifyEmailNotification extends VerifyEmail
 {
-    use Queueable;
-
     public function toMail($notifiable): SkuggleBrandedMail
     {
         $url = $this->verificationUrl($notifiable);

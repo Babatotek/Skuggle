@@ -3,14 +3,11 @@
 namespace App\Notifications;
 
 use App\Mail\SkuggleBrandedMail;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
-final class WelcomeToSkuggleNotification extends Notification implements ShouldQueue
+/** Sent synchronously so shared hosting without a queue worker still delivers welcome mail. */
+final class WelcomeToSkuggleNotification extends Notification
 {
-    use Queueable;
-
     public function via(object $notifiable): array
     {
         return ['mail'];

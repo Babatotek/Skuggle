@@ -57,6 +57,7 @@ Route::prefix('v1')->group(function (): void {
     Route::post('/auth/two-factor-challenge', [AuthController::class, 'twoFactorChallenge'])->middleware('throttle:two-factor');
     Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:6,1');
     Route::post('/auth/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:6,1');
+    Route::post('/auth/email/resend', [AuthController::class, 'resendVerificationByEmail'])->middleware('throttle:6,1');
     Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])->middleware('throttle:20,1');
     Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->middleware('throttle:20,1');
     // Logout must run even when the session is half-dead so cookies are always cleared.

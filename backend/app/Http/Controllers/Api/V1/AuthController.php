@@ -320,6 +320,24 @@ class AuthController extends Controller
         return ApiResponse::success(['message' => 'A new verification link has been sent.']);
     }
 
+    /**
+     * Public resend for newly registered users who are not signed in yet.
+     * Always returns the same success payload to avoid email enumeration.
+     */
+    public function resendVerificationByEmail(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email:rfc', 'max:254'],
+        ]);
+
+        $user = User::query()->where('email', mb_strtolower(trim($validated['email'])))->first();
+        if ($user && ! $user->hasVerifiedEmail()) {
+            $user->sendEmailVerificationNotification();
+        }
+
+        return ApiResponse::success(['message' => 'If that account needs verification, a new link has been sent.']);
+    }
+
     public function contexts(): JsonResponse
     {
         return ApiResponse::success([

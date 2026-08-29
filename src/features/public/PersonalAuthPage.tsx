@@ -169,6 +169,25 @@ export const PersonalAuthPage: React.FC<PersonalAuthPageProps> = ({ onSuccess, o
 
   const clearErr = () => setError(null);
   const switchTab = (t: AuthTab) => { setTab(t); clearErr(); };
+  const [resendingVerify, setResendingVerify] = useState(false);
+
+  const resendVerification = async () => {
+    if (!pendingVerifyEmail) return;
+    setResendingVerify(true);
+    try {
+      await initializeCsrf();
+      await apiRequest('/auth/email/resend', {
+        suppressErrorNotification: true,
+        method: 'POST',
+        body: JSON.stringify({ email: pendingVerifyEmail }),
+      });
+      showToast('Verification email sent', `Check ${pendingVerifyEmail} (and spam) for the Skuggle link.`, 'success');
+    } catch (e) {
+      setError(describeApiError(e));
+    } finally {
+      setResendingVerify(false);
+    }
+  };
 
   /* ── sign in ── */
   const signIn = async () => {
@@ -255,6 +274,54 @@ export const PersonalAuthPage: React.FC<PersonalAuthPageProps> = ({ onSuccess, o
       {/* ── centered card ── */}
       <div className="flex-1 flex items-center justify-center px-4 pb-6">
         <div className="w-full max-w-[680px]">
+
+          {/* Verify-email modal (post-registration) */}
+          <AnimatePresence>
+            {pendingVerifyEmail && (
+              <motion.div
+                key="verify-modal"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/55 backdrop-blur-[2px]"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="verify-email-title"
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.96, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.96, y: 8 }}
+                  className="w-full max-w-md rounded-2xl border border-violet-100 bg-white p-6 shadow-2xl"
+                >
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
+                    <Mail className="h-6 w-6" />
+                  </div>
+                  <h2 id="verify-email-title" className="text-center font-display text-xl font-extrabold text-slate-900">
+                    Verify your email
+                  </h2>
+                  <p className="mt-2 text-center text-sm text-slate-600 leading-relaxed">
+                    We sent a Skuggle verification link to{' '}
+                    <span className="font-semibold text-slate-900">{pendingVerifyEmail}</span>.
+                    Open that email (check spam), then return here to sign in.
+                  </p>
+                  <div className="mt-5 space-y-2.5">
+                    <SpikeButton type="button" loading={false} onClick={() => setPendingVerifyEmail(null)}>
+                      Got it — continue to sign in
+                    </SpikeButton>
+                    <button
+                      type="button"
+                      disabled={resendingVerify}
+                      onClick={() => void resendVerification()}
+                      className="w-full rounded-xl border border-slate-200 bg-white py-3 text-xs font-bold text-violet-700 hover:bg-violet-50 disabled:opacity-60 transition-colors"
+                    >
+                      {resendingVerify ? 'Sending…' : 'Resend verification email'}
+                    </button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* MFA setup */}
           {mfaKey && (

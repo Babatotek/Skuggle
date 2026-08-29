@@ -67,6 +67,21 @@ class EmailVerificationTest extends TestCase
         Notification::assertSentTo($user, VerifyEmailNotification::class);
     }
 
+    public function test_public_resend_by_email_sends_notification_without_login(): void
+    {
+        Notification::fake();
+
+        ['user' => $user] = $this->makeTenantUser('school_admin', [], [
+            'email_verified_at' => null,
+        ]);
+
+        $this->postJson('/api/v1/auth/email/resend', [
+            'email' => $user->email,
+        ])->assertOk();
+
+        Notification::assertSentTo($user, VerifyEmailNotification::class);
+    }
+
     public function test_transactional_email_templates_are_branded_and_actionable(): void
     {
         $user = new User(['name' => 'Demo Client', 'email' => 'client@example.test']);
