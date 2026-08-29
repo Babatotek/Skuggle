@@ -140,6 +140,12 @@ mkdir -p "$STAGE" "$BACKUP"
 tar -xzf "$ARCHIVE" -C "$STAGE"
 test -f "$STAGE/application/artisan"
 test -f "$STAGE/public_html/index.html"
+# Keep prior content-hashed assets available for tabs, service workers, and CDN
+# edges that still hold the previous HTML shell during a rolling cache window.
+if [[ -d "$PUBLIC_DIR/assets" ]]; then
+  mkdir -p "$STAGE/public_html/assets"
+  cp -rn "$PUBLIC_DIR/assets/." "$STAGE/public_html/assets/"
+fi
 if [[ -f "$APP_DIR/.env" ]]; then cp "$APP_DIR/.env" "$STAGE/application/.env"; fi
 if [[ ! -f "$STAGE/application/.env" ]]; then echo "Missing production $APP_DIR/.env" >&2; exit 1; fi
 if [[ -d "$APP_DIR" ]]; then mv "$APP_DIR" "$BACKUP/application"; fi
