@@ -208,7 +208,6 @@ export const SchoolAuthPage: React.FC<SchoolAuthPageProps> = ({ onSuccess, onBac
         password: regPwd, birthDate: '', guardianName: '', guardianEmail: '',
         actionIntent: 'join_school', schoolInviteCode: regCode.trim().toUpperCase(),
       });
-      showToast('Account activated', 'Your school account is ready. Sign in to continue.', 'success');
       setSiEmail(regEmail.trim().toLowerCase());
       switchTab('signin');
     } catch (e) {

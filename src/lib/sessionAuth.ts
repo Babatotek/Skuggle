@@ -1,10 +1,27 @@
 const SCHOOL_PATH_PREFIXES = ['/s/', '/school/', '/t/'] as const;
 
-const RESERVED_SUBDOMAINS = new Set(['www', 'app', 'api', 'admin', 'localhost']);
+/** Product / infra labels that must never be treated as a school tenant slug. */
+const RESERVED_SUBDOMAINS = new Set([
+  'www',
+  'app',
+  'api',
+  'admin',
+  'localhost',
+  'skuggle',
+  'staging',
+  'dev',
+  'demo',
+  'mail',
+  'cdn',
+  'static',
+]);
 
 /**
  * Resolve a tenant/school key from the current URL (query, path, or subdomain).
  * Used on cold load to route visitors to the tenant welcome screen.
+ *
+ * Important: marketing hosts like `skuggle.royalgatewayadmin.com` must NOT count as a
+ * tenant subdomain — that incorrectly forces the legacy TenantWelcome/TenantLogin flow.
  */
 export function schoolKeyFromLocation(location: Location = window.location): string | null {
   const params = new URLSearchParams(location.search);

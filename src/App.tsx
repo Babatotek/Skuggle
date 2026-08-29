@@ -130,13 +130,18 @@ function MainAppContent() {
     let active = true;
     void restoreSession()
       .then((response) => {
-        if (!active || !response) {
-          if (schoolKeyFromLocation()) setCurrentView('tenant-welcome');
+        if (!active) return;
+        if (response) {
+          setCurrentRole(sessionRole(response.data.user.role));
+          setCurrentView('app');
+          window.dispatchEvent(new Event('skuggle:authenticated'));
           return;
         }
-        setCurrentRole(sessionRole(response.data.user.role));
-        setCurrentView('app');
-        window.dispatchEvent(new Event('skuggle:authenticated'));
+        // Only auto-open tenant welcome on a cold landing load. Never yank the user
+        // off personal/school auth mid-registration (session restore can finish late).
+        if (schoolKeyFromLocation()) {
+          setCurrentView((view) => (view === 'landing' ? 'tenant-welcome' : view));
+        }
       })
       .finally(() => { if (active) setIsSessionChecking(false); });
     return () => { active = false; };

@@ -159,6 +159,7 @@ export const PersonalAuthPage: React.FC<PersonalAuthPageProps> = ({ onSuccess, o
   /* shared */
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
+  const [pendingVerifyEmail, setPendingVerifyEmail] = useState<string | null>(null);
 
   /* MFA */
   const [mfaKey, setMfaKey]         = useState<string | null>(null);
@@ -206,8 +207,8 @@ export const PersonalAuthPage: React.FC<PersonalAuthPageProps> = ({ onSuccess, o
         guardianName: regGuardianName.trim() || undefined, guardianEmail: regGuardianEmail.trim().toLowerCase() || undefined,
         actionIntent: 'personal_space',
       });
-      showToast('Account created', 'Welcome! Sign in to continue.', 'success');
       setSiEmail(regEmail.trim().toLowerCase());
+      setPendingVerifyEmail(regEmail.trim().toLowerCase());
       switchTab('signin');
     } catch (e) {
       setError(describeApiError(e));
@@ -333,6 +334,18 @@ export const PersonalAuthPage: React.FC<PersonalAuthPageProps> = ({ onSuccess, o
 
               {/* forms */}
               <div className="px-7 pt-4 pb-7">
+                {pendingVerifyEmail && tab === 'signin' && (
+                  <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-bold text-emerald-900">Verify your email to continue</p>
+                      <p className="text-[11px] text-emerald-800 mt-0.5 leading-relaxed">
+                        We sent a verification link to <span className="font-semibold">{pendingVerifyEmail}</span>.
+                        Open that email, then sign in here.
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <AnimatePresence mode="wait" initial={false}>
 
                   {/* ── SIGN IN ── */}
