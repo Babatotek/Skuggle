@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\BrandingController;
 use App\Http\Controllers\Api\V1\CampusController;
 use App\Http\Controllers\Api\V1\CbtController;
 use App\Http\Controllers\Api\V1\ClassController;
+use App\Http\Controllers\Api\V1\ContactController;
 use App\Http\Controllers\Api\V1\CustomFieldController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DeliveryWebhookController;
@@ -66,6 +67,7 @@ Route::prefix('v1')->group(function (): void {
     Route::post('/invites/{token}/accept', [InviteController::class, 'accept'])->middleware(['throttle:5,1', 'idempotency:required']);
     Route::post('/public/results/check', [PublicResultController::class, 'check'])->middleware('throttle:public-results');
     Route::get('/public/results/view', [PublicResultController::class, 'view'])->middleware('throttle:public-results');
+    Route::post('/public/contact', [ContactController::class, 'store'])->middleware('throttle:6,1');
     Route::post('/webhooks/payments/{provider}', [PaymentController::class, 'webhook'])->middleware('throttle:api');
     Route::get('/webhooks/whatsapp', [DeliveryWebhookController::class, 'verifyWhatsapp'])->middleware('throttle:api');
     Route::post('/webhooks/whatsapp', [DeliveryWebhookController::class, 'whatsapp'])->middleware('throttle:api');
@@ -176,9 +178,9 @@ Route::prefix('v1')->group(function (): void {
             Route::post('/employees', [EmployeeController::class, 'store'])->middleware(['permission:users.manage', 'idempotency:required']);
             Route::patch('/employees/{employee}', [EmployeeController::class, 'update'])->middleware(['permission:users.manage', 'idempotency:required']);
 
-            Route::get('/invites', [InviteController::class, 'index'])->middleware('permission:users.manage');
-            Route::post('/invites', [InviteController::class, 'store'])->middleware(['permission:users.manage', 'idempotency:required']);
-            Route::delete('/invites/{invitation}', [InviteController::class, 'destroy'])->middleware(['permission:users.manage', 'idempotency:required']);
+            Route::get('/invites', [InviteController::class, 'index'])->middleware(['account-module:invitations', 'permission:users.manage']);
+            Route::post('/invites', [InviteController::class, 'store'])->middleware(['account-module:invitations', 'permission:users.manage', 'idempotency:required']);
+            Route::delete('/invites/{invitation}', [InviteController::class, 'destroy'])->middleware(['account-module:invitations', 'permission:users.manage', 'idempotency:required']);
 
             Route::get('/onboarding', [OnboardingController::class, 'show'])->middleware('permission:students.view');
             Route::patch('/onboarding/steps/{stepId}', [OnboardingController::class, 'updateStep'])->middleware(['permission:settings.configure', 'idempotency:required']);
@@ -192,10 +194,12 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/subjects', [SubjectController::class, 'index'])->middleware('permission:students.view');
             Route::post('/subjects', [SubjectController::class, 'store'])->middleware(['permission:settings.configure', 'idempotency:required']);
 
-            Route::get('/plans', [SubscriptionController::class, 'plans']);
-            Route::get('/subscription', [SubscriptionController::class, 'show'])->middleware('permission:settings.configure');
+            Route::get('/plans', [SubscriptionController::class, 'plans'])->middleware('account-module:subscription');
+            Route::get('/subscription', [SubscriptionController::class, 'show'])->middleware('account-module:subscription');
 
             Route::middleware('permission:platform.view')->prefix('platform')->group(function (): void {
+                Route::get('/plans', [PlatformController::class, 'plans'])->middleware('account-module:platform-configuration');
+                Route::patch('/plans/{plan}', [PlatformController::class, 'updatePlan'])->middleware(['account-module:platform-configuration', 'idempotency:required']);
                 Route::get('/overview', [PlatformController::class, 'overview']);
                 Route::get('/schools', [PlatformController::class, 'schools']);
                 Route::patch('/schools/{tenant}/status', [PlatformController::class, 'updateSchoolStatus'])->middleware('idempotency:required');

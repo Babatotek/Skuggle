@@ -1,5 +1,7 @@
 node_modules/
 .runtime/
+.cursor/
+.vscode/
 backend/vendor/
 backend/.env
 backend/storage/*.key
@@ -13,12 +15,34 @@ dist/
 coverage/
 playwright-report/
 test-results/
+scripts/*-result.json
+tmp-*.txt
+tmp-*.json
+*.cookies
 .DS_Store
 *.log
 .env*
 !.env.example
 !**/.env.shared.example
 _legacy_frontend_src_backup/
+ModernFrontend/
+figma/
+# Product/review reference material is archived outside the executable repository.
+docs/APPLICATION_XRAY_REPORT.md
+docs/BACKEND_DATABASE_PRODUCTION_AUDIT.md
+docs/FRONTEND_BACKEND_CONNECTION_STATUS.md
+docs/SkuggleWorkspace.md
+docs/Skuggle_Onboarding_Personal_Workspaces_PRD_v1.0.docx
+docs/UI_FIXES_AVATAR_ALIGNMENT_AND_RESPONSIVE.md
+BUNDLE_ANALYSIS.md
+PERFORMANCE_GUIDE.md
+PERFORMANCE_OPTIMIZATIONS.md
+PRODUCTION_CHANGES_SUMMARY.md
+AI Agent Implementation Prompt*.md
+Product Requirements Document*.md
+Skuggle Product & Technical Specification*.md
+optimize-images.ps1
+test-performance.ps1
 skuggleSSH/
 skoolioSSH/
 deploySample/

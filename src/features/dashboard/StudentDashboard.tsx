@@ -24,9 +24,11 @@ interface StudentDashboardProps {
 }
 
 export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigateTab, onOpenResultChecker }) => {
-  const { branding, students, currentWorkspace, switchSpaceCategory } = useApp();
+  const { branding, students, currentWorkspace, currentUser, switchSpaceCategory } = useApp();
   const myStudent = students[0];
   const isPersonal = currentWorkspace.type === 'personal';
+  const firstName = currentUser.fullName.trim().split(/\s+/)[0] || 'Student';
+  const schoolWorkspace = currentUser.availableWorkspaces.find((workspace) => workspace.type === 'school');
 
   return (
     <div className="space-y-6">
@@ -45,11 +47,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigateTa
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
                   <Flame className="w-3 h-3 text-amber-400 fill-amber-400" />
-                  <span>14-Day Study Streak</span>
+                  <span>{currentUser.teachingGrowthStreak || 0}-Day Study Streak</span>
                 </span>
               </div>
               <h1 className="font-display font-extrabold text-2xl sm:text-3xl text-white tracking-tight">
-                David's Personal Study Room
+                {firstName}&apos;s Personal Study Room
               </h1>
               <p className="text-xs sm:text-sm text-blue-200 mt-1">
                 AI Learning Buddy, WAEC & BECE Question Drills, and Personal Flashcards
@@ -57,13 +59,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigateTa
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <button
+              {schoolWorkspace && <button
                 onClick={() => switchSpaceCategory('school')}
                 className="px-4 py-2.5 text-xs font-bold text-indigo-950 bg-white hover:bg-slate-100 rounded-xl transition-all shadow-sm flex items-center gap-2 cursor-pointer hover:scale-[1.02]"
               >
                 <Building2 className="w-4 h-4 text-indigo-600" />
-                <span>Switch to Crown Heights School Portal →</span>
-              </button>
+                <span>Switch to {schoolWorkspace.name} →</span>
+              </button>}
             </div>
           </div>
         </div>
@@ -78,7 +80,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigateTa
                   <span>School Space · Enrolled Student Portal</span>
                 </span>
                 <span className="text-xs text-slate-300 font-mono">
-                  {myStudent.admissionNo} · {myStudent.classLevel} - {myStudent.arm}
+                  {myStudent?.admissionNo || 'Student'} · {myStudent?.classLevel || 'Class pending'} {myStudent?.arm ? `- ${myStudent.arm}` : ''}
                 </span>
               </div>
               <h1 className="font-display font-extrabold text-2xl sm:text-3xl text-white tracking-tight">
@@ -110,7 +112,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigateTa
         <div className="space-y-6">
           <SkuggleAIBuddy
             variant="inline"
-            contextHint="Hi David! 🤖 I'm your 24/7 AI Study Buddy in your personal space. Ask me to explain any maths theorem, give you a 5-question science quiz, or test your English vocabulary!"
+            contextHint={`Hi ${firstName}! I'm your AI Study Buddy. Ask for an explanation, practice quiz, or study plan.`}
           />
 
           {/* Personal Practice Actions */}
@@ -166,7 +168,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigateTa
         <div className="space-y-6">
           <SkuggleAIBuddy
             variant="inline"
-            contextHint="Hi David! 🤖 Need help with today's homework at Crown Heights Academy? Ask me for a quick practice quiz or simple explanation!"
+            contextHint={`Hi ${firstName}! Need help with today's homework at ${branding.schoolName}? Ask for a practice quiz or explanation.`}
           />
 
           {/* Progress Cards */}
@@ -176,7 +178,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigateTa
                 My Term 1 Average
               </span>
               <div className="flex items-baseline gap-2">
-                <span className="font-display font-extrabold text-2xl text-indigo-950">{myStudent.termAverage}%</span>
+                <span className="font-display font-extrabold text-2xl text-indigo-950">{myStudent?.termAverage ?? 0}%</span>
                 <span className="text-xs font-semibold text-emerald-700">Grade: A1</span>
               </div>
               <p className="text-[11px] text-slate-500 mt-1">Leading in Mathematics & Basic Science</p>
@@ -187,7 +189,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigateTa
                 School Attendance
               </span>
               <div className="flex items-baseline gap-2">
-                <span className="font-display font-extrabold text-2xl text-emerald-700">{myStudent.attendanceRate}%</span>
+                <span className="font-display font-extrabold text-2xl text-emerald-700">{myStudent?.attendanceRate ?? 0}%</span>
                 <span className="text-xs font-semibold text-emerald-700">Punctual</span>
               </div>
               <p className="text-[11px] text-slate-500 mt-1">Present on 58 of 60 term days</p>
@@ -199,7 +201,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigateTa
               </span>
               <div className="flex items-baseline gap-2">
                 <span className="font-display font-extrabold text-2xl text-purple-900">
-                  {myStudent.positionInClass}nd / {myStudent.totalStudentsInClass}
+                  {myStudent?.positionInClass ?? '—'} / {myStudent?.totalStudentsInClass ?? '—'}
                 </span>
                 <span className="text-xs font-semibold text-purple-700">Top 5%</span>
               </div>

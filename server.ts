@@ -4,6 +4,7 @@ import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import compression from "compression";
 
 dotenv.config({ quiet: true });
 
@@ -25,6 +26,17 @@ async function startServer() {
   const app = express();
   const port = Number.parseInt(process.env.PORT ?? '3000', 10);
   const host = process.env.HOST ?? '0.0.0.0';
+
+  // Enable gzip compression for all responses
+  app.use(compression({
+    filter: (req, res) => {
+      if (req.headers['x-no-compression']) {
+        return false;
+      }
+      return compression.filter(req, res);
+    },
+    level: 6, // Balance between speed and compression ratio
+  }));
 
   let viteMiddleware: express.RequestHandler | null = null;
   if (process.env.NODE_ENV !== 'production') {

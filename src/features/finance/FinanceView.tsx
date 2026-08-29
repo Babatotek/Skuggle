@@ -134,7 +134,7 @@ export const FinanceView: React.FC = () => {
 
               <div className="p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl text-indigo-950 flex items-start gap-2">
                 <ShieldCheck className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-                <span>Simulates instant Paystack card or bank transfer settlement with digital timestamp.</span>
+                <span>Paystack card or bank-transfer settlement with a verifiable digital timestamp.</span>
               </div>
 
               <button

@@ -30,6 +30,7 @@ import { BrandMark } from './BrandMark';
 import { WorkspaceSwitcherModal } from './WorkspaceSwitcherModal';
 import { SubscriptionPlanModal } from '../features/subscription/SubscriptionPlanModal';
 import { InvitationsAndCredentialsModal } from '../features/invitations/InvitationsAndCredentialsModal';
+import { getAccountModuleAccess } from '../lib/moduleAccess';
 import { SchoolGuidedSetupModal } from '../features/onboarding/SchoolGuidedSetupModal';
 import { notificationSoundEnabled, setNotificationSoundEnabled } from '../lib/notificationAudio';
 import { SecuritySettingsModal } from '../features/security/SecuritySettingsModal';
@@ -76,7 +77,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     branding,
     currentWorkspace,
     isOnline,
-    setIsOnline,
     offlineQueue,
     syncOfflineQueue,
   } = useApp();
@@ -90,6 +90,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<HeaderNotification[]>([]);
   const [soundEnabled, setSoundEnabled] = useState(notificationSoundEnabled);
+  const moduleAccess = getAccountModuleAccess(currentWorkspace, currentRole);
 
   useEffect(() => {
     const receive = (event: Event) => {
@@ -185,10 +186,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setIsOnline(!isOnline)}
+                onClick={syncOfflineQueue}
                 className="underline hover:text-white text-[11px] cursor-pointer"
               >
-                {isOnline ? 'Simulate Offline' : 'Go Online'}
+                Retry sync
               </button>
               {isOnline && offlineQueue.length > 0 && (
                 <button
@@ -276,20 +277,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 </button>
               )}
 
-              {/* Online / Offline Quick Button */}
-              <button
-                type="button"
-                onClick={() => setIsOnline(!isOnline)}
-                title={isOnline ? 'Online (Click to simulate offline)' : 'Offline (Click to go online)'}
-                className={`p-2 rounded-xl border transition-colors cursor-pointer ${
-                  isOnline
-                    ? 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100'
-                    : 'text-amber-800 bg-amber-100 border-amber-300'
-                }`}
-              >
-                {isOnline ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
-              </button>
-
               {/* Notification Bell */}
               <div className="relative">
                 <button
@@ -357,7 +344,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
                     <div className="p-1.5 space-y-0.5">
                       {currentRole === 'School Admin' && <button type="button" onClick={() => { setIsProfileMenuOpen(false); setIsSecurityModalOpen(true); }} className="w-full px-3 py-2 text-xs text-left text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2"><Shield className="w-4 h-4 text-indigo-600" /><span>Security & MFA policy</span></button>}
-                      <button
+                      {moduleAccess.launchBlueprint && <button
                         type="button"
                         onClick={() => {
                           setIsProfileMenuOpen(false);
@@ -367,8 +354,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                       >
                         <Rocket className="w-4 h-4 text-indigo-600" />
                         <span>10-Step Launch Blueprint</span>
-                      </button>
-                      <button
+                      </button>}
+                      {moduleAccess.invitationsAndQr && <button
                         type="button"
                         onClick={() => {
                           setIsProfileMenuOpen(false);
@@ -378,8 +365,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                       >
                         <Key className="w-4 h-4 text-purple-600" />
                         <span>Invitations & QR Credentials</span>
-                      </button>
-                      <button
+                      </button>}
+                      {moduleAccess.subscriptionAndPricing && <button
                         type="button"
                         onClick={() => {
                           setIsProfileMenuOpen(false);
@@ -389,7 +376,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                       >
                         <CreditCard className="w-4 h-4 text-amber-600" />
                         <span>Subscription & Pricing</span>
-                      </button>
+                      </button>}
                       <button
                         type="button"
                         onClick={() => {
@@ -444,23 +431,24 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       />
 
       {/* Subscriptions & Entitlements Modal */}
-      <SubscriptionPlanModal
+      {moduleAccess.subscriptionAndPricing && <SubscriptionPlanModal
         isOpen={isSubscriptionModalOpen}
         onClose={() => setIsSubscriptionModalOpen(false)}
-      />
+        phase={moduleAccess.subscriptionPhase!}
+      />}
 
       {/* Invitations & QR Credentials Modal */}
-      <InvitationsAndCredentialsModal
+      {moduleAccess.invitationsAndQr && <InvitationsAndCredentialsModal
         isOpen={isInvitationsModalOpen}
         onClose={() => setIsInvitationsModalOpen(false)}
-      />
+      />}
 
       {/* 10-Step Launch Blueprint Modal */}
-      <SchoolGuidedSetupModal
+      {moduleAccess.launchBlueprint && <SchoolGuidedSetupModal
         isOpen={isGuidedSetupModalOpen}
         onClose={() => setIsGuidedSetupModalOpen(false)}
         onNavigateToTab={setActiveTab}
-      />
+      />}
       <SecuritySettingsModal isOpen={isSecurityModalOpen} onClose={() => setIsSecurityModalOpen(false)} />
     </>
   );

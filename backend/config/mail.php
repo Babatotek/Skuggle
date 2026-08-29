@@ -39,7 +39,12 @@ return [
 
         'smtp' => [
             'transport' => 'smtp',
-            'scheme' => env('MAIL_SCHEME'),
+            // Hostinger SSL/465 → smtps. Prefer MAIL_SCHEME; fall back from legacy MAIL_ENCRYPTION.
+            'scheme' => env('MAIL_SCHEME') ?: match (strtolower((string) env('MAIL_ENCRYPTION', ''))) {
+                'ssl', 'smtps' => 'smtps',
+                'tls', 'starttls' => 'smtp',
+                default => null,
+            },
             'url' => env('MAIL_URL'),
             'host' => env('MAIL_HOST', '127.0.0.1'),
             'port' => env('MAIL_PORT', 2525),

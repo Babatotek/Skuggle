@@ -32,7 +32,8 @@ import {
 } from '../types';
 import { apiMutation, apiRequest, describeApiError } from '../lib/apiClient';
 
-const demoMode = import.meta.env.DEV && import.meta.env.VITE_DEMO_MODE === 'true';
+// Demonstration data lives only in the database-owned DemoTenant. The client never fabricates a session.
+const demoMode = false;
 
 const backendRole = (value: unknown): UserRole => ({ school_admin: 'School Admin', principal: 'Principal', teacher: 'Teacher', parent: 'Parent', student: 'Student', platform_owner: 'Platform Owner', platform_super_admin: 'Platform Owner', bursar: 'Bursar', examination_officer: 'School Admin', admission_officer: 'School Admin' } as Record<string, UserRole>)[String(value)] ?? 'Student';
 
@@ -1405,10 +1406,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const [offlineQueue, setOfflineQueue] = useState<OfflineQueueItem[]>([]);
-  const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [isOnline, setIsOnline] = useState<boolean>(() => navigator.onLine);
   const attendancePending = useRef<Record<string, { date: string; statuses: Record<string, AttendanceStatus> }>>({});
   const attendanceTimer = useRef<number | null>(null);
-  const [activeChildId, setActiveChildId] = useState<string>('std-001'); // David Fanimo default for parent
+  const [activeChildId, setActiveChildId] = useState<string>('');
+
+  useEffect(() => {
+    const online = () => setIsOnline(true);
+    const offline = () => setIsOnline(false);
+    window.addEventListener('online', online);
+    window.addEventListener('offline', offline);
+    return () => { window.removeEventListener('online', online); window.removeEventListener('offline', offline); };
+  }, []);
 
   const [toast, setToast] = useState<{ title: string; description?: string; type: 'success' | 'warning' | 'error' | 'failed' | 'info'; show: boolean } | null>(null);
   const toastTimer = useRef<number | null>(null);

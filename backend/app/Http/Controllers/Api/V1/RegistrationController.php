@@ -31,14 +31,16 @@ class RegistrationController extends Controller
             $tenant = Tenant::query()->create([
                 'name' => $request->string('schoolName')->toString(),
                 'slug' => $this->uniqueSlug($request->string('schoolName')->toString()),
-                'code' => $request->string('schoolCode')->toString(),
+                'code' => $request->filled('schoolCode')
+                    ? $request->string('schoolCode')->toString()
+                    : 'SCH-'.Str::upper(Str::random(10)),
                 'type' => 'school',
                 'status' => 'trial',
                 'subscription_started_at' => now(),
                 'subscription_expires_at' => now()->addDays(30),
                 'settings' => [
-                    'contact' => ['email' => $request->string('schoolEmail')->toString(), 'phone' => $request->string('phone')->toString(), 'address' => $request->string('address')->toString()],
-                    'profile' => ['school_type' => $request->string('schoolType')->toString(), 'school_level' => $request->string('schoolLevel')->toString()],
+                    'contact' => ['email' => $request->input('schoolEmail'), 'phone' => $request->input('phone'), 'address' => $request->input('address')],
+                    'profile' => ['school_type' => $request->input('schoolType'), 'school_level' => $request->input('schoolLevel'), 'onboarding_complete' => false],
                     'branding' => ['primary_colour' => $request->input('primaryColor', '#5B36E8')],
                     'security' => ['require_mfa_for_privileged_roles' => false],
                 ],
@@ -111,7 +113,7 @@ class RegistrationController extends Controller
                 'subscription_started_at' => now(),
                 'quota_limits' => ['users' => 3, 'students' => 3, 'storage_bytes' => 524288000, 'ai_requests_per_day' => 10],
                 'quota_usage' => ['users' => 1, 'students' => $accountType === 'student' ? 1 : 0, 'storage_bytes' => 0],
-                'settings' => ['profile' => ['class_name' => $request->input('className')]],
+                'settings' => ['profile' => ['class_name' => $request->input('className'), 'birth_date' => $request->input('birthDate'), 'guardian_name' => $request->input('guardianName'), 'guardian_email' => $request->input('guardianEmail'), 'onboarding_complete' => false]],
             ]);
             $user = User::query()->create(['name' => $name, 'email' => $request->string('email')->toString(), 'password' => $request->string('password')->toString()]);
             $role = Role::query()->where('name', $accountType)->firstOrFail();
@@ -206,7 +208,7 @@ class RegistrationController extends Controller
             }
 
             // Personal My Skuggle remains owned by the user; school membership is additive.
-            $accountType = $request->string('accountType')->toString();
+            $accountType = in_array($roleName, ['student', 'parent', 'teacher'], true) ? $roleName : 'teacher';
             app(PersonalWorkspaceProvisioner::class)->ensureFor($user, $accountType);
 
             $invite->forceFill([

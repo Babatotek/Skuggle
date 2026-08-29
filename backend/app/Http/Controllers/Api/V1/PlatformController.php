@@ -25,6 +25,44 @@ use Illuminate\Support\Facades\Storage;
 
 class PlatformController extends Controller
 {
+    public function plans(): JsonResponse
+    {
+        return ApiResponse::success(Plan::query()->orderBy('price_minor')->get()->map(fn (Plan $plan) => [
+            'id' => $plan->public_id,
+            'code' => $plan->code,
+            'name' => $plan->name,
+            'priceMinor' => (int) $plan->price_minor,
+            'currency' => $plan->currency,
+            'billingInterval' => $plan->billing_interval,
+            'limits' => $plan->limits,
+            'features' => $plan->features,
+            'active' => $plan->active,
+        ]));
+    }
+
+    public function updatePlan(Request $request, string $plan, AuditLogger $audit): JsonResponse
+    {
+        $record = Plan::query()->where('public_id', $plan)->firstOrFail();
+        $data = $request->validate([
+            'name' => ['sometimes', 'string', 'max:120'],
+            'priceMinor' => ['sometimes', 'integer', 'min:0'],
+            'currency' => ['sometimes', 'string', 'size:3'],
+            'billingInterval' => ['sometimes', 'string', 'max:24'],
+            'limits' => ['sometimes', 'array'],
+            'features' => ['sometimes', 'array'],
+            'active' => ['sometimes', 'boolean'],
+        ]);
+        $before = $record->toArray();
+        $record->fill([
+            ...collect($data)->except(['priceMinor', 'billingInterval'])->all(),
+            ...(array_key_exists('priceMinor', $data) ? ['price_minor' => $data['priceMinor']] : []),
+            ...(array_key_exists('billingInterval', $data) ? ['billing_interval' => $data['billingInterval']] : []),
+        ])->save();
+        $audit->record('platform.plan.updated', $record, $before, $record->fresh()->toArray());
+
+        return $this->plans();
+    }
+
     public function schools(Request $request): JsonResponse
     {
         $perPage = min(max($request->integer('perPage', 20), 1), 100);

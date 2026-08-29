@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import {
   Sparkles,
@@ -17,11 +17,13 @@ import { SubscriptionPlan, SubscriptionPlanType } from '../../types';
 interface SubscriptionPlanModalProps {
   isOpen: boolean;
   onClose: () => void;
+  phase?: 'personal' | 'school';
 }
 
 export const SubscriptionPlanModal: React.FC<SubscriptionPlanModalProps> = ({
   isOpen,
   onClose,
+  phase,
 }) => {
   const {
     subscriptionPlans,
@@ -32,9 +34,13 @@ export const SubscriptionPlanModal: React.FC<SubscriptionPlanModalProps> = ({
     showToast,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'school' | 'individual'>('school');
+  const [activeTab, setActiveTab] = useState<'school' | 'individual'>(phase === 'personal' ? 'individual' : 'school');
   const [studentCount, setStudentCount] = useState<number>(350);
   const [includeIntelligenceAddon, setIncludeIntelligenceAddon] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (phase) setActiveTab(phase === 'personal' ? 'individual' : 'school');
+  }, [phase, isOpen]);
 
   if (!isOpen) return null;
 
@@ -92,6 +98,7 @@ export const SubscriptionPlanModal: React.FC<SubscriptionPlanModalProps> = ({
         {/* Category Switcher & Golden Rule Banner */}
         <div className="px-6 pt-4 pb-2 border-b border-slate-100 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex bg-slate-100 rounded-xl p-1 text-xs font-bold">
+            {phase !== 'personal' && (
             <button
               onClick={() => setActiveTab('school')}
               className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
@@ -103,6 +110,8 @@ export const SubscriptionPlanModal: React.FC<SubscriptionPlanModalProps> = ({
               <Building2 className="w-4 h-4 text-indigo-600" />
               <span>School Institutional Plans</span>
             </button>
+            )}
+            {phase !== 'school' && (
             <button
               onClick={() => setActiveTab('individual')}
               className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
@@ -114,6 +123,7 @@ export const SubscriptionPlanModal: React.FC<SubscriptionPlanModalProps> = ({
               <GraduationCap className="w-4 h-4 text-purple-600" />
               <span>Personal Educator & Learner Spaces</span>
             </button>
+            )}
           </div>
 
           <div className="flex items-center gap-2 text-xs text-slate-600 bg-amber-50/70 border border-amber-200 px-3 py-1.5 rounded-xl">

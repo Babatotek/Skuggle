@@ -7,7 +7,6 @@ import {
   EyeOff,
   ArrowRight,
   User,
-  Phone,
   ChevronLeft,
   Hash,
   CheckCircle2,
@@ -155,7 +154,6 @@ export const SchoolAuthPage: React.FC<SchoolAuthPageProps> = ({ onSuccess, onBac
   /* register */
   const [regName, setRegName]         = useState('');
   const [regEmail, setRegEmail]       = useState('');
-  const [regPhone, setRegPhone]       = useState('');
   const [regCode, setRegCode]         = useState('');
   const [regPwd, setRegPwd]           = useState('');
   const [regConfirm, setRegConfirm]   = useState('');
@@ -206,7 +204,7 @@ export const SchoolAuthPage: React.FC<SchoolAuthPageProps> = ({ onSuccess, onBac
     try {
       await registerPersonalAccount({
         persona: 'teacher', fullName: regName.trim(),
-        email: regEmail.trim().toLowerCase(), phone: regPhone.trim(),
+        email: regEmail.trim().toLowerCase(), phone: '',
         password: regPwd, birthDate: '', guardianName: '', guardianEmail: '',
         actionIntent: 'join_school', schoolInviteCode: regCode.trim().toUpperCase(),
       });
@@ -462,13 +460,11 @@ export const SchoolAuthPage: React.FC<SchoolAuthPageProps> = ({ onSuccess, onBac
                     </p>
                   </div>
 
-                  <TxtField id="s-reg-name" label="Full name" value={regName} onChange={setRegName}
-                    placeholder="Your full name" autoComplete="name" required icon={<User className="w-4 h-4" />} />
-                  <TxtField id="s-reg-email" label="School or personal email" value={regEmail} onChange={setRegEmail}
-                    type="email" placeholder="you@school.edu.ng" autoComplete="email" required icon={<Mail className="w-4 h-4" />} />
-                  <TxtField id="s-reg-phone" label="Phone (optional)" value={regPhone} onChange={setRegPhone}
-                    type="tel" placeholder="+234 800 000 0000" autoComplete="tel" icon={<Phone className="w-4 h-4" />} />
-
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <TxtField id="s-reg-name" label="Full name" value={regName} onChange={setRegName}
+                      placeholder="Your full name" autoComplete="name" required icon={<User className="w-4 h-4" />} />
+                    <TxtField id="s-reg-email" label="Email address" value={regEmail} onChange={setRegEmail}
+                      type="email" placeholder="you@school.edu.ng" autoComplete="email" required icon={<Mail className="w-4 h-4" />} />
                   <div>
                     <label htmlFor="s-reg-code" className="block text-xs font-semibold text-slate-600 mb-1">
                       School / invitation code
@@ -484,9 +480,9 @@ export const SchoolAuthPage: React.FC<SchoolAuthPageProps> = ({ onSuccess, onBac
                           placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all" />
                     </div>
                   </div>
-
-                  <PwdField id="s-reg-pw" label="Create password" value={regPwd} onChange={setRegPwd}
-                    autoComplete="new-password" minLength={8} required hint="At least 8 characters" />
+                    <PwdField id="s-reg-pw" label="Create password" value={regPwd} onChange={setRegPwd}
+                      autoComplete="new-password" minLength={8} required hint="8+ characters" />
+                  </div>
 
                   {regPwd.length > 0 && (
                     <div className="space-y-1 -mt-1">
@@ -499,8 +495,10 @@ export const SchoolAuthPage: React.FC<SchoolAuthPageProps> = ({ onSuccess, onBac
                     </div>
                   )}
 
-                  <PwdField id="s-reg-confirm" label="Confirm password" value={regConfirm} onChange={setRegConfirm}
-                    autoComplete="new-password" required />
+                  <div className="sm:max-w-[calc(50%-0.4375rem)]">
+                    <PwdField id="s-reg-confirm" label="Confirm password" value={regConfirm} onChange={setRegConfirm}
+                      autoComplete="new-password" required />
+                  </div>
 
                   {regConfirm.length > 0 && (
                     <div className={`flex items-center gap-1.5 text-[11px] font-semibold -mt-1 ${regPwd === regConfirm ? 'text-emerald-600' : 'text-red-500'}`}>

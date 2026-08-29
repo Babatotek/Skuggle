@@ -36,13 +36,14 @@ import { BrandMark } from '../../components/BrandMark';
 import { Persona } from '../../types';
 import { SubscriptionPlanModal } from '../subscription/SubscriptionPlanModal';
 import { WorkspaceChooserModal } from './WorkspaceChooserModal';
+import { apiRequest, describeApiError } from '../../lib/apiClient';
 
-// High-fidelity image assets matching the exact design
-import schoolBuildingImg from '../../assets/images/role_school_building_1787852475246.jpg';
-import teacherPointingImg from '../../assets/images/role_teacher_pointing_1787852490451.jpg';
-import studentBlueImg from '../../assets/images/role_student_blue_1787852506751.jpg';
-import parentsPinkImg from '../../assets/images/role_parents_pink_1787852522122.jpg';
-import radiantBannerImg from '../../assets/images/radiant_light_banner_1787852576561.jpg';
+// High-fidelity image assets matching the exact design - lazy loaded for performance
+const schoolBuildingImg = new URL('../../assets/images/role_school_building_1787852475246.jpg', import.meta.url).href;
+const teacherPointingImg = new URL('../../assets/images/role_teacher_pointing_1787852490451.jpg', import.meta.url).href;
+const studentBlueImg = new URL('../../assets/images/role_student_blue_1787852506751.jpg', import.meta.url).href;
+const parentsPinkImg = new URL('../../assets/images/role_parents_pink_1787852522122.jpg', import.meta.url).href;
+const radiantBannerImg = new URL('../../assets/images/radiant_light_banner_1787852576561.jpg', import.meta.url).href;
 
 interface PublicLandingProps {
   onSelectRole: (persona: Persona) => void;
@@ -137,6 +138,8 @@ export const PublicLanding: React.FC<PublicLandingProps> = ({
     message: '',
   });
   const [demoSubmitted, setDemoSubmitted] = useState<boolean>(false);
+  const [demoSubmitting, setDemoSubmitting] = useState(false);
+  const [demoError, setDemoError] = useState<string | null>(null);
 
   const handleOpenGetStarted = (initialTab: 'both' | 'personal' | 'school' = 'both') => {
     setActiveSpaceTab(initialTab);
@@ -167,20 +170,39 @@ export const PublicLanding: React.FC<PublicLandingProps> = ({
     setMobileMenuOpen(false);
   };
 
-  const handleDemoSubmit = (e: React.FormEvent) => {
+  const handleDemoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!demoFormData.workEmail || !demoFormData.fullName) return;
-    setDemoSubmitted(true);
-    setTimeout(() => {
-      setDemoSubmitted(false);
-      setDemoFormData({
-        fullName: '',
-        workEmail: '',
-        schoolName: '',
-        phone: '',
-        message: '',
+    if (!demoFormData.workEmail || !demoFormData.fullName || demoSubmitting) return;
+    setDemoError(null);
+    setDemoSubmitting(true);
+    try {
+      await apiRequest('/public/contact', {
+        method: 'POST',
+        suppressErrorNotification: true,
+        body: JSON.stringify({
+          fullName: demoFormData.fullName.trim(),
+          workEmail: demoFormData.workEmail.trim().toLowerCase(),
+          schoolName: demoFormData.schoolName.trim() || undefined,
+          phone: demoFormData.phone.trim() || undefined,
+          message: demoFormData.message.trim() || undefined,
+        }),
       });
-    }, 4000);
+      setDemoSubmitted(true);
+      setTimeout(() => {
+        setDemoSubmitted(false);
+        setDemoFormData({
+          fullName: '',
+          workEmail: '',
+          schoolName: '',
+          phone: '',
+          message: '',
+        });
+      }, 4000);
+    } catch (cause) {
+      setDemoError(describeApiError(cause));
+    } finally {
+      setDemoSubmitting(false);
+    }
   };
 
   const faqItems = [
@@ -365,7 +387,7 @@ export const PublicLanding: React.FC<PublicLandingProps> = ({
       </header>
 
       {/* ========================================================================= */}
-      {/* 2. HERO SECTION (Exact typography, mascot layout & radiant energy trails)   */}
+      {/* 2. HERO SECTION    */}
       {/* ========================================================================= */}
       <section
         id="home"
@@ -387,16 +409,16 @@ export const PublicLanding: React.FC<PublicLandingProps> = ({
 
             <div className="space-y-1.5">
               <h1 className="font-display text-5xl sm:text-6xl lg:text-[4.75rem] xl:text-[5.25rem] font-extrabold tracking-tight text-slate-900 leading-[1.02]">
-                Run your school.
+                Smart School now.
               </h1>
               <h1 className="font-display text-5xl sm:text-6xl lg:text-[4.75rem] xl:text-[5.25rem] font-extrabold tracking-tight hero-gradient-text leading-[1.02]">
-                Grow every learner.
+                global relevance tommorrow.
               </h1>
             </div>
 
             <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-xl">
               Skuggle unifies school administration, classroom tools, and personal learning in one
-              secure platform — for principals, teachers, students, and parents.
+              secure platform for principals, teachers, students, and parents.
             </p>
 
             <div className="flex flex-wrap items-center gap-4 pt-1">
@@ -1200,6 +1222,11 @@ export const PublicLanding: React.FC<PublicLandingProps> = ({
               </div>
             ) : (
               <form onSubmit={handleDemoSubmit} className="space-y-3.5 text-xs">
+                {demoError && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700">
+                    {demoError}
+                  </div>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">Full name</label>
@@ -1261,9 +1288,10 @@ export const PublicLanding: React.FC<PublicLandingProps> = ({
 
                 <button
                   type="submit"
-                  className="w-full py-3 rounded-xl bg-[#4F46E5] hover:bg-[#4338CA] text-white font-bold transition-all shadow-sm hover:shadow-indigo-500/25 cursor-pointer"
+                  disabled={demoSubmitting}
+                  className="w-full py-3 rounded-xl bg-[#4F46E5] hover:bg-[#4338CA] text-white font-bold transition-all shadow-sm hover:shadow-indigo-500/25 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Book a demo
+                  {demoSubmitting ? 'Sending…' : 'Book a demo'}
                 </button>
               </form>
             )}

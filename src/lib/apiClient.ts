@@ -45,7 +45,7 @@ function cookie(name: string): string | undefined {
 
 /** True when Laravel has issued an XSRF cookie (typical after login or a prior API call). */
 export function hasLikelyBrowserSession(): boolean {
-  return Boolean(cookie('XSRF-TOKEN'));
+  return localStorage.getItem('skuggle_authenticated') === '1';
 }
 
 export async function initializeCsrf(): Promise<void> {

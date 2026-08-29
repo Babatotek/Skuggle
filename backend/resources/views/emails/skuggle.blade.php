@@ -11,7 +11,23 @@
 <tr><td align="center">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border-radius:22px;overflow:hidden;box-shadow:0 14px 38px rgba(49,29,128,.14)">
     <tr><td style="padding:28px 34px;background:linear-gradient(135deg,#24105f,#5b36e8 64%,#7657ff)">
-        <img src="{{ rtrim(config('skuggle.frontend_url'), '/') }}/skuggle-logo.png" width="150" alt="Skuggle" style="display:block;max-width:150px;height:auto">
+        @php
+            $logoSrc = null;
+            if (! empty($message) && is_file($logoPath ?? '')) {
+                $logoSrc = $message->embed($logoPath);
+            } elseif (! empty($logoUrl)) {
+                $logoSrc = $logoUrl;
+            } elseif (is_file(resource_path('images/email/skuggle-logo.png')) && ! empty($message)) {
+                $logoSrc = $message->embed(resource_path('images/email/skuggle-logo.png'));
+            }
+        @endphp
+        @if($logoSrc)
+            <img src="{{ $logoSrc }}" width="150" alt="Skuggle" style="display:block;max-width:150px;height:auto;border:0;outline:none;text-decoration:none">
+        @else
+            <div style="font-size:28px;line-height:1;font-weight:800;letter-spacing:-0.04em;color:#ffffff">
+                Sk<span style="color:#f59e0b">u</span>ggle
+            </div>
+        @endif
     </td></tr>
     <tr><td style="padding:38px 38px 18px">
         <div style="font-size:12px;line-height:18px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#6847ee">{{ $eyebrow }}</div>

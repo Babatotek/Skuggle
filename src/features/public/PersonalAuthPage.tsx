@@ -7,11 +7,11 @@ import {
   EyeOff,
   ArrowRight,
   User,
-  Phone,
   ChevronLeft,
   CheckCircle2,
   AlertCircle,
   Sparkles,
+  CalendarDays,
 } from 'lucide-react';
 import { BrandMark } from '../../components/BrandMark';
 import { useApp } from '../../context/AppContext';
@@ -149,7 +149,10 @@ export const PersonalAuthPage: React.FC<PersonalAuthPageProps> = ({ onSuccess, o
   /* register */
   const [regName, setRegName]       = useState('');
   const [regEmail, setRegEmail]     = useState('');
-  const [regPhone, setRegPhone]     = useState('');
+  const [regPersona, setRegPersona] = useState<'student' | 'teacher' | 'parent'>('student');
+  const [regBirthDate, setRegBirthDate] = useState('');
+  const [regGuardianName, setRegGuardianName] = useState('');
+  const [regGuardianEmail, setRegGuardianEmail] = useState('');
   const [regPwd, setRegPwd]         = useState('');
   const [regConfirm, setRegConfirm] = useState('');
 
@@ -191,12 +194,16 @@ export const PersonalAuthPage: React.FC<PersonalAuthPageProps> = ({ onSuccess, o
   const register = async () => {
     if (regPwd !== regConfirm) { setError('Passwords do not match.'); return; }
     if (regPwd.length < 8)     { setError('Password must be at least 8 characters.'); return; }
+    const studentAge = regPersona === 'student' && regBirthDate ? Math.floor((Date.now() - new Date(regBirthDate).getTime()) / 31557600000) : null;
+    if (regPersona === 'student' && !regBirthDate) { setError('Date of birth is required for student accounts.'); return; }
+    if (studentAge !== null && studentAge < 18 && (!regGuardianName.trim() || !regGuardianEmail.trim())) { setError('A parent or guardian name and email are required for students under 18.'); return; }
     setLoading(true); clearErr();
     try {
       await registerPersonalAccount({
-        persona: 'student', fullName: regName.trim(),
-        email: regEmail.trim().toLowerCase(), phone: regPhone.trim(),
-        password: regPwd, birthDate: '', guardianName: '', guardianEmail: '',
+        persona: regPersona, fullName: regName.trim(),
+        email: regEmail.trim().toLowerCase(), phone: '',
+        password: regPwd, birthDate: regBirthDate || undefined,
+        guardianName: regGuardianName.trim() || undefined, guardianEmail: regGuardianEmail.trim().toLowerCase() || undefined,
         actionIntent: 'personal_space',
       });
       showToast('Account created', 'Welcome! Sign in to continue.', 'success');
@@ -228,6 +235,8 @@ export const PersonalAuthPage: React.FC<PersonalAuthPageProps> = ({ onSuccess, o
   const strengthColor = strength === 'strong' ? 'bg-emerald-500' : strength === 'good' ? 'bg-amber-400' : 'bg-red-400';
   const strengthLabel = strength === 'strong' ? '✓ Strong' : strength === 'good' ? 'Good — could be stronger' : 'Too short (min 8)';
   const strengthText  = strength === 'strong' ? 'text-emerald-600' : strength === 'good' ? 'text-amber-600' : 'text-red-500';
+  const studentAge = regPersona === 'student' && regBirthDate ? Math.floor((Date.now() - new Date(regBirthDate).getTime()) / 31557600000) : null;
+  const needsGuardian = studentAge !== null && studentAge < 18;
 
   /* ───────────────────────────── RENDER ─────────────────────────────────── */
   return (
@@ -244,7 +253,7 @@ export const PersonalAuthPage: React.FC<PersonalAuthPageProps> = ({ onSuccess, o
 
       {/* ── centered card ── */}
       <div className="flex-1 flex items-center justify-center px-4 pb-6">
-        <div className="w-full max-w-[440px]">
+        <div className="w-full max-w-[680px]">
 
           {/* MFA setup */}
           {mfaKey && (
@@ -356,14 +365,26 @@ export const PersonalAuthPage: React.FC<PersonalAuthPageProps> = ({ onSuccess, o
                   {tab === 'register' && (
                     <motion.form key="reg" variants={slide} initial="hidden" animate="visible" exit="exit"
                       onSubmit={e => { e.preventDefault(); void register(); }} className="space-y-3.5" noValidate>
-                      <TxtField id="reg-name" label="Full name" value={regName} onChange={setRegName}
-                        placeholder="Oluwatosin Fanimo" autoComplete="name" required icon={<User className="w-4 h-4" />} />
-                      <TxtField id="reg-email" label="Email address" value={regEmail} onChange={setRegEmail}
-                        type="email" placeholder="you@example.com" autoComplete="email" required icon={<Mail className="w-4 h-4" />} />
-                      <TxtField id="reg-phone" label="Phone (optional)" value={regPhone} onChange={setRegPhone}
-                        type="tel" placeholder="+234 800 000 0000" autoComplete="tel" icon={<Phone className="w-4 h-4" />} />
-                      <PwdField id="reg-pw" label="Create password" value={regPwd} onChange={setRegPwd}
-                        autoComplete="new-password" minLength={8} required hint="At least 8 characters" />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        <TxtField id="reg-name" label="Full name" value={regName} onChange={setRegName}
+                          placeholder="Your full name" autoComplete="name" required icon={<User className="w-4 h-4" />} />
+                        <TxtField id="reg-email" label="Email address" value={regEmail} onChange={setRegEmail}
+                          type="email" placeholder="you@example.com" autoComplete="email" required icon={<Mail className="w-4 h-4" />} />
+                        <div>
+                          <label htmlFor="reg-persona" className="block text-xs font-semibold text-slate-600 mb-1">I am joining as</label>
+                          <select id="reg-persona" value={regPersona} onChange={e => setRegPersona(e.target.value as typeof regPersona)}
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-400">
+                            <option value="student">Student</option><option value="teacher">Teacher</option><option value="parent">Parent / guardian</option>
+                          </select>
+                        </div>
+                        {regPersona === 'student' && <TxtField id="reg-birth-date" label="Date of birth" value={regBirthDate} onChange={setRegBirthDate} type="date" autoComplete="bday" required icon={<CalendarDays className="w-4 h-4" />} />}
+                        <PwdField id="reg-pw" label="Create password" value={regPwd} onChange={setRegPwd}
+                          autoComplete="new-password" minLength={8} required hint="8+ characters; use a mix of letters, numbers and symbols" />
+                      </div>
+                      {needsGuardian && <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 rounded-xl border border-violet-100 bg-violet-50/60 p-3.5">
+                        <TxtField id="reg-guardian-name" label="Parent / guardian name" value={regGuardianName} onChange={setRegGuardianName} placeholder="Full name" autoComplete="name" required icon={<User className="w-4 h-4" />} />
+                        <TxtField id="reg-guardian-email" label="Parent / guardian email" value={regGuardianEmail} onChange={setRegGuardianEmail} type="email" placeholder="guardian@example.com" autoComplete="email" required icon={<Mail className="w-4 h-4" />} />
+                      </div>}
 
                       {/* strength bar */}
                       {regPwd.length > 0 && (
@@ -377,8 +398,10 @@ export const PersonalAuthPage: React.FC<PersonalAuthPageProps> = ({ onSuccess, o
                         </div>
                       )}
 
-                      <PwdField id="reg-confirm" label="Confirm password" value={regConfirm} onChange={setRegConfirm}
-                        autoComplete="new-password" required />
+                      <div className="sm:max-w-[calc(50%-0.4375rem)]">
+                        <PwdField id="reg-confirm" label="Confirm password" value={regConfirm} onChange={setRegConfirm}
+                          autoComplete="new-password" required />
+                      </div>
 
                       {/* match indicator */}
                       {regConfirm.length > 0 && (

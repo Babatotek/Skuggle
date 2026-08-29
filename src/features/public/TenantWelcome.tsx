@@ -536,16 +536,6 @@ export const TenantWelcome: React.FC<TenantWelcomeProps> = ({
                         Place QR credential before camera for 1-tap isolated sign-in.
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        showToast('QR Token Scanned', 'Student credential card recognized. Authenticating...');
-                        setTimeout(() => onContinue(), 400);
-                      }}
-                      className="px-4 py-2 bg-indigo-900 text-white font-bold text-xs rounded-xl shadow-xs hover:bg-indigo-950 transition-colors cursor-pointer"
-                    >
-                      Simulate 1-Tap QR Scan
-                    </button>
                   </div>
                 )}
 

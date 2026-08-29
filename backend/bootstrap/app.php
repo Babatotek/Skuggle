@@ -3,6 +3,7 @@
 use App\Exceptions\ApiException;
 use App\Http\Middleware\AssignRequestId;
 use App\Http\Middleware\EnforceTenantQuota;
+use App\Http\Middleware\EnsureAccountModuleAccess;
 use App\Http\Middleware\EnsureEmailIsVerified;
 use App\Http\Middleware\EnsurePermission;
 use App\Http\Middleware\EnsurePublicAiEnabled;
@@ -63,6 +64,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'tenant' => ResolveTenant::class,
             'permission' => EnsurePermission::class,
+            'account-module' => EnsureAccountModuleAccess::class,
             'quota' => EnforceTenantQuota::class,
             'idempotency' => Idempotency::class,
             // Privileged MFA enforced on mutating verified routes via alias `mfa`.

@@ -32,18 +32,14 @@ class RegisterIndividualRequest extends FormRequest
             if ($this->input('accountType') !== 'student' || ! $this->filled('birthDate')) {
                 return;
             }
-            $birthDate = CarbonImmutable::parse((string) $this->input('birthDate'));
-            if ($birthDate->age >= 18) {
+            if (CarbonImmutable::parse((string) $this->input('birthDate'))->age >= 18) {
                 return;
             }
             if (! $this->filled('guardianName')) {
-                $validator->errors()->add('guardianName', 'A guardian name is required for a minor.');
+                $validator->errors()->add('guardianName', 'A parent or guardian name is required for students under 18.');
             }
             if (! $this->filled('guardianEmail')) {
-                $validator->errors()->add('guardianEmail', 'A guardian email is required for a minor.');
-            }
-            if (! $this->boolean('guardianConsent')) {
-                $validator->errors()->add('guardianConsent', 'Guardian consent is required for a minor.');
+                $validator->errors()->add('guardianEmail', 'A parent or guardian email is required for students under 18.');
             }
         });
     }

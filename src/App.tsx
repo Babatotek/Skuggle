@@ -42,8 +42,14 @@ function restoreSession(): Promise<SessionResponse | null> {
     return Promise.resolve(null);
   }
   if (!restoreSessionPromise) {
-    restoreSessionPromise = apiRequest<SessionResponse>('/auth/me', { suppressErrorNotification: true })
+    restoreSessionPromise = apiRequest<SessionResponse>('/auth/me', {
+      suppressErrorNotification: true,
+      signal: AbortSignal.timeout(30000),
+    })
       .catch((error) => {
+        if (error instanceof ApiError && error.status === 401) {
+          localStorage.removeItem('skuggle_authenticated');
+        }
         if (error instanceof ApiError && error.status !== 401) {
           console.error('Session restoration failed', error.code, error.requestId);
         }
@@ -53,32 +59,32 @@ function restoreSession(): Promise<SessionResponse | null> {
   return restoreSessionPromise;
 }
 
-const SchoolAdminDashboard = lazy(() => import('./features/dashboard/SchoolAdminDashboard').then((m) => ({ default: m.SchoolAdminDashboard })));
-const PrincipalDashboard = lazy(() => import('./features/dashboard/PrincipalDashboard').then((m) => ({ default: m.PrincipalDashboard })));
-const TeacherDashboard = lazy(() => import('./features/dashboard/TeacherDashboard').then((m) => ({ default: m.TeacherDashboard })));
-const ParentDashboard = lazy(() => import('./features/dashboard/ParentDashboard').then((m) => ({ default: m.ParentDashboard })));
-const StudentDashboard = lazy(() => import('./features/dashboard/StudentDashboard').then((m) => ({ default: m.StudentDashboard })));
-const PlatformOwnerDashboard = lazy(() => import('./features/dashboard/PlatformOwnerDashboard').then((m) => ({ default: m.PlatformOwnerDashboard })));
-const SchoolRegistrationStepper = lazy(() => import('./features/public/SchoolRegistrationStepper').then((m) => ({ default: m.SchoolRegistrationStepper })));
-const TenantWelcome = lazy(() => import('./features/public/TenantWelcome').then((m) => ({ default: m.TenantWelcome })));
-const TenantLogin = lazy(() => import('./features/public/TenantLogin').then((m) => ({ default: m.TenantLogin })));
-const PersonalAuthPage = lazy(() => import('./features/public/PersonalAuthPage').then((m) => ({ default: m.PersonalAuthPage })));
-const SchoolAuthPage = lazy(() => import('./features/public/SchoolAuthPage').then((m) => ({ default: m.SchoolAuthPage })));
-const PublicResultChecker = lazy(() => import('./features/public/PublicResultChecker').then((m) => ({ default: m.PublicResultChecker })));
-const BrandingStudio = lazy(() => import('./features/branding/BrandingStudio').then((m) => ({ default: m.BrandingStudio })));
-const AttendanceView = lazy(() => import('./features/attendance/AttendanceView').then((m) => ({ default: m.AttendanceView })));
-const StudentRegistryView = lazy(() => import('./features/students/StudentRegistryView').then((m) => ({ default: m.StudentRegistryView })));
-const AssessmentsView = lazy(() => import('./features/assessments/AssessmentsView').then((m) => ({ default: m.AssessmentsView })));
-const ResultsManagementView = lazy(() => import('./features/results/ResultsManagementView').then((m) => ({ default: m.ResultsManagementView })));
-const StaffManagementView = lazy(() => import('./features/staff/StaffManagementView').then((m) => ({ default: m.StaffManagementView })));
-const AcademicsConfigView = lazy(() => import('./features/academics/AcademicsConfigView').then((m) => ({ default: m.AcademicsConfigView })));
-const ReportCardGeneratorView = lazy(() => import('./features/results/ReportCardGeneratorView').then((m) => ({ default: m.ReportCardGeneratorView })));
-const FeeStructureBillingView = lazy(() => import('./features/finance/FeeStructureBillingView').then((m) => ({ default: m.FeeStructureBillingView })));
-const BroadcastCenterView = lazy(() => import('./features/communication/BroadcastCenterView').then((m) => ({ default: m.BroadcastCenterView })));
-const ClassTimetableView = lazy(() => import('./features/academics/ClassTimetableView').then((m) => ({ default: m.ClassTimetableView })));
-const CBTQuizModuleView = lazy(() => import('./features/cbt/CBTQuizModuleView').then((m) => ({ default: m.CBTQuizModuleView })));
-const AILessonPlanner = lazy(() => import('./features/teacher/AILessonPlanner').then((m) => ({ default: m.AILessonPlanner })));
-const SmartMarkScanner = lazy(() => import('./features/teacher/SmartMarkScanner').then((m) => ({ default: m.SmartMarkScanner })));
+const SchoolAdminDashboard = lazy(() => import(/* webpackChunkName: "dashboard-admin" */ './features/dashboard/SchoolAdminDashboard').then((m) => ({ default: m.SchoolAdminDashboard })));
+const PrincipalDashboard = lazy(() => import(/* webpackChunkName: "dashboard-principal" */ './features/dashboard/PrincipalDashboard').then((m) => ({ default: m.PrincipalDashboard })));
+const TeacherDashboard = lazy(() => import(/* webpackChunkName: "dashboard-teacher" */ './features/dashboard/TeacherDashboard').then((m) => ({ default: m.TeacherDashboard })));
+const ParentDashboard = lazy(() => import(/* webpackChunkName: "dashboard-parent" */ './features/dashboard/ParentDashboard').then((m) => ({ default: m.ParentDashboard })));
+const StudentDashboard = lazy(() => import(/* webpackChunkName: "dashboard-student" */ './features/dashboard/StudentDashboard').then((m) => ({ default: m.StudentDashboard })));
+const PlatformOwnerDashboard = lazy(() => import(/* webpackChunkName: "dashboard-owner" */ './features/dashboard/PlatformOwnerDashboard').then((m) => ({ default: m.PlatformOwnerDashboard })));
+const SchoolRegistrationStepper = lazy(() => import(/* webpackChunkName: "public-register" */ './features/public/SchoolRegistrationStepper').then((m) => ({ default: m.SchoolRegistrationStepper })));
+const TenantWelcome = lazy(() => import(/* webpackChunkName: "public-welcome" */ './features/public/TenantWelcome').then((m) => ({ default: m.TenantWelcome })));
+const TenantLogin = lazy(() => import(/* webpackChunkName: "public-login" */ './features/public/TenantLogin').then((m) => ({ default: m.TenantLogin })));
+const PersonalAuthPage = lazy(() => import(/* webpackChunkName: "public-auth-personal" */ './features/public/PersonalAuthPage').then((m) => ({ default: m.PersonalAuthPage })));
+const SchoolAuthPage = lazy(() => import(/* webpackChunkName: "public-auth-school" */ './features/public/SchoolAuthPage').then((m) => ({ default: m.SchoolAuthPage })));
+const PublicResultChecker = lazy(() => import(/* webpackChunkName: "public-results" */ './features/public/PublicResultChecker').then((m) => ({ default: m.PublicResultChecker })));
+const BrandingStudio = lazy(() => import(/* webpackChunkName: "feature-branding" */ './features/branding/BrandingStudio').then((m) => ({ default: m.BrandingStudio })));
+const AttendanceView = lazy(() => import(/* webpackChunkName: "feature-attendance" */ './features/attendance/AttendanceView').then((m) => ({ default: m.AttendanceView })));
+const StudentRegistryView = lazy(() => import(/* webpackChunkName: "feature-students" */ './features/students/StudentRegistryView').then((m) => ({ default: m.StudentRegistryView })));
+const AssessmentsView = lazy(() => import(/* webpackChunkName: "feature-assessments" */ './features/assessments/AssessmentsView').then((m) => ({ default: m.AssessmentsView })));
+const ResultsManagementView = lazy(() => import(/* webpackChunkName: "feature-results" */ './features/results/ResultsManagementView').then((m) => ({ default: m.ResultsManagementView })));
+const StaffManagementView = lazy(() => import(/* webpackChunkName: "feature-staff" */ './features/staff/StaffManagementView').then((m) => ({ default: m.StaffManagementView })));
+const AcademicsConfigView = lazy(() => import(/* webpackChunkName: "feature-academics" */ './features/academics/AcademicsConfigView').then((m) => ({ default: m.AcademicsConfigView })));
+const ReportCardGeneratorView = lazy(() => import(/* webpackChunkName: "feature-report-cards" */ './features/results/ReportCardGeneratorView').then((m) => ({ default: m.ReportCardGeneratorView })));
+const FeeStructureBillingView = lazy(() => import(/* webpackChunkName: "feature-finance" */ './features/finance/FeeStructureBillingView').then((m) => ({ default: m.FeeStructureBillingView })));
+const BroadcastCenterView = lazy(() => import(/* webpackChunkName: "feature-broadcasts" */ './features/communication/BroadcastCenterView').then((m) => ({ default: m.BroadcastCenterView })));
+const ClassTimetableView = lazy(() => import(/* webpackChunkName: "feature-timetable" */ './features/academics/ClassTimetableView').then((m) => ({ default: m.ClassTimetableView })));
+const CBTQuizModuleView = lazy(() => import(/* webpackChunkName: "feature-cbt" */ './features/cbt/CBTQuizModuleView').then((m) => ({ default: m.CBTQuizModuleView })));
+const AILessonPlanner = lazy(() => import(/* webpackChunkName: "feature-ai-lessons" */ './features/teacher/AILessonPlanner').then((m) => ({ default: m.AILessonPlanner })));
+const SmartMarkScanner = lazy(() => import(/* webpackChunkName: "feature-smart-marks" */ './features/teacher/SmartMarkScanner').then((m) => ({ default: m.SmartMarkScanner })));
 
 function MainAppContent() {
   const { currentRole, setCurrentRole, toast, hideToast, showToast } = useApp();
@@ -94,7 +100,8 @@ function MainAppContent() {
     | 'result-checker'
     | 'app'
   >('landing');
-  const [isSessionChecking, setIsSessionChecking] = useState(() => hasLikelyBrowserSession());
+  // Session restoration is progressive: never place an unbounded network request over the whole UI.
+  const [isSessionChecking, setIsSessionChecking] = useState(false);
 
   // Active App Navigation Tab
   const [activeTab, setActiveTab] = useState<string>('home');
@@ -141,6 +148,7 @@ function MainAppContent() {
       await apiRequest('/auth/logout', { method: 'POST' });
     } finally {
       restoreSessionPromise = null;
+      localStorage.removeItem('skuggle_authenticated');
       setCurrentView('landing');
       setActiveTab('home');
     }
@@ -158,6 +166,7 @@ function MainAppContent() {
   };
 
   const enterAuthenticatedApp = (role: UserRole) => {
+    localStorage.setItem('skuggle_authenticated', '1');
     setCurrentRole(role);
     setCurrentView('app');
   };
@@ -229,7 +238,7 @@ function MainAppContent() {
     <div className="min-h-screen bg-[#FFFCF7] text-slate-900 flex flex-col font-sans selection:bg-indigo-100 selection:text-indigo-900">
       {/* Toast Notification Container */}
       <AnimatePresence>
-        {toast && (
+        {toast?.show && (
           <motion.div
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}

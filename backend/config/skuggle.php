@@ -2,6 +2,9 @@
 
 return [
     'frontend_url' => env('FRONTEND_URL', 'http://127.0.0.1:3000'),
+    'mail' => [
+        'contact_to' => env('MAIL_CONTACT_TO', env('MAIL_FROM_ADDRESS')),
+    ],
     'security' => [
         'allowed_origins' => array_values(array_filter(array_map('trim', explode(',', (string) env('ALLOWED_ORIGINS', ''))))),
         'trusted_proxies' => env('TRUSTED_PROXIES', '*'),

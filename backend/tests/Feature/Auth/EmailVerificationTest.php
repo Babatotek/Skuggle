@@ -3,6 +3,7 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use App\Notifications\ContactInquiryNotification;
 use App\Notifications\SubscriptionApprovedNotification;
 use App\Notifications\VerifyEmailNotification;
 use App\Notifications\WelcomeToSkuggleNotification;
@@ -74,10 +75,23 @@ class EmailVerificationTest extends TestCase
         $verification = (new VerifyEmailNotification)->toMail($user)->render();
         $welcome = (new WelcomeToSkuggleNotification)->toMail($user)->render();
         $subscription = (new SubscriptionApprovedNotification('Enterprise', '30 September 2026'))->toMail($user)->render();
+        $contact = (new ContactInquiryNotification([
+            'fullName' => 'Demo Client',
+            'workEmail' => 'client@example.test',
+            'schoolName' => 'Demo School',
+            'phone' => '08000000000',
+            'message' => 'Please book a demo.',
+        ]))->toMail($user)->render();
 
-        foreach ([$verification, $welcome, $subscription] as $html) {
+        foreach ([$verification, $welcome, $subscription, $contact] as $html) {
             $this->assertStringContainsString('Skuggle', $html);
-            $this->assertStringContainsString('skuggle-logo.png', $html);
+            $this->assertStringContainsString('alt="Skuggle"', $html);
+            $this->assertTrue(
+                str_contains($html, 'cid:')
+                    || str_contains($html, 'data:image')
+                    || str_contains($html, 'skuggle-logo.png'),
+                'Expected embedded or linked Skuggle logo in email HTML.',
+            );
             $this->assertStringContainsString('One identity. Every learning space.', $html);
         }
     }

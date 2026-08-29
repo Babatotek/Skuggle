@@ -38,6 +38,7 @@ import { BrandMark } from './BrandMark';
 import { WorkspaceSwitcherModal } from './WorkspaceSwitcherModal';
 import { SubscriptionPlanModal } from '../features/subscription/SubscriptionPlanModal';
 import { InvitationsAndCredentialsModal } from '../features/invitations/InvitationsAndCredentialsModal';
+import { getAccountModuleAccess } from '../lib/moduleAccess';
 import { SchoolGuidedSetupModal } from '../features/onboarding/SchoolGuidedSetupModal';
 
 export interface NavSection {
@@ -80,9 +81,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
     branding,
     currentWorkspace,
     switchSpaceCategory,
-    isOnline,
-    setIsOnline,
-    offlineQueue,
   } = useApp();
 
   const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
@@ -90,6 +88,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   const [isInvitationsModalOpen, setIsInvitationsModalOpen] = useState(false);
   const [isGuidedSetupModalOpen, setIsGuidedSetupModalOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const moduleAccess = getAccountModuleAccess(currentWorkspace, currentRole);
 
   // Grouped Navigation Structure by Persona / Role
   const getNavSections = (): NavSection[] => {
@@ -422,7 +421,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           )}
 
           {/* 10-Step Launch Blueprint */}
-          <button
+          {moduleAccess.launchBlueprint && <button
             onClick={() => setIsGuidedSetupModalOpen(true)}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors ${
               isCollapsed ? 'justify-center px-0' : ''
@@ -431,10 +430,10 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           >
             <Rocket className="w-4 h-4 text-indigo-600 shrink-0" />
             {!isCollapsed && <span className="truncate flex-1 text-left">Launch Blueprint</span>}
-          </button>
+          </button>}
 
           {/* Invitations & QR Credentials */}
-          <button
+          {moduleAccess.invitationsAndQr && <button
             onClick={() => setIsInvitationsModalOpen(true)}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors ${
               isCollapsed ? 'justify-center px-0' : ''
@@ -443,10 +442,10 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           >
             <Key className="w-4 h-4 text-purple-600 shrink-0" />
             {!isCollapsed && <span className="truncate flex-1 text-left">Invitations & QR</span>}
-          </button>
+          </button>}
 
           {/* Subscription & Plans */}
-          <button
+          {moduleAccess.subscriptionAndPricing && <button
             onClick={() => setIsSubscriptionModalOpen(true)}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors ${
               isCollapsed ? 'justify-center px-0' : ''
@@ -455,7 +454,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           >
             <CreditCard className="w-4 h-4 text-amber-600 shrink-0" />
             {!isCollapsed && <span className="truncate flex-1 text-left">Subscription Plans</span>}
-          </button>
+          </button>}
 
           {/* Public PIN Result Checker link */}
           {onOpenResultChecker && (
@@ -475,36 +474,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 
       {/* 3. Bottom Footer: User Profile & Role Switcher & Collapse Toggle */}
       <div className="p-3 border-t border-slate-100 bg-slate-50/70 shrink-0 space-y-2">
-        {/* Offline Toggle status */}
-        <div
-          className={`flex items-center justify-between px-2 py-1.5 rounded-xl text-xs ${
-            isOnline
-              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-              : 'bg-amber-100 text-amber-900 border border-amber-300'
-          }`}
-        >
-          <div className="flex items-center gap-2 overflow-hidden">
-            {isOnline ? (
-              <Wifi className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            ) : (
-              <WifiOff className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-            )}
-            {!isCollapsed && (
-              <span className="text-[11px] font-bold truncate">
-                {isOnline ? 'Online Synced' : 'Offline Mode'}
-              </span>
-            )}
-          </div>
-          {!isCollapsed && (
-            <button
-              onClick={() => setIsOnline(!isOnline)}
-              className="text-[10px] font-bold underline opacity-80 hover:opacity-100"
-            >
-              {isOnline ? 'Simulate' : 'Connect'}
-            </button>
-          )}
-        </div>
-
         {/* User Card with Role Popover */}
         <div className="relative">
           <button
@@ -636,21 +605,22 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         onNavigateToNewSchool={onOpenPublicLanding}
       />
 
-      <SubscriptionPlanModal
+      {moduleAccess.subscriptionAndPricing && <SubscriptionPlanModal
         isOpen={isSubscriptionModalOpen}
         onClose={() => setIsSubscriptionModalOpen(false)}
-      />
+        phase={moduleAccess.subscriptionPhase!}
+      />}
 
-      <InvitationsAndCredentialsModal
+      {moduleAccess.invitationsAndQr && <InvitationsAndCredentialsModal
         isOpen={isInvitationsModalOpen}
         onClose={() => setIsInvitationsModalOpen(false)}
-      />
+      />}
 
-      <SchoolGuidedSetupModal
+      {moduleAccess.launchBlueprint && <SchoolGuidedSetupModal
         isOpen={isGuidedSetupModalOpen}
         onClose={() => setIsGuidedSetupModalOpen(false)}
         onNavigateToTab={setActiveTab}
-      />
+      />}
     </>
   );
 };
