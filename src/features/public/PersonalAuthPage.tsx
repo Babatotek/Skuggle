@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { BrandMark } from '../../components/BrandMark';
 import { EmailVerificationModal } from '../../components/EmailVerificationModal';
+import { ForgotPasswordModal } from '../../components/ForgotPasswordModal';
 import { useApp } from '../../context/AppContext';
 import { UserRole } from '../../types';
 import { apiRequest, ApiError, initializeCsrf, describeApiError } from '../../lib/apiClient';
@@ -161,6 +162,7 @@ export const PersonalAuthPage: React.FC<PersonalAuthPageProps> = ({ onSuccess, o
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
   const [pendingVerifyEmail, setPendingVerifyEmail] = useState<string | null>(null);
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
 
   /* MFA */
   const [mfaKey, setMfaKey]         = useState<string | null>(null);
@@ -270,6 +272,7 @@ export const PersonalAuthPage: React.FC<PersonalAuthPageProps> = ({ onSuccess, o
               onResent={() => showToast('Verification email sent', `Check ${pendingVerifyEmail} (and spam) for the Skuggle link.`, 'success')}
             />
           )}
+          {forgotPasswordOpen && <ForgotPasswordModal initialEmail={siEmail} onClose={() => setForgotPasswordOpen(false)} />}
 
           {/* MFA setup */}
           {mfaKey && (
@@ -373,7 +376,7 @@ export const PersonalAuthPage: React.FC<PersonalAuthPageProps> = ({ onSuccess, o
                       <PwdField id="si-pw" label="Password" value={siPassword} onChange={setSiPassword}
                         autoComplete="current-password" required
                         rightSlot={
-                          <button type="button" onClick={() => showToast('Password Reset', 'Check your email for a reset link.', 'info')}
+                          <button type="button" onClick={() => setForgotPasswordOpen(true)}
                             className="text-[11px] font-semibold text-violet-600 hover:text-violet-800 transition-colors">
                             Forgot password?
                           </button>

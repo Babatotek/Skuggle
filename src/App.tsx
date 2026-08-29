@@ -38,8 +38,8 @@ function sessionRole(role: string): UserRole {
 
 let restoreSessionPromise: Promise<SessionResponse | null> | null = null;
 
-function restoreSession(): Promise<SessionResponse | null> {
-  if (!hasLikelyBrowserSession()) {
+function restoreSession(force = false): Promise<SessionResponse | null> {
+  if (!force && !hasLikelyBrowserSession()) {
     return Promise.resolve(null);
   }
   if (!restoreSessionPromise) {
@@ -71,6 +71,8 @@ const TenantWelcome = lazy(() => import(/* webpackChunkName: "public-welcome" */
 const TenantLogin = lazy(() => import(/* webpackChunkName: "public-login" */ './features/public/TenantLogin').then((m) => ({ default: m.TenantLogin })));
 const PersonalAuthPage = lazy(() => import(/* webpackChunkName: "public-auth-personal" */ './features/public/PersonalAuthPage').then((m) => ({ default: m.PersonalAuthPage })));
 const SchoolAuthPage = lazy(() => import(/* webpackChunkName: "public-auth-school" */ './features/public/SchoolAuthPage').then((m) => ({ default: m.SchoolAuthPage })));
+const ResetPasswordPage = lazy(() => import('./features/public/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })));
+const VerificationStatusPage = lazy(() => import('./features/public/VerificationStatusPage').then((m) => ({ default: m.VerificationStatusPage })));
 const PublicResultChecker = lazy(() => import(/* webpackChunkName: "public-results" */ './features/public/PublicResultChecker').then((m) => ({ default: m.PublicResultChecker })));
 const BrandingStudio = lazy(() => import(/* webpackChunkName: "feature-branding" */ './features/branding/BrandingStudio').then((m) => ({ default: m.BrandingStudio })));
 const AttendanceView = lazy(() => import(/* webpackChunkName: "feature-attendance" */ './features/attendance/AttendanceView').then((m) => ({ default: m.AttendanceView })));
@@ -104,6 +106,11 @@ function MainAppContent() {
   // Session restoration is progressive: never place an unbounded network request over the whole UI.
   const [isSessionChecking, setIsSessionChecking] = useState(false);
   const [verifyGateEmail, setVerifyGateEmail] = useState<string | null>(null);
+  const isResetPasswordRoute = window.location.pathname.replace(/\/+$/, '') === '/reset-password';
+  const isVerificationSuccess = window.location.pathname.replace(/\/+$/, '') === '/verify-email'
+    && new URLSearchParams(window.location.search).get('status') === 'success';
+  const isVerificationRoute = window.location.pathname.replace(/\/+$/, '') === '/verify-email';
+  const verificationStatus = isVerificationRoute ? new URLSearchParams(window.location.search).get('status') : null;
 
   // Active App Navigation Tab
   const [activeTab, setActiveTab] = useState<string>('home');
@@ -144,7 +151,7 @@ function MainAppContent() {
 
   useEffect(() => {
     let active = true;
-    void restoreSession()
+    void restoreSession(isVerificationSuccess)
       .then(async (response) => {
         if (!active) return;
         if (response) {
@@ -162,6 +169,7 @@ function MainAppContent() {
           setCurrentRole(sessionRole(response.data.user.role));
           setCurrentView('app');
           window.dispatchEvent(new Event('skuggle:authenticated'));
+          if (isVerificationSuccess) window.history.replaceState({}, '', '/');
           return;
         }
         // Only auto-open tenant welcome on a cold landing load. Never yank the user
@@ -172,7 +180,7 @@ function MainAppContent() {
       })
       .finally(() => { if (active) setIsSessionChecking(false); });
     return () => { active = false; };
-  }, [setCurrentRole]);
+  }, [isVerificationSuccess, setCurrentRole]);
 
   const handleLogout = async () => {
     try {
@@ -300,7 +308,15 @@ function MainAppContent() {
       )}
 
       {/* Main Views Routing */}
-      {currentView === 'landing' ? (
+      {isResetPasswordRoute ? (
+        <Suspense fallback={<div className="min-h-screen bg-[#FFFCF7] p-6"><DashboardLoading /></div>}>
+          <ResetPasswordPage onDone={() => { window.history.replaceState({}, '', '/'); setCurrentView('personal-auth'); }} />
+        </Suspense>
+      ) : isVerificationRoute ? (
+        <Suspense fallback={<div className="min-h-screen bg-[#FFFCF7] p-6"><DashboardLoading /></div>}>
+          <VerificationStatusPage status={verificationStatus} onSignIn={() => { window.history.replaceState({}, '', '/'); setCurrentView('personal-auth'); }} />
+        </Suspense>
+      ) : currentView === 'landing' ? (
         <PublicLanding
           onSelectRole={handleSelectRoleFromLanding}
           onOpenResultChecker={() => setCurrentView('result-checker')}

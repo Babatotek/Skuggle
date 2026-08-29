@@ -67,6 +67,8 @@ class EmailVerificationTest extends TestCase
         $response->assertRedirect();
         $this->assertTrue($user->fresh()->hasVerifiedEmail());
         $this->assertStringContainsString('status=success', (string) $response->headers->get('Location'));
+        $this->assertAuthenticatedAs($user);
+        $this->assertSame($user->memberships()->firstOrFail()->tenant->public_id, session('tenant_public_id'));
         Notification::assertSentTo($user, WelcomeToSkuggleNotification::class);
     }
 

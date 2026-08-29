@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { BrandMark } from '../../components/BrandMark';
 import { EmailVerificationModal } from '../../components/EmailVerificationModal';
+import { ForgotPasswordModal } from '../../components/ForgotPasswordModal';
 import { useApp } from '../../context/AppContext';
 import { UserRole } from '../../types';
 import { apiRequest, ApiError, initializeCsrf, describeApiError } from '../../lib/apiClient';
@@ -163,6 +164,7 @@ export const SchoolAuthPage: React.FC<SchoolAuthPageProps> = ({ onSuccess, onBac
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
   const [pendingVerifyEmail, setPendingVerifyEmail] = useState<string | null>(null);
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
 
   /* MFA */
   const [mfaKey, setMfaKey]           = useState<string | null>(null);
@@ -281,6 +283,8 @@ export const SchoolAuthPage: React.FC<SchoolAuthPageProps> = ({ onSuccess, onBac
 
   /* ─────────────────────────────── MAIN RENDER ───────────────────────────── */
   return (
+    <>
+      {forgotPasswordOpen && <ForgotPasswordModal initialEmail={siEmail} onClose={() => setForgotPasswordOpen(false)} />}
     <div className="min-h-screen flex flex-col lg:flex-row bg-[#f8f9fe]">
       {pendingVerifyEmail && (
         <EmailVerificationModal
@@ -424,7 +428,7 @@ export const SchoolAuthPage: React.FC<SchoolAuthPageProps> = ({ onSuccess, onBac
                   <PwdField id="s-si-pw" label="Password" value={siPassword} onChange={setSiPassword}
                     autoComplete="current-password" required
                     rightSlot={
-                      <button type="button" onClick={() => showToast('Password Reset', 'Check your school email for a reset link.', 'info')}
+                      <button type="button" onClick={() => setForgotPasswordOpen(true)}
                         className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 transition-colors">
                         Forgot password?
                       </button>
@@ -538,5 +542,6 @@ export const SchoolAuthPage: React.FC<SchoolAuthPageProps> = ({ onSuccess, onBac
         </div>
       </div>
     </div>
+    </>
   );
 };

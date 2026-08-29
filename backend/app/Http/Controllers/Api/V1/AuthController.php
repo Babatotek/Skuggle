@@ -274,9 +274,16 @@ class AuthController extends Controller
     public function forgotPassword(Request $request): JsonResponse
     {
         $request->validate(['email' => ['required', 'email:rfc', 'max:254']]);
-        Password::sendResetLink(['email' => mb_strtolower((string) $request->input('email'))]);
+        $email = mb_strtolower(trim((string) $request->input('email')));
+        if (! User::query()->where('email', $email)->exists()) {
+            return ApiResponse::error('EMAIL_NOT_FOUND', 'No account was found with that email address.', 404, ['email' => ['No account was found with that email address.']]);
+        }
+        $status = Password::sendResetLink(['email' => $email]);
+        if ($status !== Password::RESET_LINK_SENT) {
+            return ApiResponse::error('RESET_LINK_FAILED', __($status), 422);
+        }
 
-        return ApiResponse::success(['message' => 'If an account exists for that address, a reset link will be sent.']);
+        return ApiResponse::success(['message' => 'A password reset link has been sent. Check your inbox and spam folder.']);
     }
 
     public function resetPassword(Request $request): JsonResponse
@@ -324,6 +331,15 @@ class AuthController extends Controller
             event(new Verified($user));
             $this->auditVerification($user);
             $user->notify(new WelcomeToSkuggleNotification);
+        }
+
+        Auth::guard('web')->login($user, true);
+        if ($request->hasSession()) {
+            $request->session()->regenerate();
+            $membership = $this->defaultMembership($user);
+            if ($membership) {
+                $request->session()->put('tenant_public_id', $membership->tenant->public_id);
+            }
         }
 
         return redirect()->away("{$frontend}/verify-email?status=success");
