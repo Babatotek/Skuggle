@@ -37,5 +37,8 @@
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
         <env name="HASH_DRIVER" value="bcrypt"/>
+        <env name="APP_URL" value="http://localhost"/>
+        <env name="FRONTEND_URL" value="http://localhost"/>
+        <env name="MAIL_LINK_URL" value="http://localhost"/>
     </php>
 </phpunit>

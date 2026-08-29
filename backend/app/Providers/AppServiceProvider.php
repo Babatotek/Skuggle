@@ -61,17 +61,35 @@ class AppServiceProvider extends ServiceProvider
         });
 
         VerifyEmail::createUrlUsing(function (object $notifiable): string {
-            return URL::temporarySignedRoute(
-                'skuggle.verification.verify',
-                Carbon::now()->addMinutes((int) Config::get('auth.verification.expire', 60)),
-                [
-                    // Prefer public ULID so links never collide with coerced integer IDs.
-                    'id' => method_exists($notifiable, 'getRouteKey')
-                        ? $notifiable->getRouteKey()
-                        : $notifiable->getKey(),
-                    'hash' => sha1($notifiable->getEmailForVerification()),
-                ],
-            );
+            $mailRoot = rtrim((string) config('skuggle.mail_link_url'), '/');
+            $appRoot = rtrim((string) config('app.url'), '/');
+
+            // Sign against the public mail origin (frontend in local; same host in production).
+            URL::forceRootUrl($mailRoot !== '' ? $mailRoot : $appRoot);
+            $scheme = parse_url($mailRoot !== '' ? $mailRoot : $appRoot, PHP_URL_SCHEME);
+            if (is_string($scheme) && $scheme !== '') {
+                URL::forceScheme($scheme);
+            }
+
+            try {
+                return URL::temporarySignedRoute(
+                    'skuggle.verification.verify',
+                    Carbon::now()->addMinutes((int) Config::get('auth.verification.expire', 60)),
+                    [
+                        // Prefer public ULID so links never collide with coerced integer IDs.
+                        'id' => method_exists($notifiable, 'getRouteKey')
+                            ? $notifiable->getRouteKey()
+                            : $notifiable->getKey(),
+                        'hash' => sha1($notifiable->getEmailForVerification()),
+                    ],
+                );
+            } finally {
+                URL::forceRootUrl($appRoot !== '' ? $appRoot : $mailRoot);
+                $appScheme = parse_url($appRoot !== '' ? $appRoot : $mailRoot, PHP_URL_SCHEME);
+                if (is_string($appScheme) && $appScheme !== '') {
+                    URL::forceScheme($appScheme);
+                }
+            }
         });
 
         ResetPassword::createUrlUsing(function (object $notifiable, string $token): string {

@@ -2,6 +2,12 @@
 
 return [
     'frontend_url' => env('FRONTEND_URL', 'http://127.0.0.1:3000'),
+    /*
+    | Absolute origin used in email action links (verify, etc.).
+    | Local + real SMTP: prefer FRONTEND_URL (Vite) so links open on :3000 and
+    | are proxied to Laravel. Production: same public HTTPS origin as the SPA.
+    */
+    'mail_link_url' => env('MAIL_LINK_URL', env('FRONTEND_URL', env('APP_URL', 'http://127.0.0.1:8000'))),
     'mail' => [
         'contact_to' => env('MAIL_CONTACT_TO', env('MAIL_FROM_ADDRESS')),
     ],

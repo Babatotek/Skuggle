@@ -52,6 +52,18 @@ class EmailVerificationTest extends TestCase
         Notification::assertSentTo($user, WelcomeToSkuggleNotification::class);
     }
 
+    public function test_verification_email_link_uses_mail_link_origin(): void
+    {
+        config(['skuggle.mail_link_url' => 'http://mail-link.test', 'app.url' => 'http://app-internal.test']);
+
+        $user = new User(['name' => 'Link Check', 'email' => 'link.check@example.test']);
+        $user->public_id = '01TESTPUBLICID0000000000001';
+
+        $html = (new VerifyEmailNotification)->toMail($user)->render();
+        $this->assertStringContainsString('http://mail-link.test/email/verify/', $html);
+        $this->assertStringNotContainsString('http://app-internal.test/email/verify/', $html);
+    }
+
     public function test_resend_verification_sends_notification(): void
     {
         Notification::fake();
