@@ -26,36 +26,19 @@ interface ParentDashboardProps {
 }
 
 export const ParentDashboard: React.FC<ParentDashboardProps> = ({ onNavigateTab, onOpenResultChecker }) => {
-  const { branding, students, currentWorkspace, switchSpaceCategory, showToast } = useApp();
+  const { branding, students, currentWorkspace, currentUser, linkedChildren, switchSpaceCategory, showToast } = useApp();
 
   const isPersonal = currentWorkspace.type === 'personal';
 
   const [selectedChildIndex, setSelectedChildIndex] = useState(0);
   const currentChild = students[selectedChildIndex] || students[0];
+  const schoolWorkspace = currentUser.availableWorkspaces.find((workspace) => workspace.type === 'school');
+  const familyName = currentUser.fullName ? `${currentUser.fullName}'s Family Learning Space` : 'Family Learning Space';
 
-  // Multi-school children state for personal family hub
-  const [familyChildren, setFamilyChildren] = useState([
-    {
-      id: 'fam-1',
-      name: 'David Fanimo',
-      level: 'JSS 2 Diamond',
-      school: 'Crown Heights Int’l Academy',
-      schoolCode: 'CHIA-LAGOS',
-      avg: '88.4%',
-      attendance: '96%',
-      status: 'Fees Cleared',
-    },
-    {
-      id: 'fam-2',
-      name: 'Grace Fanimo',
-      level: 'Primary 5 Gold',
-      school: 'Grange School Ikeja',
-      schoolCode: 'GSI-IKEJA',
-      avg: '92.1%',
-      attendance: '98%',
-      status: 'Fees Cleared',
-    },
-  ]);
+  const familyChildren = linkedChildren.map((child) => ({
+    id: child.childId, name: child.childName, level: `${child.classLevel} ${child.arm}`.trim(),
+    school: child.schoolName, schoolCode: child.schoolCode, status: child.status,
+  }));
 
   return (
     <div className="space-y-6">
@@ -70,28 +53,28 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({ onNavigateTab,
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-amber-500/30 text-amber-200 border border-amber-400/30 flex items-center gap-1.5">
                   <User className="w-3.5 h-3.5 text-amber-300" />
-                  <span>Personal Space · Family Learning Hub</span>
+                  <span>My Skuggle · Family Learning Space</span>
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                  2 Linked Children Across Schools
+                  {familyChildren.length} family {familyChildren.length === 1 ? 'profile' : 'profiles'}
                 </span>
               </div>
               <h1 className="font-display font-extrabold text-2xl sm:text-3xl text-white tracking-tight">
-                {currentWorkspace.name}
+                {familyName}
               </h1>
               <p className="text-xs sm:text-sm text-amber-200 mt-1">
-                Centralized Family Study Routines, Multi-School Result Pin Tracking & Private Tutors
+                Private family study routines, learning goals, reminders and homework support
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <button
+              {schoolWorkspace && <button
                 onClick={() => switchSpaceCategory('school')}
                 className="px-4 py-2.5 text-xs font-bold text-indigo-950 bg-white hover:bg-slate-100 rounded-xl transition-all shadow-sm flex items-center gap-2 cursor-pointer hover:scale-[1.02]"
               >
                 <Building2 className="w-4 h-4 text-indigo-600" />
-                <span>Switch to Crown Heights School Portal →</span>
-              </button>
+                <span>Switch to {schoolWorkspace.name} →</span>
+              </button>}
             </div>
           </div>
         </div>
@@ -103,7 +86,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({ onNavigateTab,
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 flex items-center gap-1.5">
                   <Building2 className="w-3.5 h-3.5 text-indigo-300" />
-                  <span>School Space · Crown Heights Parent Portal</span>
+                  <span>School Space · Parent Portal</span>
                 </span>
                 <span className="text-xs text-slate-300 font-mono">
                   {branding.schoolCode} · {branding.academicSession} ({branding.currentTerm})
@@ -113,7 +96,9 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({ onNavigateTab,
                 {branding.schoolName}
               </h1>
               <p className="text-xs sm:text-sm text-indigo-200 mt-1">
-                Enrolled Ward: <strong>David Fanimo</strong> (JSS 2 Diamond) · Class Form Master: <strong>Mr. O. Fanimo</strong>
+                {currentChild
+                  ? <>Enrolled ward: <strong>{currentChild.firstName} {currentChild.lastName}</strong> · {currentChild.classLevel} {currentChild.arm}</>
+                  : 'Your school-linked learners and official records appear here.'}
               </p>
             </div>
 
@@ -140,26 +125,27 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({ onNavigateTab,
         <div className="space-y-6">
           <SkuggleAIBuddy
             variant="inline"
-            contextHint="Family Assistant: I can help coordinate David and Grace's evening study schedules, suggest revision materials for upcoming BECE exams, or track private tutoring sessions."
+            contextHint="Family Assistant: I can help create home study routines, explain homework topics, set family learning goals, or recommend age-appropriate activities."
           />
 
           {/* Children Across Schools List */}
           <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-display font-bold text-base text-slate-900">Linked Children Across Schools</h3>
-                <p className="text-xs text-slate-500">Monitor multiple schools in one personal family view.</p>
+                <h3 className="font-display font-bold text-base text-slate-900">Family learning profiles</h3>
+                <p className="text-xs text-slate-500">Profiles remain private until you deliberately connect them to a school.</p>
               </div>
               <button
                 onClick={() => showToast('Link Code Requested', 'Enter the 8-character student code provided by the school.')}
                 className="px-3.5 py-2 bg-amber-50 text-amber-900 border border-amber-200 rounded-xl text-xs font-bold hover:bg-amber-100 flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Link Another Child / School</span>
+                <span>Add child profile</span>
               </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {familyChildren.length === 0 && <div className="md:col-span-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-7 text-center"><p className="text-sm font-bold text-slate-800">No family profiles yet</p><p className="mt-1 text-xs text-slate-500">Add a child profile to begin planning homework, reading, goals and family study routines.</p></div>}
               {familyChildren.map((child, idx) => (
                 <div
                   key={child.id}
@@ -186,12 +172,12 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({ onNavigateTab,
                       <strong className="text-slate-800">{child.school}</strong>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Term Average:</span>
-                      <strong className="text-emerald-700 font-bold">{child.avg}</strong>
+                      <span className="text-slate-500">Profile status:</span>
+                      <strong className="text-emerald-700 font-bold">{child.status}</strong>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Attendance:</span>
-                      <strong className="text-slate-800">{child.attendance}</strong>
+                      <span className="text-slate-500">Ownership:</span>
+                      <strong className="text-slate-800">Private family data</strong>
                     </div>
                   </div>
 
@@ -202,7 +188,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({ onNavigateTab,
                     >
                       Check PIN Report
                     </button>
-                    {idx === 0 && (
+                    {idx === 0 && schoolWorkspace && (
                       <button
                         onClick={() => switchSpaceCategory('school')}
                         className="py-2 px-3 text-xs font-bold text-slate-700 bg-slate-200/80 hover:bg-slate-300 rounded-xl transition-colors"
@@ -227,14 +213,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({ onNavigateTab,
                 Daily evening 45-minute focus blocks synchronized with current Nigerian curriculum schemes.
               </p>
               <div className="space-y-2 pt-1 text-xs">
-                <div className="p-2.5 bg-slate-50 rounded-xl flex justify-between items-center">
-                  <span>🕔 5:00 PM – 5:45 PM</span>
-                  <strong className="text-slate-900">David: Algebra & BECE Math</strong>
-                </div>
-                <div className="p-2.5 bg-slate-50 rounded-xl flex justify-between items-center">
-                  <span>🕕 6:00 PM – 6:45 PM</span>
-                  <strong className="text-slate-900">Grace: English Comprehension</strong>
-                </div>
+                <div className="p-4 bg-slate-50 rounded-xl text-center text-slate-500">No home study blocks scheduled yet.</div>
               </div>
             </div>
 
@@ -247,10 +226,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({ onNavigateTab,
                 Coordinate weekend lessons and communicate directly with independent verified tutors.
               </p>
               <div className="space-y-2 pt-1 text-xs">
-                <div className="p-2.5 bg-purple-50/50 border border-purple-100 rounded-xl flex justify-between items-center">
-                  <span>Mr. Fanimo (Maths)</span>
-                  <span className="font-bold text-purple-700">Tuesdays & Saturdays</span>
-                </div>
+                <div className="p-4 bg-purple-50/50 border border-purple-100 rounded-xl text-center text-slate-500">No private tutors added yet.</div>
               </div>
             </div>
           </div>
@@ -262,11 +238,16 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({ onNavigateTab,
         <div className="space-y-6">
           <SkuggleAIBuddy
             variant="inline"
-            contextHint="Parent assistant: Ask me how David is performing in Mathematics at Crown Heights Academy, or view his fee breakdown."
+            contextHint="School parent assistant: Ask about your linked learner's published results, attendance, notices, or fee breakdown."
           />
 
-          {/* Child Metrics Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {!currentChild ? (
+            <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
+              <Users className="mx-auto h-8 w-8 text-slate-400" />
+              <h3 className="mt-3 font-display font-bold text-slate-900">No school-linked learner found</h3>
+              <p className="mt-1 text-sm text-slate-500">Ask the school to connect your parent account. Official records will appear here after the connection is approved.</p>
+            </div>
+          ) : <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
                 Term 1 Overall Average
@@ -299,7 +280,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({ onNavigateTab,
               </div>
               <p className="text-[11px] text-slate-500 mt-1">Official electronic receipt #CHIA-REC-8821</p>
             </div>
-          </div>
+          </div>}
 
           {/* Quick Access to Result & Payments */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

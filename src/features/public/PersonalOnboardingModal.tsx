@@ -262,7 +262,7 @@ export const PersonalOnboardingModal: React.FC<PersonalOnboardingModalProps> = (
                     </div>
                     <h5 className="font-display font-bold text-base text-slate-900 mb-1">
                       {persona === 'teacher'
-                        ? 'Independent Teaching Space'
+                        ? 'Personal Teaching Space'
                         : persona === 'student'
                         ? 'Personal Learning Space'
                         : 'Family Learning Space'}

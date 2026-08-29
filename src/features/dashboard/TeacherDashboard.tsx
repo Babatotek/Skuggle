@@ -33,6 +33,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onNavigateTa
   const {
     branding,
     currentWorkspace,
+    currentUser,
     switchSpaceCategory,
     teacherProfile,
     lessonPlans,
@@ -40,13 +41,13 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onNavigateTa
   } = useApp();
 
   const isPersonal = currentWorkspace.type === 'personal';
+  const schoolWorkspace = currentUser.availableWorkspaces.find((workspace) => workspace.type === 'school');
+  const teacherName = currentUser.fullName || 'Teacher';
+  const profileFields = [teacherProfile.phone, teacherProfile.curriculumUsed, teacherProfile.qualifications, teacherProfile.location];
+  const profileCompletion = Math.round((profileFields.filter(Boolean).length / profileFields.length) * 100);
 
   // State for personal tutoring demo cohort
-  const [tutoringStudents, setTutoringStudents] = useState([
-    { id: 'tut-1', name: 'Zainab Ahmed', subject: 'Further Mathematics', level: 'SS 2', status: 'Active', nextSession: 'Today, 4:00 PM' },
-    { id: 'tut-2', name: 'Chukwuma Obi', subject: 'Basic Science & Math', level: 'JSS 3', status: 'Active', nextSession: 'Tomorrow, 5:30 PM' },
-    { id: 'tut-3', name: 'Ayomide Balogun', subject: 'General Mathematics', level: 'SS 1', status: 'Active', nextSession: 'Saturday, 10:00 AM' },
-  ]);
+  const [tutoringStudents] = useState<Array<{ id: string; name: string; subject: string; level: string; status: string; nextSession: string }>>([]);
 
   return (
     <div className="space-y-6">
@@ -61,28 +62,28 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onNavigateTa
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-purple-500/30 text-purple-200 border border-purple-400/30 flex items-center gap-1.5">
                   <User className="w-3.5 h-3.5 text-purple-300" />
-                  <span>Personal Space · Teaching Studio</span>
+                  <span>My Skuggle · Personal Teaching Space</span>
                 </span>
-                <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                {teacherProfile.qualifications.toLowerCase().includes('trcn') && <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                   TRCN Certified Educator
-                </span>
+                </span>}
               </div>
               <h1 className="font-display font-extrabold text-2xl sm:text-3xl text-white tracking-tight">
-                {currentWorkspace.name}
+                {teacherName}&apos;s Personal Teaching Space
               </h1>
               <p className="text-xs sm:text-sm text-purple-200 mt-1">
-                Independent Lesson Bank, NERDC Curriculum Planning & Private Tutoring Cohorts
+                Private lesson planning, reusable resources, professional growth and tutoring tools
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <button
+              {schoolWorkspace && <button
                 onClick={() => switchSpaceCategory('school')}
                 className="px-4 py-2.5 text-xs font-bold text-indigo-900 bg-white hover:bg-slate-100 rounded-xl transition-all shadow-sm flex items-center gap-2 cursor-pointer hover:scale-[1.02]"
               >
                 <Building2 className="w-4 h-4 text-indigo-600" />
-                <span>Switch to Crown Heights School Space →</span>
-              </button>
+                <span>Switch to {schoolWorkspace.name} →</span>
+              </button>}
             </div>
           </div>
         </div>
@@ -141,9 +142,9 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onNavigateTa
                 Saved Lesson Plans
               </span>
               <div className="font-display font-extrabold text-2xl text-purple-950">
-                {lessonPlans.length + 8}
+                {lessonPlans.length}
               </div>
-              <span className="text-[10px] text-purple-700 font-semibold">NERDC Grounded</span>
+              <span className="text-[10px] text-purple-700 font-semibold">Private drafts</span>
             </div>
 
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
@@ -153,7 +154,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onNavigateTa
               <div className="font-display font-extrabold text-2xl text-indigo-950">
                 {tutoringStudents.length}
               </div>
-              <span className="text-[10px] text-emerald-700 font-semibold">3 Active Cohorts</span>
+              <span className="text-[10px] text-slate-500 font-semibold">Private learners</span>
             </div>
 
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
@@ -161,7 +162,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onNavigateTa
                 Question Bank
               </span>
               <div className="font-display font-extrabold text-2xl text-slate-900">
-                124
+                0
               </div>
               <span className="text-[10px] text-slate-500 font-medium">MCQ & Theory Items</span>
             </div>
@@ -171,9 +172,9 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onNavigateTa
                 Teaching CV
               </span>
               <div className="font-display font-extrabold text-2xl text-emerald-700">
-                100%
+                {profileCompletion}%
               </div>
-              <span className="text-[10px] text-emerald-700 font-semibold">Verified & Public</span>
+              <span className="text-[10px] text-emerald-700 font-semibold">Profile completion</span>
             </div>
           </div>
 
@@ -242,6 +243,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onNavigateTa
             </div>
 
             <div className="divide-y divide-slate-100">
+              {tutoringStudents.length === 0 && <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center"><p className="text-sm font-bold text-slate-800">No private tutoring learners yet</p><p className="mt-1 text-xs text-slate-500">Add a learner when ready. Personal tutoring information stays private and never enters a school workspace automatically.</p></div>}
               {tutoringStudents.map((tut) => (
                 <div key={tut.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-3">

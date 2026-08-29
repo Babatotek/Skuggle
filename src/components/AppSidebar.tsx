@@ -341,7 +341,13 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         {!isCollapsed && (
           <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              {currentWorkspace.type === 'school' ? '🏫 School Space' : '👤 Personal Space'}
+              {currentWorkspace.type === 'school'
+                ? '🏫 School Space'
+                : currentRole === 'Teacher'
+                  ? '👤 Personal Teaching Space'
+                  : currentRole === 'Parent'
+                    ? '👥 Family Learning Space'
+                    : '👤 Personal Learning Space'}
             </span>
             <button
               onClick={() => switchSpaceCategory(currentWorkspace.type === 'school' ? 'personal' : 'school')}

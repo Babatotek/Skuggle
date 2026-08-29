@@ -237,7 +237,13 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
                   <span className="hidden sm:inline">
-                    {currentWorkspace.type === 'school' ? branding.schoolName : 'Personal Studio'}
+                    {currentWorkspace.type === 'school'
+                      ? branding.schoolName
+                      : currentRole === 'Teacher'
+                        ? 'Personal Teaching Space'
+                        : currentRole === 'Parent'
+                          ? 'Family Learning Space'
+                          : 'Personal Learning Space'}
                   </span>
                   <span className="hidden sm:inline">/</span>
                   <span className="text-slate-600 font-semibold">{tabInfo.category}</span>

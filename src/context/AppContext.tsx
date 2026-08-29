@@ -30,7 +30,7 @@ import {
   SubscriptionPlanType,
   CBTQuiz,
 } from '../types';
-import { apiMutation, apiRequest, describeApiError } from '../lib/apiClient';
+import { apiMutation, apiRequest, describeApiError, hasLikelyBrowserSession } from '../lib/apiClient';
 
 // Demonstration data lives only in the database-owned DemoTenant. The client never fabricates a session.
 const demoMode = false;
@@ -1032,7 +1032,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [lessonPlans, setLessonPlans] = useState<TeacherLessonPlan[]>(() => {
     const saved = demoMode ? localStorage.getItem('skuggle_lesson_plans') : null;
-    return saved ? JSON.parse(saved) : [
+    return saved ? JSON.parse(saved) : demoMode ? [
       {
         id: 'lp-01',
         title: 'Linear & Quadratic Algebraic Equations',
@@ -1063,17 +1063,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isPublished: true,
         createdAt: '2026-08-25',
       },
-    ];
+    ] : [];
   });
 
   const [teacherProfile, setTeacherProfile] = useState<TeacherProfileData>(() => {
     const saved = demoMode ? localStorage.getItem('skuggle_teacher_profile') : null;
-    return saved ? JSON.parse(saved) : initialTeacherProfile;
+    return saved ? JSON.parse(saved) : demoMode ? initialTeacherProfile : {
+      fullName: '', email: '', phone: '', subjectsTaught: [], classesTaught: [], curriculumUsed: '',
+      yearsOfExperience: 0, qualifications: '', location: '', teachingPreferences: [], schoolAffiliations: [],
+    };
   });
 
   const [linkedChildren, setLinkedChildren] = useState<ChildLinkData[]>(() => {
     const saved = demoMode ? localStorage.getItem('skuggle_linked_children') : null;
-    return saved ? JSON.parse(saved) : initialLinkedChildren;
+    return saved ? JSON.parse(saved) : demoMode ? initialLinkedChildren : [];
   });
 
   const [invitations, setInvitations] = useState<InvitationRecord[]>(() => {
@@ -1137,6 +1140,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     window.addEventListener('skuggle:authenticated', loadStudents);
     window.addEventListener('skuggle:workspace-changed', loadStudents);
+    if (hasLikelyBrowserSession()) void loadStudents();
     return () => {
       active = false;
       window.removeEventListener('skuggle:authenticated', loadStudents);
@@ -1185,11 +1189,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const activeWorkspace = availableWorkspaces.find((workspace) => workspace.id === String(tenant.id)) ?? availableWorkspaces[0];
         setCurrentUser((current) => ({ ...current, id: String(user.id), fullName: String(user.name), email: String(user.email), verified: Boolean(user.emailVerified), avatarUrl: String(user.avatarUrl ?? ''), availableWorkspaces, currentWorkspace: activeWorkspace ?? current.currentWorkspace }));
         if (activeWorkspace) setCurrentWorkspace(activeWorkspace);
-        setBranding((current) => ({ ...current, schoolId: String(tenant.id), schoolName: String(tenant.name), schoolCode: String(tenant.code), logoUrl: String(tenant.logoUrl ?? current.logoUrl) }));
+        if (activeWorkspace?.type === 'personal') {
+          setBranding(platformBranding);
+          setStudents([]);
+          setStaff([]);
+          setSessions([]);
+          setTerms([]);
+          setClasses([]);
+          setSubjects([]);
+          setAssessments([]);
+          setFeeTransactions([]);
+        } else {
+          setBranding((current) => ({ ...current, schoolId: String(tenant.id), schoolName: String(tenant.name), schoolCode: String(tenant.code), logoUrl: String(tenant.logoUrl ?? current.logoUrl) }));
+        }
       }
     };
     window.addEventListener('skuggle:authenticated', hydrate);
     window.addEventListener('skuggle:workspace-changed', hydrate);
+    if (hasLikelyBrowserSession()) void hydrate();
     return () => { active = false; window.removeEventListener('skuggle:authenticated', hydrate); window.removeEventListener('skuggle:workspace-changed', hydrate); };
   }, []);
 
@@ -1222,6 +1239,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const cleanCode = code.trim().toUpperCase();
     if (!cleanCode) {
       return { success: false, message: 'Please enter a valid school linking code.' };
+    }
+
+    if (!demoMode) {
+      const message = 'School linking must be confirmed by the school. No learner record was added.';
+      showToast('Connection pending', message, 'warning');
+      return { success: false, message };
     }
 
     // Check if already linked
