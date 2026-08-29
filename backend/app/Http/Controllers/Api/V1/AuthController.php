@@ -32,7 +32,8 @@ class AuthController extends Controller
         $user = User::query()->where('email', $email)->first();
         $validAccount = $user && $user->status === 'active' && (! $user->locked_until || $user->locked_until->isPast());
 
-        if (! $validAccount || ! Auth::attempt(['email' => $email, 'password' => $request->string('password')->toString()], $request->boolean('remember'))) {
+        $remember = $request->boolean('remember');
+        if (! $validAccount || ! Auth::attempt(['email' => $email, 'password' => $request->string('password')->toString()], $remember)) {
             if ($user) {
                 $attempts = $user->failed_login_attempts + 1;
                 $user->forceFill(['failed_login_attempts' => $attempts, 'locked_until' => $attempts >= 5 ? now()->addMinutes(15) : null])->save();
@@ -46,8 +47,23 @@ class AuthController extends Controller
         }
 
         $user = $request->user();
+        if ($user && ! $user->hasVerifiedEmail()) {
+            Auth::guard('web')->logout();
+            if ($request->hasSession()) {
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+            }
+
+            return ApiResponse::error(
+                'EMAIL_UNVERIFIED',
+                'Verify your email address before signing in.',
+                403,
+                ['email' => [$email]],
+            );
+        }
+
         if ($user->two_factor_confirmed_at && $user->two_factor_secret) {
-            $request->session()->put(['login.id' => $user->getKey(), 'login.remember' => $request->boolean('remember')]);
+            $request->session()->put(['login.id' => $user->getKey(), 'login.remember' => $remember]);
             Auth::guard('web')->logout();
 
             return ApiResponse::error('MFA_CHALLENGE_REQUIRED', 'Enter an authenticator code or recovery code to complete sign in.', 409);
@@ -89,9 +105,28 @@ class AuthController extends Controller
 
     private function completeLogin(Request $request, TenantContext $context, SessionPresenter $presenter, AuditLogger $audit): JsonResponse
     {
-        $request->session()->regenerate();
         $user = $request->user();
-        $preferredTenantId = $request->session()->get('tenant_public_id');
+        if ($user && ! $user->hasVerifiedEmail()) {
+            $email = (string) $user->email;
+            Auth::guard('web')->logout();
+            if ($request->hasSession()) {
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+            }
+
+            return ApiResponse::error(
+                'EMAIL_UNVERIFIED',
+                'Verify your email address before signing in.',
+                403,
+                ['email' => [$email]],
+            );
+        }
+
+        if ($request->hasSession()) {
+            $request->session()->regenerate();
+        }
+        $user = $request->user();
+        $preferredTenantId = $request->hasSession() ? $request->session()->get('tenant_public_id') : null;
         $membership = null;
         if ($preferredTenantId) {
             $membership = $user->memberships()

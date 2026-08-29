@@ -15,11 +15,12 @@ import { DashboardLoading } from './components/dashboard/DashboardPrimitives';
 import { apiRequest, ApiError, describeApiError, hasLikelyBrowserSession, initializeCsrf } from './lib/apiClient';
 import { schoolKeyFromLocation } from './lib/sessionAuth';
 import { playNotificationTone } from './lib/notificationAudio';
+import { EmailVerificationModal } from './components/EmailVerificationModal';
 import { CheckCircle2, AlertTriangle, XCircle, Info, X } from 'lucide-react';
 
 interface SessionResponse {
   success: true;
-  data: { user: { role: string } };
+  data: { user: { role: string; email?: string; emailVerified?: boolean } };
 }
 
 function sessionRole(role: string): UserRole {
@@ -102,6 +103,7 @@ function MainAppContent() {
   >('landing');
   // Session restoration is progressive: never place an unbounded network request over the whole UI.
   const [isSessionChecking, setIsSessionChecking] = useState(false);
+  const [verifyGateEmail, setVerifyGateEmail] = useState<string | null>(null);
 
   // Active App Navigation Tab
   const [activeTab, setActiveTab] = useState<string>('home');
@@ -113,6 +115,20 @@ function MainAppContent() {
   useEffect(() => {
     const onApiError = (event: Event) => {
       const error = (event as CustomEvent<ApiError>).detail;
+      if (error.code === 'EMAIL_UNVERIFIED') {
+        const email = error.fields.email?.[0] || '';
+        if (email) setVerifyGateEmail(email);
+        localStorage.removeItem('skuggle_authenticated');
+        setCurrentView('personal-auth');
+        void (async () => {
+          try {
+            await initializeCsrf();
+            await apiRequest('/auth/logout', { method: 'POST', suppressErrorNotification: true });
+          } catch { /* ignore */ }
+          restoreSessionPromise = null;
+        })();
+        return;
+      }
       if (error.status === 401 && (currentView === 'landing' || currentView === 'tenant-login' || currentView === 'personal-auth' || currentView === 'school-auth' || currentView === 'tenant-welcome' || currentView === 'register-school')) return;
       showToast(error.status === 401 ? 'Session expired' : 'Request failed', describeApiError(error), error.status >= 500 ? 'failed' : 'error');
     };
@@ -129,9 +145,20 @@ function MainAppContent() {
   useEffect(() => {
     let active = true;
     void restoreSession()
-      .then((response) => {
+      .then(async (response) => {
         if (!active) return;
         if (response) {
+          if (response.data.user.emailVerified === false) {
+            setVerifyGateEmail(response.data.user.email || 'your account');
+            localStorage.removeItem('skuggle_authenticated');
+            try {
+              await initializeCsrf();
+              await apiRequest('/auth/logout', { method: 'POST', suppressErrorNotification: true });
+            } catch { /* ignore */ }
+            restoreSessionPromise = null;
+            setCurrentView('personal-auth');
+            return;
+          }
           setCurrentRole(sessionRole(response.data.user.role));
           setCurrentView('app');
           window.dispatchEvent(new Event('skuggle:authenticated'));
@@ -263,6 +290,14 @@ function MainAppContent() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {verifyGateEmail && (
+        <EmailVerificationModal
+          email={verifyGateEmail}
+          title="Verify your email to continue"
+          onClose={() => setVerifyGateEmail(null)}
+        />
+      )}
 
       {/* Main Views Routing */}
       {currentView === 'landing' ? (

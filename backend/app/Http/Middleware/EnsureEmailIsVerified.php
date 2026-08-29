@@ -18,6 +18,7 @@ final class EnsureEmailIsVerified
                 'EMAIL_UNVERIFIED',
                 'Verify your email address before continuing.',
                 403,
+                $user?->email ? ['email' => [(string) $user->email]] : [],
             );
         }
 

@@ -18,6 +18,24 @@ class EmailVerificationTest extends TestCase
     use CreatesTenantUsers;
     use RefreshDatabase;
 
+    public function test_unverified_user_cannot_login(): void
+    {
+        Notification::fake();
+        ['user' => $user] = $this->makeTenantUser('teacher', [], [
+            'email_verified_at' => null,
+        ]);
+
+        $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ])
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'EMAIL_UNVERIFIED')
+            ->assertJsonPath('error.fields.email.0', $user->email);
+
+        $this->assertGuest();
+    }
+
     public function test_unverified_user_cannot_access_verified_routes(): void
     {
         ['tenant' => $tenant, 'user' => $user] = $this->makeTenantUser('school_admin', [], [

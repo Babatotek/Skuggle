@@ -15,6 +15,7 @@ import {
   Building2,
 } from 'lucide-react';
 import { BrandMark } from '../../components/BrandMark';
+import { EmailVerificationModal } from '../../components/EmailVerificationModal';
 import { useApp } from '../../context/AppContext';
 import { UserRole } from '../../types';
 import { apiRequest, ApiError, initializeCsrf, describeApiError } from '../../lib/apiClient';
@@ -161,6 +162,7 @@ export const SchoolAuthPage: React.FC<SchoolAuthPageProps> = ({ onSuccess, onBac
   /* shared */
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
+  const [pendingVerifyEmail, setPendingVerifyEmail] = useState<string | null>(null);
 
   /* MFA */
   const [mfaKey, setMfaKey]           = useState<string | null>(null);
@@ -191,6 +193,12 @@ export const SchoolAuthPage: React.FC<SchoolAuthPageProps> = ({ onSuccess, onBac
       window.dispatchEvent(new Event('skuggle:authenticated'));
       onSuccess(role);
     } catch (e) {
+      if (e instanceof ApiError && e.code === 'EMAIL_UNVERIFIED') {
+        const email = e.fields.email?.[0] || siEmail.trim().toLowerCase();
+        setPendingVerifyEmail(email);
+        setSiEmail(email);
+        return;
+      }
       setError(e instanceof ApiError ? e.message : 'Sign in failed. Please try again.');
     } finally { setLoading(false); }
   };
@@ -274,6 +282,13 @@ export const SchoolAuthPage: React.FC<SchoolAuthPageProps> = ({ onSuccess, onBac
   /* ─────────────────────────────── MAIN RENDER ───────────────────────────── */
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-[#f8f9fe]">
+      {pendingVerifyEmail && (
+        <EmailVerificationModal
+          email={pendingVerifyEmail}
+          onClose={() => setPendingVerifyEmail(null)}
+          onResent={() => showToast('Verification email sent', `Check ${pendingVerifyEmail} (and spam).`, 'success')}
+        />
+      )}
 
       {/* ══════════════════════════════════════════════════════════════════════
           LEFT PANEL — dark purple, mascot, tagline
