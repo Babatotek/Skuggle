@@ -38,7 +38,14 @@ if ! grep -q '^APP_KEY=base64:' .env; then
 fi
 
 echo "==> Migrate"
-"$PHP_BIN" artisan migrate --force
+"$PHP_BIN" artisan migrate --force --no-interaction
+echo "==> Migration status"
+MIGRATE_STATUS="$("$PHP_BIN" artisan migrate:status --no-interaction)"
+printf '%s\n' "$MIGRATE_STATUS"
+if printf '%s\n' "$MIGRATE_STATUS" | grep -Eiq '(^|[[:space:]])Pending([[:space:]]|$)'; then
+  echo "ERROR: one or more migrations are still Pending after migrate --force"
+  exit 1
+fi
 
 echo "==> Cache"
 "$PHP_BIN" artisan config:cache

@@ -25,8 +25,8 @@ class MinimalRegistrationTest extends TestCase
             'birthDate' => now()->subYears(14)->toDateString(),
             'guardianName' => 'Parent Learner',
             'guardianEmail' => 'parent.learner@example.com',
-            'password' => 'StrongPassword1!',
-            'passwordConfirmation' => 'StrongPassword1!',
+            'password' => 'Pass123!',
+            'passwordConfirmation' => 'Pass123!',
         ], ['Idempotency-Key' => 'minimal-student-registration'])
             ->assertCreated()
             ->assertJsonPath('data.workspace', 'personal');
@@ -40,7 +40,7 @@ class MinimalRegistrationTest extends TestCase
         $this->postJson('/api/v1/individuals/register', [
             'accountType' => 'student', 'firstName' => 'Minor', 'lastName' => 'Learner',
             'email' => 'minor@example.com', 'birthDate' => now()->subYears(14)->toDateString(),
-            'password' => 'StrongPassword1!', 'passwordConfirmation' => 'StrongPassword1!',
+            'password' => 'Pass123!', 'passwordConfirmation' => 'Pass123!',
         ], ['Idempotency-Key' => 'minor-without-guardian'])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['guardianName', 'guardianEmail'], 'error.fields');
@@ -54,8 +54,8 @@ class MinimalRegistrationTest extends TestCase
             'schoolName' => 'New Academy',
             'adminName' => 'School Owner',
             'adminEmail' => 'owner@new-academy.example',
-            'password' => 'StrongPassword1!',
-            'password_confirmation' => 'StrongPassword1!',
+            'password' => 'Pass123!',
+            'password_confirmation' => 'Pass123!',
         ], ['Idempotency-Key' => 'minimal-school-registration'])
             ->assertCreated()
             ->assertJsonPath('data.requiresVerification', true);

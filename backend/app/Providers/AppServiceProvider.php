@@ -54,7 +54,8 @@ class AppServiceProvider extends ServiceProvider
         }
 
         Password::defaults(function () {
-            $rule = Password::min(12)->mixedCase()->numbers()->symbols();
+            // Keep personal + school registration aligned with the UI (8+ chars) in every environment.
+            $rule = Password::min(8)->mixedCase()->numbers()->symbols();
 
             return app()->environment('testing') ? $rule : $rule->uncompromised();
         });

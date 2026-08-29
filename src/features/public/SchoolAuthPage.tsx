@@ -481,7 +481,7 @@ export const SchoolAuthPage: React.FC<SchoolAuthPageProps> = ({ onSuccess, onBac
                     </div>
                   </div>
                     <PwdField id="s-reg-pw" label="Create password" value={regPwd} onChange={setRegPwd}
-                      autoComplete="new-password" minLength={8} required hint="8+ characters" />
+                      autoComplete="new-password" minLength={8} required hint="8+ characters; use a mix of letters, numbers and symbols" />
                   </div>
 
                   {regPwd.length > 0 && (
