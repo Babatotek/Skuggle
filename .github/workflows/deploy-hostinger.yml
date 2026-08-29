@@ -225,6 +225,10 @@ jobs:
           DB_USERNAME: ${{ secrets.HOSTINGER_DB_USERNAME }}
           DB_PASSWORD: ${{ secrets.HOSTINGER_DB_PASSWORD }}
           APP_KEY: ${{ secrets.HOSTINGER_APP_KEY }}
+          MAIL_USERNAME: ${{ secrets.HOSTINGER_MAIL_USERNAME }}
+          MAIL_PASSWORD: ${{ secrets.HOSTINGER_MAIL_PASSWORD }}
+          MAIL_FROM_ADDRESS: ${{ secrets.HOSTINGER_MAIL_FROM }}
+          MAIL_SMOKE_TO: ${{ secrets.HOSTINGER_MAIL_SMOKE_TO }}
         run: |
           set -euo pipefail
           USER="${SSH_USER:-u237094395}"
@@ -234,40 +238,76 @@ jobs:
           SSH=(ssh hostinger)
           SCP=(scp -O)
 
-          "${SCP[@]}" "${RUNNER_TEMP}/skuggle-release.tar.gz" "hostinger:/home/${USER}/skuggle-release.tar.gz"
-          "${SCP[@]}" "${RUNNER_TEMP}/skuggle-release.tar.gz.sha256" "hostinger:/home/${USER}/skuggle-release.tar.gz.sha256"
-
-          # One remote session: extract, optional first-time .env bootstrap, release.
-          "${SSH[@]}" bash -s <<REMOTE
-          set -euo pipefail
-          DOMAIN_ROOT='${DOMAIN_ROOT}'
-          APP_DIR='${APP_DIR}'
-          PUBLIC_DIR='${PUBLIC_DIR}'
-          mkdir -p "\$DOMAIN_ROOT" "\$HOME/backups"
-          cd "\$HOME"
-          sha256sum -c skuggle-release.tar.gz.sha256
-          if [[ -f "\$APP_DIR/.env" ]]; then
-            cp "\$APP_DIR/.env" /tmp/skuggle.env.preserve
-          fi
-          if [[ -d "\$APP_DIR" || -d "\$PUBLIC_DIR" ]]; then
-            ts=\$(date +%Y%m%d%H%M%S)
-            tar -czf "\$HOME/backups/skuggle-predeploy-\$ts.tar.gz" -C "\$DOMAIN_ROOT" application public_html 2>/dev/null || true
-          fi
-          rm -rf "\$APP_DIR" "\$PUBLIC_DIR"
-          tar -xzf "\$HOME/skuggle-release.tar.gz" -C "\$DOMAIN_ROOT"
-          if [[ -f /tmp/skuggle.env.preserve ]]; then
-            mv /tmp/skuggle.env.preserve "\$APP_DIR/.env"
-          fi
-          rm -f "\$HOME/skuggle-release.tar.gz" "\$HOME/skuggle-release.tar.gz.sha256"
-          chmod +x "\$APP_DIR/remote-release.sh"
-
-          if [[ ! -f "\$APP_DIR/.env" ]]; then
-            echo "Missing \$APP_DIR/.env after extract — create it on the host or set Hostinger env secrets for first boot."
+          if [[ -z "${MAIL_USERNAME:-}" || -z "${MAIL_PASSWORD:-}" ]]; then
+            echo "ERROR: Set GitHub production secrets HOSTINGER_MAIL_USERNAME and HOSTINGER_MAIL_PASSWORD."
             exit 1
           fi
 
-          export APP_DIR PUBLIC_DIR PHP_BIN=/opt/alt/php83/usr/bin/php
-          bash "\$APP_DIR/remote-release.sh"
+          RELEASE_ENV="${RUNNER_TEMP}/skuggle.release.env"
+          umask 077
+          {
+            printf 'APP_DIR=%s\n' "$APP_DIR"
+            printf 'PUBLIC_DIR=%s\n' "$PUBLIC_DIR"
+            printf 'PHP_BIN=%s\n' '/opt/alt/php83/usr/bin/php'
+            printf 'APP_URL=%s\n' 'https://skuggle.royalgatewayadmin.com'
+            printf 'FRONTEND_URL=%s\n' 'https://skuggle.royalgatewayadmin.com'
+            printf 'MAIL_LINK_URL=%s\n' 'https://skuggle.royalgatewayadmin.com'
+            printf 'MAIL_MAILER=%s\n' 'smtp'
+            printf 'MAIL_HOST=%s\n' 'smtp.hostinger.com'
+            printf 'MAIL_PORT=%s\n' '465'
+            printf 'MAIL_SCHEME=%s\n' 'smtps'
+            printf 'MAIL_ENCRYPTION=%s\n' 'ssl'
+            printf 'MAIL_USERNAME=%s\n' "$MAIL_USERNAME"
+            printf 'MAIL_PASSWORD=%s\n' "$MAIL_PASSWORD"
+            printf 'MAIL_FROM_ADDRESS=%s\n' "${MAIL_FROM_ADDRESS:-info@skuggle.royalgatewayadmin.com}"
+            printf 'MAIL_FROM_NAME=%s\n' 'Skuggle'
+            printf 'MAIL_CONTACT_TO=%s\n' "${MAIL_FROM_ADDRESS:-info@skuggle.royalgatewayadmin.com}"
+            printf 'MAIL_SMOKE_TO=%s\n' "${MAIL_SMOKE_TO:-}"
+          } > "$RELEASE_ENV"
+
+          "${SCP[@]}" "${RUNNER_TEMP}/skuggle-release.tar.gz" "hostinger:/home/${USER}/skuggle-release.tar.gz"
+          "${SCP[@]}" "${RUNNER_TEMP}/skuggle-release.tar.gz.sha256" "hostinger:/home/${USER}/skuggle-release.tar.gz.sha256"
+          "${SCP[@]}" "$RELEASE_ENV" "hostinger:/tmp/skuggle.release.env"
+          rm -f "$RELEASE_ENV"
+
+          # One remote session: extract, apply SMTP from scp'd env file, release.
+          "${SSH[@]}" bash -s <<'REMOTE'
+          set -euo pipefail
+          set -a
+          # shellcheck disable=SC1091
+          source /tmp/skuggle.release.env
+          set +a
+          rm -f /tmp/skuggle.release.env
+
+          DOMAIN_ROOT="$(dirname "$APP_DIR")"
+          mkdir -p "$DOMAIN_ROOT" "$HOME/backups"
+          cd "$HOME"
+          sha256sum -c skuggle-release.tar.gz.sha256
+          if [[ -f "$APP_DIR/.env" ]]; then
+            cp "$APP_DIR/.env" /tmp/skuggle.env.preserve
+          fi
+          if [[ -d "$APP_DIR" || -d "$PUBLIC_DIR" ]]; then
+            ts=$(date +%Y%m%d%H%M%S)
+            tar -czf "$HOME/backups/skuggle-predeploy-$ts.tar.gz" -C "$DOMAIN_ROOT" application public_html 2>/dev/null || true
+          fi
+          rm -rf "$APP_DIR" "$PUBLIC_DIR"
+          tar -xzf "$HOME/skuggle-release.tar.gz" -C "$DOMAIN_ROOT"
+          if [[ -f /tmp/skuggle.env.preserve ]]; then
+            mv /tmp/skuggle.env.preserve "$APP_DIR/.env"
+          fi
+          rm -f "$HOME/skuggle-release.tar.gz" "$HOME/skuggle-release.tar.gz.sha256"
+          chmod +x "$APP_DIR/remote-release.sh"
+
+          if [[ ! -f "$APP_DIR/.env" ]]; then
+            echo "Missing $APP_DIR/.env after extract — create it on the host or set Hostinger env secrets for first boot."
+            exit 1
+          fi
+
+          export APP_DIR PUBLIC_DIR PHP_BIN
+          export APP_URL FRONTEND_URL MAIL_LINK_URL
+          export MAIL_MAILER MAIL_HOST MAIL_PORT MAIL_SCHEME MAIL_ENCRYPTION
+          export MAIL_USERNAME MAIL_PASSWORD MAIL_FROM_ADDRESS MAIL_FROM_NAME MAIL_CONTACT_TO MAIL_SMOKE_TO
+          bash "$APP_DIR/remote-release.sh"
           REMOTE
 
           ssh -O exit hostinger 2>/dev/null || true

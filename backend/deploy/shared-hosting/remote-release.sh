@@ -37,6 +37,26 @@ if ! grep -q '^APP_KEY=base64:' .env; then
   "$PHP_BIN" artisan key:generate --force
 fi
 
+# Optional: apply Hostinger SMTP + public URL overrides supplied by CI (never logged).
+if [[ -n "${MAIL_PASSWORD:-}" || -n "${MAIL_USERNAME:-}" ]]; then
+  echo "==> Applying production mail / public URL settings"
+  UPSERT=("$PHP_BIN" "$APP_DIR/deploy/shared-hosting/upsert-env.php" "$APP_DIR/.env")
+  [[ -n "${APP_URL:-}" ]] && UPSERT+=("APP_URL=${APP_URL}")
+  [[ -n "${FRONTEND_URL:-}" ]] && UPSERT+=("FRONTEND_URL=${FRONTEND_URL}")
+  [[ -n "${MAIL_LINK_URL:-}" ]] && UPSERT+=("MAIL_LINK_URL=${MAIL_LINK_URL}")
+  [[ -n "${MAIL_MAILER:-}" ]] && UPSERT+=("MAIL_MAILER=${MAIL_MAILER}")
+  [[ -n "${MAIL_HOST:-}" ]] && UPSERT+=("MAIL_HOST=${MAIL_HOST}")
+  [[ -n "${MAIL_PORT:-}" ]] && UPSERT+=("MAIL_PORT=${MAIL_PORT}")
+  [[ -n "${MAIL_SCHEME:-}" ]] && UPSERT+=("MAIL_SCHEME=${MAIL_SCHEME}")
+  [[ -n "${MAIL_ENCRYPTION:-}" ]] && UPSERT+=("MAIL_ENCRYPTION=${MAIL_ENCRYPTION}")
+  [[ -n "${MAIL_USERNAME:-}" ]] && UPSERT+=("MAIL_USERNAME=${MAIL_USERNAME}")
+  [[ -n "${MAIL_PASSWORD:-}" ]] && UPSERT+=("MAIL_PASSWORD=${MAIL_PASSWORD}")
+  [[ -n "${MAIL_FROM_ADDRESS:-}" ]] && UPSERT+=("MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS}")
+  [[ -n "${MAIL_FROM_NAME:-}" ]] && UPSERT+=("MAIL_FROM_NAME=${MAIL_FROM_NAME}")
+  [[ -n "${MAIL_CONTACT_TO:-}" ]] && UPSERT+=("MAIL_CONTACT_TO=${MAIL_CONTACT_TO}")
+  "${UPSERT[@]}"
+fi
+
 echo "==> Migrate"
 "$PHP_BIN" artisan migrate --force --no-interaction
 echo "==> Migration status"
@@ -52,6 +72,11 @@ echo "==> Cache"
 "$PHP_BIN" artisan route:cache
 "$PHP_BIN" artisan view:cache
 "$PHP_BIN" artisan event:cache || true
+
+if [[ -n "${MAIL_SMOKE_TO:-}" && -n "${MAIL_PASSWORD:-}" ]]; then
+  echo "==> Mail smoke to configured inbox"
+  "$PHP_BIN" artisan mail:smoke "$MAIL_SMOKE_TO" --templates
+fi
 
 echo "==> Storage link into public_html"
 # PHP symlink() is often disabled on Hostinger; use shell ln instead.
