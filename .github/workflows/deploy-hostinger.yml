@@ -12,6 +12,7 @@ on:
       - "package.json"
       - "package-lock.json"
       - "vite.config.ts"
+      - "scripts/deploy-hostinger.ps1"
       - ".github/workflows/deploy-hostinger.yml"
 
 concurrency:
@@ -77,11 +78,23 @@ jobs:
     name: Deploy production
     needs: verify
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     environment: production
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Release identity
+        id: release
+        run: |
+          set -euo pipefail
+          SHA="$(git rev-parse --short=12 HEAD)"
+          ID="$(date -u +%Y%m%d-%H%M%S)-${SHA}"
+          echo "id=${ID}" >> "$GITHUB_OUTPUT"
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+          echo "full=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "branch=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          echo "Release ${ID}"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -97,10 +110,15 @@ jobs:
           VITE_LIVE_API: "true"
           VITE_API_URL: /api/v1
           VITE_CSRF_URL: /sanctum/csrf-cookie
+          VITE_BUILD_ID: ${{ steps.release.outputs.id }}
+          VITE_GIT_SHA: ${{ steps.release.outputs.sha }}
           APP_URL: https://skuggle.royalgatewayadmin.com
         run: |
           npm ci
           npm run build
+          test -f dist/index.html
+          test -d dist/assets
+          find dist/assets -name '*.js' | grep -q .
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -125,6 +143,10 @@ jobs:
         run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-progress
 
       - name: Package release
+        env:
+          RELEASE_ID: ${{ steps.release.outputs.id }}
+          RELEASE_SHA: ${{ steps.release.outputs.full }}
+          RELEASE_BRANCH: ${{ steps.release.outputs.branch }}
         run: |
           set -euo pipefail
           STAGE="${RUNNER_TEMP}/skuggle-stage"
@@ -152,15 +174,29 @@ jobs:
             "$STAGE/application/storage/logs" \
             "$STAGE/application/bootstrap/cache"
 
-          rsync -a --exclude 'server.cjs*' dist/ "$STAGE/public_html/"
+          rsync -a --exclude 'server.cjs*' --exclude 'server.mjs*' dist/ "$STAGE/public_html/"
           cp backend/deploy/shared-hosting/public_html/index.php "$STAGE/public_html/index.php"
           cp backend/deploy/shared-hosting/public_html/.htaccess "$STAGE/public_html/.htaccess"
           cp backend/deploy/shared-hosting/remote-release.sh "$STAGE/application/remote-release.sh"
-          chmod +x "$STAGE/application/remote-release.sh"
+          cp backend/deploy/shared-hosting/remote-deploy.sh "$STAGE/application/remote-deploy.sh"
+          chmod +x "$STAGE/application/remote-release.sh" "$STAGE/application/remote-deploy.sh"
 
-          tar -C "$STAGE" -czf "${RUNNER_TEMP}/skuggle-release.tar.gz" application public_html
-          (cd "${RUNNER_TEMP}" && sha256sum skuggle-release.tar.gz > skuggle-release.tar.gz.sha256)
-          ls -lh "${RUNNER_TEMP}/skuggle-release.tar.gz"
+          cat > "$STAGE/release-manifest.json" <<EOF
+          {
+            "application": "skuggle",
+            "release": "${RELEASE_ID}",
+            "commit": "${RELEASE_SHA}",
+            "branch": "${RELEASE_BRANCH}",
+            "environment": "production",
+            "builtAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "frontendBuild": "${RELEASE_ID}",
+            "backendBuild": "${RELEASE_ID}"
+          }
+          EOF
+
+          tar -C "$STAGE" -czf "${RUNNER_TEMP}/release.tar.gz" application public_html release-manifest.json
+          (cd "${RUNNER_TEMP}" && sha256sum release.tar.gz > release.tar.gz.sha256)
+          ls -lh "${RUNNER_TEMP}/release.tar.gz"
 
       - name: Configure SSH
         env:
@@ -209,6 +245,8 @@ jobs:
 
       - name: Upload + release
         env:
+          RELEASE_ID: ${{ steps.release.outputs.id }}
+          APP_GIT_SHA: ${{ steps.release.outputs.sha }}
           SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
           SSH_PORT: ${{ secrets.HOSTINGER_SSH_PORT }}
           SSH_USER: ${{ secrets.HOSTINGER_SSH_USER }}
@@ -224,8 +262,7 @@ jobs:
           set -euo pipefail
           USER="${SSH_USER:-u237094395}"
           DOMAIN_ROOT="/home/${USER}/domains/skuggle.royalgatewayadmin.com"
-          APP_DIR="${DOMAIN_ROOT}/application"
-          PUBLIC_DIR="${DOMAIN_ROOT}/public_html"
+          ARTIFACT_DIR="/home/${USER}/deployments/skuggle/artifacts/${RELEASE_ID}"
           SSH=(ssh hostinger)
           SCP=(scp -O)
 
@@ -237,9 +274,12 @@ jobs:
           RELEASE_ENV="${RUNNER_TEMP}/skuggle.release.env"
           umask 077
           {
-            printf 'APP_DIR=%s\n' "$APP_DIR"
-            printf 'PUBLIC_DIR=%s\n' "$PUBLIC_DIR"
+            printf 'RELEASE_ID=%s\n' "$RELEASE_ID"
+            printf 'APP_RELEASE_ID=%s\n' "$RELEASE_ID"
+            printf 'APP_GIT_SHA=%s\n' "$APP_GIT_SHA"
+            printf 'DOMAIN_ROOT=%s\n' "$DOMAIN_ROOT"
             printf 'PHP_BIN=%s\n' '/opt/alt/php83/usr/bin/php'
+            printf 'PUBLIC_HEALTH_URL=%s\n' 'https://skuggle.royalgatewayadmin.com'
             printf 'APP_URL=%s\n' 'https://skuggle.royalgatewayadmin.com'
             printf 'FRONTEND_URL=%s\n' 'https://skuggle.royalgatewayadmin.com'
             printf 'MAIL_LINK_URL=%s\n' 'https://skuggle.royalgatewayadmin.com'
@@ -257,13 +297,15 @@ jobs:
             printf 'SEED_DEMO_TENANT=%s\n' 'true'
           } > "$RELEASE_ENV"
 
+          "${SSH[@]}" "mkdir -p '$ARTIFACT_DIR'"
+
           # Hostinger's shared SSH transport occasionally completes SCP with a
           # corrupted large archive. Verify remotely and retry before release.
           uploaded=false
           for attempt in 1 2 3 4; do
-            "${SCP[@]}" "${RUNNER_TEMP}/skuggle-release.tar.gz" "hostinger:/home/${USER}/skuggle-release.tar.gz"
-            "${SCP[@]}" "${RUNNER_TEMP}/skuggle-release.tar.gz.sha256" "hostinger:/home/${USER}/skuggle-release.tar.gz.sha256"
-            if "${SSH[@]}" "cd /home/${USER} && sha256sum -c skuggle-release.tar.gz.sha256"; then
+            "${SCP[@]}" "${RUNNER_TEMP}/release.tar.gz" "hostinger:${ARTIFACT_DIR}/release.tar.gz"
+            "${SCP[@]}" "${RUNNER_TEMP}/release.tar.gz.sha256" "hostinger:${ARTIFACT_DIR}/release.tar.gz.sha256"
+            if "${SSH[@]}" "cd '$ARTIFACT_DIR' && sha256sum -c release.tar.gz.sha256"; then
               uploaded=true
               break
             fi
@@ -273,87 +315,46 @@ jobs:
             echo "Release upload remained corrupt after 4 attempts"
             exit 1
           fi
-          "${SCP[@]}" "$RELEASE_ENV" "hostinger:/tmp/skuggle.release.env"
+          "${SCP[@]}" "$RELEASE_ENV" "hostinger:/home/${USER}/skuggle-release.env"
+          "${SCP[@]}" backend/deploy/shared-hosting/remote-deploy.sh "hostinger:/home/${USER}/skuggle-remote-deploy.sh"
           rm -f "$RELEASE_ENV"
 
-          # One remote session: extract, apply SMTP from scp'd env file, release.
-          "${SSH[@]}" bash -s <<'REMOTE'
+          "${SSH[@]}" bash -s <<REMOTE
           set -euo pipefail
           set -a
           # shellcheck disable=SC1091
-          source /tmp/skuggle.release.env
+          source /home/${USER}/skuggle-release.env
           set +a
-          rm -f /tmp/skuggle.release.env
-
-          DOMAIN_ROOT="$(dirname "$APP_DIR")"
-          STAMP="$(date +%Y%m%d%H%M%S)"
-          STAGE="$DOMAIN_ROOT/.release-$STAMP"
-          BACKUP="$HOME/backups/skuggle-$STAMP"
-          mkdir -p "$DOMAIN_ROOT" "$HOME/backups" "$STAGE" "$BACKUP"
-          cd "$HOME"
-          sha256sum -c skuggle-release.tar.gz.sha256
-          tar -xzf skuggle-release.tar.gz -C "$STAGE"
-          test -f "$STAGE/application/artisan"
-          test -f "$STAGE/public_html/index.html"
-
-          if [[ -f "$APP_DIR/.env" ]]; then
-            cp "$APP_DIR/.env" "$STAGE/application/.env"
-          fi
-          if [[ -d "$PUBLIC_DIR/assets" ]]; then
-            mkdir -p "$STAGE/public_html/assets"
-            cp -an "$PUBLIC_DIR/assets/." "$STAGE/public_html/assets/"
-          fi
-          test -f "$STAGE/application/.env"
-
-          activated=0
-          rollback() {
-            rc=$?
-            trap - EXIT
-            if [[ "$activated" -eq 1 ]]; then
-              rm -rf "$APP_DIR" "$PUBLIC_DIR"
-              [[ -d "$BACKUP/application" ]] && mv "$BACKUP/application" "$APP_DIR"
-              [[ -d "$BACKUP/public_html" ]] && mv "$BACKUP/public_html" "$PUBLIC_DIR"
-            fi
-            rm -rf "$STAGE"
-            exit "$rc"
-          }
-          trap rollback EXIT
-
-          [[ -d "$APP_DIR" ]] && mv "$APP_DIR" "$BACKUP/application"
-          [[ -d "$PUBLIC_DIR" ]] && mv "$PUBLIC_DIR" "$BACKUP/public_html"
-          activated=1
-          mv "$STAGE/application" "$APP_DIR"
-          mv "$STAGE/public_html" "$PUBLIC_DIR"
-          chmod +x "$APP_DIR/remote-release.sh"
-
-          if [[ ! -f "$APP_DIR/.env" ]]; then
-            echo "Missing $APP_DIR/.env after extract — create it on the host or set Hostinger env secrets for first boot."
-            exit 1
-          fi
-
-          export APP_DIR PUBLIC_DIR PHP_BIN
-          export APP_URL FRONTEND_URL MAIL_LINK_URL
-          export MAIL_MAILER MAIL_HOST MAIL_PORT MAIL_SCHEME MAIL_ENCRYPTION
-          export MAIL_USERNAME MAIL_PASSWORD MAIL_FROM_ADDRESS MAIL_FROM_NAME MAIL_CONTACT_TO MAIL_SMOKE_TO
-          export SEED_DEMO_TENANT
-          bash "$APP_DIR/remote-release.sh"
-          activated=0
-          trap - EXIT
-          rm -rf "$STAGE"
-          rm -f "$HOME/skuggle-release.tar.gz" "$HOME/skuggle-release.tar.gz.sha256"
+          rm -f /home/${USER}/skuggle-release.env
+          chmod +x /home/${USER}/skuggle-remote-deploy.sh
+          bash /home/${USER}/skuggle-remote-deploy.sh
+          rc=\$?
+          rm -f /home/${USER}/skuggle-remote-deploy.sh
+          exit \$rc
           REMOTE
 
           ssh -O exit hostinger 2>/dev/null || true
 
       - name: Health check
+        env:
+          RELEASE_ID: ${{ steps.release.outputs.id }}
         run: |
           set -euo pipefail
+          check_payload() {
+            python3 -c 'import json,sys; body=json.load(open(sys.argv[1],encoding="utf-8")); expected=sys.argv[2];
+status=body.get("status"); release=body.get("release")
+assert status=="ready", "status %r is not ready" % (status,)
+assert release==expected, "release %r != %r" % (release, expected)' "$1" "$RELEASE_ID"
+          }
           for i in 1 2 3 4 5 6; do
             code=$(curl --connect-timeout 10 --max-time 20 -sS -o /tmp/health.json -w "%{http_code}" "https://skuggle.royalgatewayadmin.com/ready" || true)
             echo "Attempt $i => HTTP $code"
             if [[ "$code" == "200" ]]; then
               cat /tmp/health.json || true
-              exit 0
+              if check_payload /tmp/health.json; then
+                exit 0
+              fi
+              echo "Ready HTTP 200 but payload did not match release ${RELEASE_ID}; retrying..."
             fi
             # Hostinger's CDN intermittently challenges GitHub-hosted runner IPs.
             # When that exact edge response appears, verify /ready from the
@@ -364,7 +365,10 @@ jobs:
                 "curl --connect-timeout 10 --max-time 20 -sS -o /tmp/skuggle-ready.json -w '%{http_code}' 'https://skuggle.royalgatewayadmin.com/ready'" || true)
               echo "Origin-side check => HTTP $remote_code"
               if [[ "$remote_code" == "200" ]]; then
-                ssh hostinger "cat /tmp/skuggle-ready.json; rm -f /tmp/skuggle-ready.json"
+                ssh hostinger "cat /tmp/skuggle-ready.json"
+                ssh hostinger "cat /tmp/skuggle-ready.json" > /tmp/health.json
+                ssh hostinger "rm -f /tmp/skuggle-ready.json"
+                check_payload /tmp/health.json
                 exit 0
               fi
             fi

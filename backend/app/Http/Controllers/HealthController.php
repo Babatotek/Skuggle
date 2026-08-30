@@ -18,6 +18,7 @@ class HealthController extends Controller
         return response()->json([
             'status' => 'ok',
             'timestamp' => now()->toIso8601String(),
+            ...$this->releaseMetadata(),
         ])->header('Cache-Control', 'no-store, private');
     }
 
@@ -103,7 +104,10 @@ class HealthController extends Controller
         $response = [
             'status' => $allHealthy ? 'ready' : 'unavailable',
             'checks' => $checks,
+            'database' => ($checks['database']['status'] ?? null) === 'healthy',
+            'cache' => ($checks['cache']['status'] ?? null) === 'healthy',
             'timestamp' => now()->toIso8601String(),
+            ...$this->releaseMetadata(),
         ];
 
         return response()->json($response, $allHealthy ? 200 : 503)
@@ -159,6 +163,7 @@ class HealthController extends Controller
             'status' => $ready ? 'started' : 'starting',
             'checks' => $checks,
             'timestamp' => now()->toIso8601String(),
+            ...$this->releaseMetadata(),
         ];
 
         return response()->json($response, $ready ? 200 : 503)
@@ -175,6 +180,30 @@ class HealthController extends Controller
         return response()->json([
             'status' => 'alive',
             'timestamp' => now()->toIso8601String(),
+            ...$this->releaseMetadata(),
         ])->header('Cache-Control', 'no-store, private');
+    }
+
+    /**
+     * Safe public release identity for deploy verification and client skew checks.
+     */
+    public function version(): JsonResponse
+    {
+        return response()->json([
+            ...$this->releaseMetadata(),
+            'php' => PHP_MAJOR_VERSION.'.'.PHP_MINOR_VERSION,
+        ])->header('Cache-Control', 'no-store, private');
+    }
+
+    /**
+     * @return array{application: string, release: string, commit: string}
+     */
+    private function releaseMetadata(): array
+    {
+        return [
+            'application' => 'skuggle',
+            'release' => (string) config('skuggle.release_id', ''),
+            'commit' => (string) config('skuggle.git_sha', ''),
+        ];
     }
 }

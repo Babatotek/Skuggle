@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Remote release steps for Hostinger shared hosting.
-# Expected layout:
-#   domains/skuggle.royalgatewayadmin.com/application  (Laravel)
-#   domains/skuggle.royalgatewayadmin.com/public_html  (SPA + index.php bridge)
+# Prepare a staged Laravel application BEFORE it is swapped into production.
+# Expected layout (APP_DIR / PUBLIC_DIR may be a release directory, not live):
+#   APP_DIR     Laravel app root (artisan, composer.lock, .env already attached)
+#   PUBLIC_DIR  SPA document root for this release
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-$HOME/domains/skuggle.royalgatewayadmin.com/application}"
@@ -16,21 +16,28 @@ if [[ ! -x "$PHP_BIN" ]]; then
   echo "ERROR: PHP binary not found at $PHP_BIN"
   exit 1
 fi
+if [[ ! -f "$COMPOSER_BIN" ]]; then
+  echo "ERROR: Composer not found at $COMPOSER_BIN"
+  exit 1
+fi
+if [[ ! -f "$APP_DIR/artisan" ]]; then
+  echo "ERROR: artisan missing at $APP_DIR"
+  exit 1
+fi
+if [[ ! -f "$APP_DIR/.env" ]]; then
+  echo "ERROR: missing $APP_DIR/.env — attach shared/.env before prepare"
+  exit 1
+fi
 
 cd "$APP_DIR"
 
 echo "==> Using $($PHP_BIN -v | head -1)"
-echo "==> Composer install"
-"$PHP_BIN" "$COMPOSER_BIN" install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+echo "==> Composer install (staged, before activation)"
+"$PHP_BIN" "$COMPOSER_BIN" install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-progress
 
-echo "==> Ensure writable storage"
-mkdir -p storage/framework/{cache,sessions,views} storage/logs bootstrap/cache
+echo "==> Ensure writable storage and bootstrap cache"
+mkdir -p storage/framework/{cache,sessions,views} storage/logs storage/app/public bootstrap/cache
 chmod -R ug+rwx storage bootstrap/cache || true
-
-if [[ ! -f .env ]]; then
-  echo "ERROR: missing $APP_DIR/.env — create it from deploy/shared-hosting/.env.shared.example"
-  exit 1
-fi
 
 if ! grep -q '^APP_KEY=base64:' .env; then
   echo "==> Generating APP_KEY"
@@ -62,7 +69,32 @@ if [[ -n "${SEED_DEMO_TENANT:-}" ]]; then
   "$PHP_BIN" "$APP_DIR/deploy/shared-hosting/upsert-env.php" "$APP_DIR/.env" "SEED_DEMO_TENANT=${SEED_DEMO_TENANT}"
 fi
 
-echo "==> Migrate"
+if [[ -n "${APP_RELEASE_ID:-}" ]]; then
+  echo "==> Recording release identity"
+  "$PHP_BIN" "$APP_DIR/deploy/shared-hosting/upsert-env.php" "$APP_DIR/.env" \
+    "APP_RELEASE_ID=${APP_RELEASE_ID}" \
+    "APP_GIT_SHA=${APP_GIT_SHA:-}" \
+    "APP_ENV=production" \
+    "APP_DEBUG=false"
+fi
+
+echo "==> Clear leftover caches from the packaged tree"
+"$PHP_BIN" artisan optimize:clear
+
+echo "==> Staged Laravel boot"
+"$PHP_BIN" artisan about --only=environment
+
+echo "==> Database connectivity"
+"$PHP_BIN" artisan migrate:status --no-interaction >/dev/null
+
+echo "==> Migration safety classification"
+SAFETY=("$PHP_BIN" artisan migrate:safety-check --pending --no-interaction)
+if [[ "${ALLOW_DESTRUCTIVE_MIGRATIONS:-}" == "true" ]]; then
+  SAFETY+=(--allow-destructive)
+fi
+"${SAFETY[@]}"
+
+echo "==> Migrate (while previous release is still live)"
 "$PHP_BIN" artisan migrate --force --no-interaction
 echo "==> Migration status"
 MIGRATE_STATUS="$("$PHP_BIN" artisan migrate:status --no-interaction)"
@@ -77,23 +109,29 @@ if grep -Eq '^SEED_DEMO_TENANT=(true|1|"true")' .env || [[ "${SEED_DEMO_TENANT:-
   "$PHP_BIN" artisan db:seed --class=Database\\Seeders\\DemoUsersSeeder --force --no-interaction
 fi
 
-echo "==> Cache"
+echo "==> Production optimize"
 "$PHP_BIN" artisan config:cache
 "$PHP_BIN" artisan route:cache
 "$PHP_BIN" artisan view:cache
 "$PHP_BIN" artisan event:cache || true
+
+echo "==> Confirm boot after optimize"
+"$PHP_BIN" artisan about --only=environment >/dev/null
 
 if [[ -n "${MAIL_SMOKE_TO:-}" && -n "${MAIL_PASSWORD:-}" ]]; then
   echo "==> Mail smoke to configured inbox"
   "$PHP_BIN" artisan mail:smoke "$MAIL_SMOKE_TO" --templates
 fi
 
-echo "==> Storage link into public_html"
-# PHP symlink() is often disabled on Hostinger; use shell ln instead.
-rm -f "$PUBLIC_DIR/storage" 2>/dev/null || true
-ln -sfn "$APP_DIR/storage/app/public" "$PUBLIC_DIR/storage"
-rm -f "$APP_DIR/public/storage" 2>/dev/null || true
-ln -sfn "$APP_DIR/storage/app/public" "$APP_DIR/public/storage"
+if [[ -d "$PUBLIC_DIR" ]]; then
+  echo "==> Storage link into public_html"
+  # PHP symlink() is often disabled on Hostinger; use shell ln with absolute paths.
+  STORAGE_PUBLIC="$(readlink -f "$APP_DIR/storage/app/public" 2>/dev/null || echo "$APP_DIR/storage/app/public")"
+  rm -f "$PUBLIC_DIR/storage" 2>/dev/null || true
+  ln -sfn "$STORAGE_PUBLIC" "$PUBLIC_DIR/storage"
+  mkdir -p "$APP_DIR/public"
+  rm -f "$APP_DIR/public/storage" 2>/dev/null || true
+  ln -sfn "$STORAGE_PUBLIC" "$APP_DIR/public/storage"
+fi
 
-echo "==> Shared hosting release complete"
-"$PHP_BIN" artisan about --only=environment 2>/dev/null || true
+echo "==> Staged shared-hosting prepare complete"

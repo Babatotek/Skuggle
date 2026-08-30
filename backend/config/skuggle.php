@@ -24,6 +24,11 @@ return [
         'clamav_required_in_production' => (bool) env('CLAMAV_REQUIRED_IN_PRODUCTION', true),
         'clamav_binary' => env('CLAMAV_BINARY', 'clamscan'),
     ],
+    /*
+    | Production deploy writes these into the release .env. Empty in local/tests.
+    */
+    'release_id' => (string) env('APP_RELEASE_ID', ''),
+    'git_sha' => (string) env('APP_GIT_SHA', ''),
     'observability' => [
         'slow_request_ms' => (int) env('REQUEST_SLOW_MS', 500),
         'ready_requires_redis' => (bool) env('READY_REQUIRES_REDIS', false),

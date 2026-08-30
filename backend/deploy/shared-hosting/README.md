@@ -5,19 +5,29 @@ Deploy the Laravel API + Vite SPA on Hostinger shared hosting without Redis or H
 ## Layout
 
 ```text
+/home/USER/deployments/skuggle/
+  artifacts/<release-id>/  # immutable tarball + sha256
+  shared/.env              # production secrets (never in the artifact)
+  shared/storage/          # Laravel storage (uploads, logs)
+  backups/                 # previous live application + public_html
+  logs/                    # per-release deploy logs
+  locks/                   # single-flight deploy lock
+
 /home/USER/domains/skuggle.royalgatewayadmin.com/
-  application/     # Laravel app root (artisan, app/, vendor/, .env)
-  public_html/     # Document root → SPA assets + index.php bridge + .htaccess
+  application/             # live Laravel app root (artisan, app/, vendor/, .env)
+  public_html/             # Document root → SPA assets + index.php bridge + .htaccess
 ```
 
-`public_html/index.php` bootstraps `../application`. `.htaccess` routes `/api/*`, `/sanctum/*`, and health probes to Laravel; everything else falls back to the SPA.
+`public_html/index.php` bootstraps `../application`. `.htaccess` routes `/api/*`, `/sanctum/*`, `/ready`, `/live`, `/version`, and health probes to Laravel; everything else falls back to the SPA.
+
+A release is extracted under `deployments/skuggle/releases/<id>/`, prepared there (Composer, migrate, optimize), then swapped into the domain directories. Uploads live in `shared/storage` and are not replaced by a release.
 
 ## PHP version
 
 Laravel 13 requires **PHP 8.3+**.
 
 1. In hPanel → Advanced → PHP Configuration, set the **skuggle** domain to **PHP 8.3**.
-2. CLI release uses `/opt/alt/php83/usr/bin/php` (see `remote-release.sh`).
+2. CLI release uses `/opt/alt/php83/usr/bin/php` (see `remote-deploy.sh` / `remote-release.sh`).
 
 ## Environment
 
@@ -32,9 +42,9 @@ Laravel 13 requires **PHP 8.3+**.
 
 From a machine with the Skuggle SSH key:
 
-1. Build frontend: `VITE_LIVE_API=true VITE_API_URL=/api/v1 npm run build`
-2. Package `application/` + `public_html/` and upload (or use GitHub Actions).
-3. On the server:
+1. Build frontend: `VITE_LIVE_API=true VITE_API_URL=/api/v1 VITE_BUILD_ID=<release> npm run build`
+2. Package `application/` + `public_html/` + `release-manifest.json` and upload (or use GitHub Actions / `scripts/deploy-hostinger.ps1`).
+3. On the server the orchestrator is `remote-deploy.sh`. Manual prepare of an already-extracted tree:
 
 ```bash
 export APP_DIR=$HOME/domains/skuggle.royalgatewayadmin.com/application
@@ -80,4 +90,5 @@ Paste the OpenSSH private key into `HOSTINGER_SSH_KEY`. Never commit the key or 
 
 - Do **not** install Laravel Horizon on shared hosting.
 - Queue work is handled by the short-lived cron worker above.
+- Production `migrate` refuses `dropColumn` / `dropIfExists` / `renameColumn` in `up()` unless `ALLOW_DESTRUCTIVE_MIGRATIONS=true`. Prefer expand → deploy → contract.
 - When you move to a VPS, see `deploy/vps/README.md` for the Redis/Horizon upgrade path.

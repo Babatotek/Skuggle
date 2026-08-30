@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { lazy, Suspense, useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AppProvider, useApp } from './context/AppContext';
 import { AppHeader } from './components/AppHeader';
@@ -16,6 +16,7 @@ import { apiRequest, ApiError, describeApiError, hasLikelyBrowserSession, initia
 import { schoolKeyFromLocation } from './lib/sessionAuth';
 import { playNotificationTone } from './lib/notificationAudio';
 import { EmailVerificationModal } from './components/EmailVerificationModal';
+import { ReleaseSkewBanner } from './components/ReleaseSkewBanner';
 import { CheckCircle2, AlertTriangle, XCircle, Info, X } from 'lucide-react';
 
 interface SessionResponse {
@@ -156,6 +157,8 @@ function MainAppContent() {
   }, [currentView]);
 
   const [welcomeMode, setWelcomeMode] = useState<'entry' | 'preview'>('entry');
+  const currentViewRef = useRef(currentView);
+  currentViewRef.current = currentView;
 
   useEffect(() => {
     let active = true;
@@ -172,6 +175,14 @@ function MainAppContent() {
             } catch { /* ignore */ }
             restoreSessionPromise = null;
             setCurrentView('personal-auth');
+            return;
+          }
+          const view = currentViewRef.current;
+          const onAuthScreen = view === 'school-auth' || view === 'personal-auth' || view === 'tenant-login' || view === 'register-school' || view === 'tenant-welcome';
+          if (onAuthScreen || schoolKeyFromLocation()) {
+            if (schoolKeyFromLocation() && (view === 'landing' || view === 'app')) {
+              setCurrentView('tenant-welcome');
+            }
             return;
           }
           setCurrentRole(sessionRole(response.data.user.role));
@@ -221,6 +232,7 @@ function MainAppContent() {
   };
 
   const enterAuthenticatedApp = (role: UserRole) => {
+    restoreSessionPromise = null;
     localStorage.setItem('skuggle_authenticated', '1');
     setCurrentRole(role);
     setCurrentView('app');
@@ -445,6 +457,7 @@ function MainAppContent() {
 export default function App() {
   return (
     <AppProvider>
+      <ReleaseSkewBanner />
       <Suspense fallback={<div className="min-h-screen bg-[#FFFCF7] p-6"><DashboardLoading /></div>}>
         <MainAppContent />
       </Suspense>

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Skuggle | School Operating & Learning Intelligence Platform</title>
     <meta name="description" content="Multi-tenant School Operating and Learning Intelligence Platform for Nigerian nursery, primary, and secondary schools." />
-    <meta name="theme-color" content="#4F46E5" />
+    <meta name="skuggle-release" content="%VITE_BUILD_ID%" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     
@@ -30,7 +30,20 @@
       if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(function(items){items.forEach(function(item){item.unregister()})});
       if ('caches' in window) caches.keys().then(function(keys){keys.forEach(function(key){caches.delete(key)})});
       window.setTimeout(function(){var text=document.getElementById('boot-copy'),retry=document.getElementById('boot-retry');if(text){text.textContent='This is taking longer than expected. Check your connection, then retry.';retry.style.display='block'}},12000);
-      window.addEventListener('error',function(event){if(event.target&&event.target.tagName==='SCRIPT'){var text=document.getElementById('boot-copy'),retry=document.getElementById('boot-retry');if(text){text.textContent='A required app file could not load. Please retry to fetch the latest version.';retry.style.display='block'}}},true);
+      window.addEventListener('error',function(event){
+        var msg = (event && event.message) ? String(event.message) : '';
+        var isChunk = /ChunkLoadError|Failed to fetch dynamically imported module|Importing a module script failed/i.test(msg);
+        var isScript = event.target && event.target.tagName === 'SCRIPT';
+        if (!isChunk && !isScript) return;
+        var key = 'skuggle-vite-reload';
+        if (!sessionStorage.getItem(key)) {
+          sessionStorage.setItem(key, '1');
+          location.reload();
+          return;
+        }
+        var text=document.getElementById('boot-copy'),retry=document.getElementById('boot-retry');
+        if(text){text.textContent='A required app file could not load. Please retry to fetch the latest version.';retry.style.display='block'}
+      },true);
     </script>
     <!-- Do not modulepreload /src/main.tsx: Vite rewrites it to data:application/octet-stream in production builds, which browsers reject. -->
   </head>

@@ -115,6 +115,7 @@ return [
                 '#^/ready$#',
                 '#^/live$#',
                 '#^/startup$#',
+                '#^/version$#',
             ],
         ],
 
@@ -132,6 +133,7 @@ return [
                 '#^/health$#',
                 '#^/ready$#',
                 '#^/live$#',
+                '#^/version$#',
             ],
         ],
     ],

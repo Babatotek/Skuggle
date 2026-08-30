@@ -21,6 +21,7 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 | /ready         — 200 only when DB + cache + FS are all healthy (LB probe)
 | /startup       — 200 after migrations table is accessible (k8s startup probe)
 | /live          — alias of health for Kubernetes liveness probes
+| /version       — public release id + git sha (no secrets)
 |
 | They must stay stateless: StartSession on these paths writes a MySQL
 | session row (and Set-Cookie) on every probe, which contends for the
@@ -41,6 +42,7 @@ Route::withoutMiddleware($statelessHealthMiddleware)->group(function (): void {
     Route::get('/ready', [HealthController::class, 'ready']);
     Route::get('/startup', [HealthController::class, 'startup']);
     Route::get('/live', [HealthController::class, 'live']);
+    Route::get('/version', [HealthController::class, 'version']);
 });
 
 // Email verification links land here (browser redirect), then bounce to the SPA.

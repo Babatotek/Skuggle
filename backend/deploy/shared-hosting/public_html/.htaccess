@@ -19,7 +19,8 @@
     RewriteCond %{REQUEST_URI} ^/ready$ [OR]
     RewriteCond %{REQUEST_URI} ^/startup$ [OR]
     RewriteCond %{REQUEST_URI} ^/live$ [OR]
-    RewriteCond %{REQUEST_URI} ^/up$
+    RewriteCond %{REQUEST_URI} ^/up$ [OR]
+    RewriteCond %{REQUEST_URI} ^/version$
     RewriteRule ^ index.php [L]
 
     # Existing static files / directories
@@ -55,6 +56,12 @@ DirectoryIndex index.html index.php
         Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
         Header always set Pragma "no-cache"
         Header always set Expires "0"
+    </FilesMatch>
+    <FilesMatch "^.+-[A-Za-z0-9_-]{7,12}\.(js|css)$">
+        Header always set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+    <FilesMatch "\.(woff2|woff|png|jpe?g|svg|webp)$">
+        Header always set Cache-Control "public, max-age=31536000, immutable"
     </FilesMatch>
 </IfModule>
 

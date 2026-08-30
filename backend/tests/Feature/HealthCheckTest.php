@@ -26,7 +26,7 @@ class HealthCheckTest extends TestCase
     #[Test]
     public function health_probes_do_not_start_a_browser_session(): void
     {
-        foreach (['/health', '/live', '/ready', '/startup'] as $path) {
+        foreach (['/health', '/live', '/ready', '/startup', '/version'] as $path) {
             $response = $this->getJson($path);
             $response->assertCookieMissing(config('session.cookie'));
             $this->assertFalse($response->headers->has('Set-Cookie'), "Probe {$path} must not Set-Cookie");
@@ -47,6 +47,11 @@ class HealthCheckTest extends TestCase
             ])
             ->assertJsonStructure([
                 'status',
+                'application',
+                'release',
+                'commit',
+                'database',
+                'cache',
                 'checks' => [
                     'database',
                     'cache',
@@ -54,6 +59,10 @@ class HealthCheckTest extends TestCase
                 ],
                 'timestamp',
             ]);
+
+        $this->assertSame('skuggle', $response->json('application'));
+        $this->assertIsBool($response->json('database'));
+        $this->assertTrue($response->json('database'));
 
         // Verify all checks passed
         $checks = $response->json('checks');
@@ -124,11 +133,39 @@ class HealthCheckTest extends TestCase
         $response->assertStatus(200)
             ->assertJson([
                 'status' => 'alive',
+                'application' => 'skuggle',
             ])
             ->assertJsonStructure([
                 'status',
                 'timestamp',
+                'application',
+                'release',
+                'commit',
             ]);
+    }
+
+    #[Test]
+    public function version_endpoint_returns_release_identity_without_secrets(): void
+    {
+        config([
+            'skuggle.release_id' => '20260830-181500-a83f04d730ab',
+            'skuggle.git_sha' => 'a83f04d730ab',
+        ]);
+
+        $response = $this->getJson('/version');
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'application' => 'skuggle',
+                'release' => '20260830-181500-a83f04d730ab',
+                'commit' => 'a83f04d730ab',
+            ])
+            ->assertJsonPath('php', PHP_MAJOR_VERSION.'.'.PHP_MINOR_VERSION);
+
+        $payload = json_encode($response->json());
+        $this->assertIsString($payload);
+        $this->assertStringNotContainsString('APP_KEY', $payload);
+        $this->assertStringNotContainsString('password', strtolower($payload));
     }
 
     #[Test]
@@ -138,6 +175,7 @@ class HealthCheckTest extends TestCase
         // environment state but must never be 401/403/405.
         $this->getJson('/health')->assertStatus(200);
         $this->getJson('/live')->assertStatus(200);
+        $this->getJson('/version')->assertStatus(200);
         // /ready and /startup status depends on env; just confirm not auth-gated
         $this->getJson('/ready')->assertJsonStructure(['status', 'timestamp']);
         $this->getJson('/startup')->assertJsonStructure(['status', 'timestamp']);

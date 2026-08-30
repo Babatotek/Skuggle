@@ -26,6 +26,9 @@ export default defineConfig(() => {
         '/sanctum': 'http://127.0.0.1:8000',
         '/health': 'http://127.0.0.1:8000',
         '/ready': 'http://127.0.0.1:8000',
+        '/live': 'http://127.0.0.1:8000',
+        '/startup': 'http://127.0.0.1:8000',
+        '/version': 'http://127.0.0.1:8000',
         // Signed verification emails use FRONTEND_URL locally; proxy to Laravel.
         '/email': {
           target: 'http://127.0.0.1:8000',
