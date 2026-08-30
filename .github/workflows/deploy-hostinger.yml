@@ -291,12 +291,22 @@ jobs:
           if [[ -f "$APP_DIR/.env" ]]; then
             cp "$APP_DIR/.env" /tmp/skuggle.env.preserve
           fi
+          ts=$(date +%Y%m%d%H%M%S)
+          OLD_ASSETS="$HOME/.skuggle-assets-$ts"
+          if [[ -d "$PUBLIC_DIR/assets" ]]; then
+            mkdir -p "$OLD_ASSETS"
+            cp -a "$PUBLIC_DIR/assets/." "$OLD_ASSETS/"
+          fi
           if [[ -d "$APP_DIR" || -d "$PUBLIC_DIR" ]]; then
-            ts=$(date +%Y%m%d%H%M%S)
             tar -czf "$HOME/backups/skuggle-predeploy-$ts.tar.gz" -C "$DOMAIN_ROOT" application public_html 2>/dev/null || true
           fi
           rm -rf "$APP_DIR" "$PUBLIC_DIR"
           tar -xzf "$HOME/skuggle-release.tar.gz" -C "$DOMAIN_ROOT"
+          if [[ -d "$OLD_ASSETS" ]]; then
+            mkdir -p "$PUBLIC_DIR/assets"
+            cp -an "$OLD_ASSETS/." "$PUBLIC_DIR/assets/"
+            rm -rf "$OLD_ASSETS"
+          fi
           if [[ -f /tmp/skuggle.env.preserve ]]; then
             mv /tmp/skuggle.env.preserve "$APP_DIR/.env"
           fi

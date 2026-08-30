@@ -42,11 +42,16 @@ DirectoryIndex index.html index.php
     AddType application/manifest+json .webmanifest
 </IfModule>
 
-# Never let the CDN retain the SPA shell or service-worker lifecycle files.
-# Hashed assets can be cached safely, but stale index.html/sw.js responses can
-# keep clients requesting chunks that no longer exist after a deployment.
+# Let Hostinger's CDN absorb brief shared-host load spikes while browsers still
+# revalidate the SPA shell. Deployments preserve prior content-hashed assets,
+# so a shell held at the edge for up to 60 seconds remains safe.
 <IfModule mod_headers.c>
-    <FilesMatch "^(index\.html|sw\.js|manifest\.webmanifest)$">
+    <Files "index.html">
+        Header always set Cache-Control "public, max-age=0, s-maxage=60, stale-while-revalidate=300"
+        Header always set Pragma ""
+        Header always unset Expires
+    </Files>
+    <FilesMatch "^(sw\.js|manifest\.webmanifest)$">
         Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
         Header always set Pragma "no-cache"
         Header always set Expires "0"
