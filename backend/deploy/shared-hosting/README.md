@@ -25,7 +25,8 @@ Laravel 13 requires **PHP 8.3+**.
 2. Set `DB_HOST=localhost`, database name/user/password from hPanel → Databases.
 3. Shared profile uses **database** drivers for session, cache, and queue.
 4. Set `READY_REQUIRES_REDIS=false`, `STORAGE_LOCAL_ALLOWED=true`, `CLAMAV_REQUIRED_IN_PRODUCTION=false`.
-5. Set explicit `TRUSTED_PROXIES` (never `*` in production). Private ranges are fine for bare Hostinger; use Cloudflare ranges if proxied.
+5. Set `SEED_DEMO_TENANT=true` so DemoTenant and walkthrough logins are provisioned on release.
+6. Set explicit `TRUSTED_PROXIES` (never `*` in production). Private ranges are fine for bare Hostinger; use Cloudflare ranges if proxied.
 
 ## Manual deploy
 

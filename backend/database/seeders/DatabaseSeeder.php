@@ -10,7 +10,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call(ReferenceAccessSeeder::class);
 
-        if (app()->environment(['local', 'testing'])) {
+        if (DemoUsersSeeder::allowedInCurrentEnvironment()) {
             $this->call(DemoUsersSeeder::class);
         }
     }

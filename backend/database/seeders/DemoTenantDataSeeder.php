@@ -31,7 +31,7 @@ use Illuminate\Support\Str;
  * Seeds DemoTenant as a full walkthrough school from the frontend mock data:
  * classes, students, staff links, attendance, assessments, results,
  * announcements, messages, payments, and library — for every school role.
- * Local / XAMPP only.
+ * Local, testing, and production when SEED_DEMO_TENANT=true.
  */
 class DemoTenantDataSeeder extends Seeder
 {

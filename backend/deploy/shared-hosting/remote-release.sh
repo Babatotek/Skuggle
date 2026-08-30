@@ -57,6 +57,11 @@ if [[ -n "${MAIL_PASSWORD:-}" || -n "${MAIL_USERNAME:-}" ]]; then
   "${UPSERT[@]}"
 fi
 
+if [[ -n "${SEED_DEMO_TENANT:-}" ]]; then
+  echo "==> Applying demo tenant seed flag"
+  "$PHP_BIN" "$APP_DIR/deploy/shared-hosting/upsert-env.php" "$APP_DIR/.env" "SEED_DEMO_TENANT=${SEED_DEMO_TENANT}"
+fi
+
 echo "==> Migrate"
 "$PHP_BIN" artisan migrate --force --no-interaction
 echo "==> Migration status"
@@ -65,6 +70,11 @@ printf '%s\n' "$MIGRATE_STATUS"
 if printf '%s\n' "$MIGRATE_STATUS" | grep -Eiq '(^|[[:space:]])Pending([[:space:]]|$)'; then
   echo "ERROR: one or more migrations are still Pending after migrate --force"
   exit 1
+fi
+
+if grep -Eq '^SEED_DEMO_TENANT=(true|1|"true")' .env || [[ "${SEED_DEMO_TENANT:-}" == "true" ]]; then
+  echo "==> Seed public DemoTenant (idempotent)"
+  "$PHP_BIN" artisan db:seed --class=Database\\Seeders\\DemoUsersSeeder --force --no-interaction
 fi
 
 echo "==> Cache"

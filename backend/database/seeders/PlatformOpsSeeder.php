@@ -16,13 +16,13 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
 /**
- * Seeds enterprise platform-ops demo data for HQ walkthroughs (local only).
+ * Seeds enterprise platform-ops demo data for HQ walkthroughs.
  */
 class PlatformOpsSeeder extends Seeder
 {
     public function run(): void
     {
-        if (app()->environment('production')) {
+        if (app()->environment('production') && ! config('skuggle.seed_demo_tenant')) {
             return;
         }
 

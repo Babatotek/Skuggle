@@ -14,7 +14,8 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
 /**
- * Local/XAMPP demo accounts only. Do not run on Hostinger production.
+ * Public DemoTenant walkthrough accounts. Local/testing always run.
+ * Production requires SEED_DEMO_TENANT=true (Hostinger public demo).
  */
 class DemoUsersSeeder extends Seeder
 {
@@ -30,8 +31,8 @@ class DemoUsersSeeder extends Seeder
 
     public function run(): void
     {
-        if (app()->environment('production')) {
-            $this->command?->error('DemoUsersSeeder refused to run in production.');
+        if (! self::allowedInCurrentEnvironment()) {
+            $this->command?->error('DemoUsersSeeder refused to run in production. Set SEED_DEMO_TENANT=true to provision the public demo tenant.');
 
             return;
         }
@@ -144,7 +145,13 @@ class DemoUsersSeeder extends Seeder
         $this->call(DemoTenantDataSeeder::class);
         $this->call(PlatformOpsSeeder::class);
 
-        $this->command?->info('Local database fixture ready: DemoTenant.');
+        $this->command?->info('DemoTenant fixture ready.');
+        if (app()->environment('production')) {
+            $this->command?->info('Walkthrough logins provisioned. Passwords stay on the DemoUsersSeeder constants.');
+
+            return;
+        }
+
         $this->command?->table(
             ['Role', 'Email', 'Password'],
             [
@@ -160,6 +167,11 @@ class DemoUsersSeeder extends Seeder
                 ['student', 'nathan.bello@student.royalgateway.edu.ng', self::DEMO_PASSWORD],
             ],
         );
+    }
+
+    public static function allowedInCurrentEnvironment(): bool
+    {
+        return ! app()->environment('production') || (bool) config('skuggle.seed_demo_tenant');
     }
 
     private function seedPlans(): void

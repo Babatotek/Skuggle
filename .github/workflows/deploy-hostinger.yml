@@ -254,6 +254,7 @@ jobs:
             printf 'MAIL_FROM_NAME=%s\n' 'Skuggle'
             printf 'MAIL_CONTACT_TO=%s\n' "${MAIL_FROM_ADDRESS:-info@skuggle.royalgatewayadmin.com}"
             printf 'MAIL_SMOKE_TO=%s\n' "${MAIL_SMOKE_TO:-}"
+            printf 'SEED_DEMO_TENANT=%s\n' 'true'
           } > "$RELEASE_ENV"
 
           # Hostinger's shared SSH transport occasionally completes SCP with a
@@ -334,6 +335,7 @@ jobs:
           export APP_URL FRONTEND_URL MAIL_LINK_URL
           export MAIL_MAILER MAIL_HOST MAIL_PORT MAIL_SCHEME MAIL_ENCRYPTION
           export MAIL_USERNAME MAIL_PASSWORD MAIL_FROM_ADDRESS MAIL_FROM_NAME MAIL_CONTACT_TO MAIL_SMOKE_TO
+          export SEED_DEMO_TENANT
           bash "$APP_DIR/remote-release.sh"
           activated=0
           trap - EXIT

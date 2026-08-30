@@ -3,6 +3,11 @@
 return [
     'frontend_url' => env('FRONTEND_URL', 'http://127.0.0.1:3000'),
     /*
+    | Seed the public DemoTenant + walkthrough logins. Local and testing always
+    | seed. Production stays empty unless this is explicitly true.
+    */
+    'seed_demo_tenant' => filter_var(env('SEED_DEMO_TENANT', false), FILTER_VALIDATE_BOOLEAN),
+    /*
     | Absolute origin used in email action links (verify, etc.).
     | Local + real SMTP: prefer FRONTEND_URL (Vite) so links open on :3000 and
     | are proxied to Laravel. Production: same public HTTPS origin as the SPA.
