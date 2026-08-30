@@ -347,11 +347,24 @@ jobs:
         run: |
           set -euo pipefail
           for i in 1 2 3 4 5 6; do
-            code=$(curl --fail-with-body --connect-timeout 10 --max-time 20 -sS -o /tmp/health.json -w "%{http_code}" "https://skuggle.royalgatewayadmin.com/ready" || true)
+            code=$(curl --connect-timeout 10 --max-time 20 -sS -o /tmp/health.json -w "%{http_code}" "https://skuggle.royalgatewayadmin.com/ready" || true)
             echo "Attempt $i => HTTP $code"
             if [[ "$code" == "200" ]]; then
               cat /tmp/health.json || true
               exit 0
+            fi
+            # Hostinger's CDN intermittently challenges GitHub-hosted runner IPs.
+            # When that exact edge response appears, verify /ready from the
+            # Hostinger account itself so a healthy release is not marked failed.
+            if [[ "$code" == "403" ]] && grep -q '/hcdn-cgi/jschallenge' /tmp/health.json; then
+              echo "Hostinger CDN challenged the runner; checking from the origin account"
+              remote_code=$(ssh hostinger \
+                "curl --connect-timeout 10 --max-time 20 -sS -o /tmp/skuggle-ready.json -w '%{http_code}' 'https://skuggle.royalgatewayadmin.com/ready'" || true)
+              echo "Origin-side check => HTTP $remote_code"
+              if [[ "$remote_code" == "200" ]]; then
+                ssh hostinger "cat /tmp/skuggle-ready.json; rm -f /tmp/skuggle-ready.json"
+                exit 0
+              fi
             fi
             sleep 5
           done
