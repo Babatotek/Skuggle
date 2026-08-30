@@ -54,29 +54,7 @@ class DemoUsersSeeder extends Seeder
             ],
         );
 
-        $school = Tenant::query()->updateOrCreate(
-            ['slug' => self::DEMO_SCHOOL_SLUG],
-            [
-                'name' => 'DemoTenant',
-                'code' => 'DEMO-TENANT',
-                'type' => 'school',
-                'status' => 'active',
-                'subscription_plan' => 'pilot',
-                'subscription_status' => 'active',
-                'subscription_started_at' => now(),
-                'quota_limits' => ['users' => 250, 'students' => 1000, 'storage_bytes' => 5368709120, 'ai_requests_per_day' => 250],
-                'quota_usage' => ['users' => 0, 'students' => 0, 'storage_bytes' => 0],
-                'settings' => [
-                    'contact' => ['email' => self::DEMO_TENANT_EMAIL, 'phone' => '08000000000'],
-                    'profile' => ['school_type' => 'private', 'school_level' => 'secondary'],
-                    'branding' => [
-                        'primary_color' => '#4F46E5',
-                        'display_name' => 'DemoTenant School',
-                    ],
-                    'is_demo' => true,
-                ],
-            ],
-        );
+        $school = $this->demoSchoolTenant();
 
         // Only one demo school — deactivate any legacy extra school tenants.
         Tenant::query()
@@ -172,6 +150,51 @@ class DemoUsersSeeder extends Seeder
     public static function allowedInCurrentEnvironment(): bool
     {
         return ! app()->environment('production') || (bool) config('skuggle.seed_demo_tenant');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function demoSchoolAttributes(): array
+    {
+        return [
+            'name' => 'DemoTenant',
+            'code' => 'DEMO-TENANT',
+            'type' => 'school',
+            'status' => 'active',
+            'subscription_plan' => 'pilot',
+            'subscription_status' => 'active',
+            'subscription_started_at' => now(),
+            'quota_limits' => ['users' => 250, 'students' => 1000, 'storage_bytes' => 5368709120, 'ai_requests_per_day' => 250],
+            'quota_usage' => ['users' => 0, 'students' => 0, 'storage_bytes' => 0],
+            'settings' => [
+                'contact' => ['email' => self::DEMO_TENANT_EMAIL, 'phone' => '08000000000'],
+                'profile' => ['school_type' => 'private', 'school_level' => 'secondary'],
+                'branding' => [
+                    'primary_color' => '#4F46E5',
+                    'display_name' => 'DemoTenant School',
+                ],
+                'is_demo' => true,
+            ],
+        ];
+    }
+
+    private function demoSchoolTenant(): Tenant
+    {
+        $existing = Tenant::query()->where('slug', self::DEMO_SCHOOL_SLUG)->first();
+        if ($existing && ! data_get($existing->settings, 'is_demo')) {
+            $this->command?->warn('A live school already uses slug demo-tenant. Provisioning a separate DemoTenant fixture.');
+
+            return Tenant::query()->firstOrCreate(
+                ['slug' => 'skuggle-demo-tenant'],
+                array_merge($this->demoSchoolAttributes(), ['code' => 'SKU-DEMO']),
+            );
+        }
+
+        return Tenant::query()->updateOrCreate(
+            ['slug' => self::DEMO_SCHOOL_SLUG],
+            $this->demoSchoolAttributes(),
+        );
     }
 
     private function seedPlans(): void

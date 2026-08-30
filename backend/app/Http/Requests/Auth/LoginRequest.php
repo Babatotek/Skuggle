@@ -18,6 +18,8 @@ class LoginRequest extends FormRequest
             'password' => ['required', 'string', 'max:1024'],
             'remember' => ['sometimes', 'boolean'],
             'tenant' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'school_code' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'schoolCode' => ['sometimes', 'nullable', 'string', 'max:255'],
         ];
     }
 

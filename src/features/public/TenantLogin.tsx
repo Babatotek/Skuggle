@@ -21,6 +21,7 @@ import { useApp } from '../../context/AppContext';
 import { BrandMark } from '../../components/BrandMark';
 import { UserRole } from '../../types';
 import { apiRequest, ApiError, initializeCsrf } from '../../lib/apiClient';
+import { schoolKeyFromLocation } from '../../lib/sessionAuth';
 
 interface TenantLoginProps {
   onSuccess: (role: UserRole) => void;
@@ -90,7 +91,13 @@ export const TenantLogin: React.FC<TenantLoginProps> = ({
       const response = await apiRequest<LoginResponse>('/auth/login', {
         suppressErrorNotification: true,
         method: 'POST',
-        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          password,
+          ...(schoolKeyFromLocation() || (schoolCode.trim() && schoolCode.trim() !== 'CHIA-LAGOS')
+            ? { tenant: (schoolKeyFromLocation() || schoolCode).trim() }
+            : {}),
+        }),
       });
       const authenticatedRole = toUserRole(response.data.user.role);
       if (response.data.user.mfaRequired && !response.data.user.mfaConfirmed) {

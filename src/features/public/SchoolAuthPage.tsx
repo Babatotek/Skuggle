@@ -183,8 +183,10 @@ export const SchoolAuthPage: React.FC<SchoolAuthPageProps> = ({ onSuccess, onBac
       const res = await apiRequest<LoginResponse>('/auth/login', {
         suppressErrorNotification: true, method: 'POST',
         body: JSON.stringify({
-          email: siEmail.trim().toLowerCase(), password: siPassword,
-          ...(siSchoolCode.trim() ? { school_code: siSchoolCode.trim().toUpperCase() } : {}),
+          email: siEmail.trim().toLowerCase(),
+          password: siPassword,
+          remember: siRemember,
+          ...(siSchoolCode.trim() ? { tenant: siSchoolCode.trim().toUpperCase() } : {}),
         }),
       });
       const role = toUserRole(res.data.user.role);

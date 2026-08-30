@@ -124,11 +124,17 @@ class AuthController extends Controller
 
         if ($request->hasSession()) {
             $request->session()->regenerate();
+            // Never inherit another account's workspace from a leftover cookie.
+            $request->session()->forget([
+                'tenant_public_id',
+                'campus_public_id',
+                'academic_session_public_id',
+                'term_public_id',
+            ]);
         }
         $user = $request->user();
-        $preferredTenantId = $request->hasSession() ? $request->session()->get('tenant_public_id') : null;
         $membership = null;
-        $requestedTenant = trim((string) $request->input('tenant', ''));
+        $requestedTenant = $this->requestedTenantKey($request);
         if ($requestedTenant !== '') {
             $membership = $user->memberships()
                 ->with(['tenant', 'role.permissions'])
@@ -141,13 +147,16 @@ class AuthController extends Controller
                             ->orWhere('public_id', $requestedTenant);
                     }))
                 ->first();
-        }
-        if ($preferredTenantId) {
-            $membership ??= $user->memberships()
-                ->with(['tenant', 'role.permissions'])
-                ->where('status', 'active')
-                ->whereHas('tenant', fn ($q) => $q->where('public_id', $preferredTenantId)->whereIn('status', ['active', 'trial']))
-                ->first();
+            if (! $membership) {
+                Auth::logout();
+                $request->session()->invalidate();
+
+                return ApiResponse::error(
+                    'WORKSPACE_UNAVAILABLE',
+                    'This account is not a member of that school. Use a DemoTenant walkthrough login, or sign in without a school code.',
+                    403,
+                );
+            }
         }
         $membership ??= $this->defaultMembership($user);
         if (! $membership || ! in_array($membership->tenant->status, ['active', 'trial'], true)) {
@@ -230,6 +239,18 @@ class AuthController extends Controller
                 return in_array($tenant->status, ['active', 'trial'], true);
             })
             ->values();
+    }
+
+    private function requestedTenantKey(Request $request): string
+    {
+        foreach (['tenant', 'school_code', 'schoolCode'] as $key) {
+            $value = trim((string) $request->input($key, ''));
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return '';
     }
 
     private function defaultMembership(User $user): ?TenantMembership
