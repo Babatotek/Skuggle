@@ -256,8 +256,22 @@ jobs:
             printf 'MAIL_SMOKE_TO=%s\n' "${MAIL_SMOKE_TO:-}"
           } > "$RELEASE_ENV"
 
-          "${SCP[@]}" "${RUNNER_TEMP}/skuggle-release.tar.gz" "hostinger:/home/${USER}/skuggle-release.tar.gz"
-          "${SCP[@]}" "${RUNNER_TEMP}/skuggle-release.tar.gz.sha256" "hostinger:/home/${USER}/skuggle-release.tar.gz.sha256"
+          # Hostinger's shared SSH transport occasionally completes SCP with a
+          # corrupted large archive. Verify remotely and retry before release.
+          uploaded=false
+          for attempt in 1 2 3 4; do
+            "${SCP[@]}" "${RUNNER_TEMP}/skuggle-release.tar.gz" "hostinger:/home/${USER}/skuggle-release.tar.gz"
+            "${SCP[@]}" "${RUNNER_TEMP}/skuggle-release.tar.gz.sha256" "hostinger:/home/${USER}/skuggle-release.tar.gz.sha256"
+            if "${SSH[@]}" "cd /home/${USER} && sha256sum -c skuggle-release.tar.gz.sha256"; then
+              uploaded=true
+              break
+            fi
+            echo "Release checksum mismatch after upload attempt ${attempt}; retrying..."
+          done
+          if [[ "$uploaded" != true ]]; then
+            echo "Release upload remained corrupt after 4 attempts"
+            exit 1
+          fi
           "${SCP[@]}" "$RELEASE_ENV" "hostinger:/tmp/skuggle.release.env"
           rm -f "$RELEASE_ENV"
 
