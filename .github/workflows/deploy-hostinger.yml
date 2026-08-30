@@ -285,32 +285,44 @@ jobs:
           rm -f /tmp/skuggle.release.env
 
           DOMAIN_ROOT="$(dirname "$APP_DIR")"
-          mkdir -p "$DOMAIN_ROOT" "$HOME/backups"
+          STAMP="$(date +%Y%m%d%H%M%S)"
+          STAGE="$DOMAIN_ROOT/.release-$STAMP"
+          BACKUP="$HOME/backups/skuggle-$STAMP"
+          mkdir -p "$DOMAIN_ROOT" "$HOME/backups" "$STAGE" "$BACKUP"
           cd "$HOME"
           sha256sum -c skuggle-release.tar.gz.sha256
+          tar -xzf skuggle-release.tar.gz -C "$STAGE"
+          test -f "$STAGE/application/artisan"
+          test -f "$STAGE/public_html/index.html"
+
           if [[ -f "$APP_DIR/.env" ]]; then
-            cp "$APP_DIR/.env" /tmp/skuggle.env.preserve
+            cp "$APP_DIR/.env" "$STAGE/application/.env"
           fi
-          ts=$(date +%Y%m%d%H%M%S)
-          OLD_ASSETS="$HOME/.skuggle-assets-$ts"
           if [[ -d "$PUBLIC_DIR/assets" ]]; then
-            mkdir -p "$OLD_ASSETS"
-            cp -a "$PUBLIC_DIR/assets/." "$OLD_ASSETS/"
+            mkdir -p "$STAGE/public_html/assets"
+            cp -an "$PUBLIC_DIR/assets/." "$STAGE/public_html/assets/"
           fi
-          if [[ -d "$APP_DIR" || -d "$PUBLIC_DIR" ]]; then
-            tar -czf "$HOME/backups/skuggle-predeploy-$ts.tar.gz" -C "$DOMAIN_ROOT" application public_html 2>/dev/null || true
-          fi
-          rm -rf "$APP_DIR" "$PUBLIC_DIR"
-          tar -xzf "$HOME/skuggle-release.tar.gz" -C "$DOMAIN_ROOT"
-          if [[ -d "$OLD_ASSETS" ]]; then
-            mkdir -p "$PUBLIC_DIR/assets"
-            cp -an "$OLD_ASSETS/." "$PUBLIC_DIR/assets/"
-            rm -rf "$OLD_ASSETS"
-          fi
-          if [[ -f /tmp/skuggle.env.preserve ]]; then
-            mv /tmp/skuggle.env.preserve "$APP_DIR/.env"
-          fi
-          rm -f "$HOME/skuggle-release.tar.gz" "$HOME/skuggle-release.tar.gz.sha256"
+          test -f "$STAGE/application/.env"
+
+          activated=0
+          rollback() {
+            rc=$?
+            trap - EXIT
+            if [[ "$activated" -eq 1 ]]; then
+              rm -rf "$APP_DIR" "$PUBLIC_DIR"
+              [[ -d "$BACKUP/application" ]] && mv "$BACKUP/application" "$APP_DIR"
+              [[ -d "$BACKUP/public_html" ]] && mv "$BACKUP/public_html" "$PUBLIC_DIR"
+            fi
+            rm -rf "$STAGE"
+            exit "$rc"
+          }
+          trap rollback EXIT
+
+          [[ -d "$APP_DIR" ]] && mv "$APP_DIR" "$BACKUP/application"
+          [[ -d "$PUBLIC_DIR" ]] && mv "$PUBLIC_DIR" "$BACKUP/public_html"
+          activated=1
+          mv "$STAGE/application" "$APP_DIR"
+          mv "$STAGE/public_html" "$PUBLIC_DIR"
           chmod +x "$APP_DIR/remote-release.sh"
 
           if [[ ! -f "$APP_DIR/.env" ]]; then
@@ -323,6 +335,10 @@ jobs:
           export MAIL_MAILER MAIL_HOST MAIL_PORT MAIL_SCHEME MAIL_ENCRYPTION
           export MAIL_USERNAME MAIL_PASSWORD MAIL_FROM_ADDRESS MAIL_FROM_NAME MAIL_CONTACT_TO MAIL_SMOKE_TO
           bash "$APP_DIR/remote-release.sh"
+          activated=0
+          trap - EXIT
+          rm -rf "$STAGE"
+          rm -f "$HOME/skuggle-release.tar.gz" "$HOME/skuggle-release.tar.gz.sha256"
           REMOTE
 
           ssh -O exit hostinger 2>/dev/null || true
