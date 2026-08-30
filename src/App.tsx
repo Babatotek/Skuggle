@@ -147,6 +147,12 @@ function MainAppContent() {
     if (toast?.show) playNotificationTone(toast.type);
   }, [toast]);
 
+  useEffect(() => {
+    if (currentView === 'personal-auth' || currentView === 'school-auth' || currentView === 'tenant-login') {
+      void initializeCsrf().catch(() => { /* Sign-in will retry and display any error. */ });
+    }
+  }, [currentView]);
+
   const [welcomeMode, setWelcomeMode] = useState<'entry' | 'preview'>('entry');
 
   useEffect(() => {
@@ -182,16 +188,23 @@ function MainAppContent() {
     return () => { active = false; };
   }, [isVerificationSuccess, setCurrentRole]);
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
+    restoreSessionPromise = null;
+    localStorage.removeItem('skuggle_authenticated');
+    setCurrentView('landing');
+    setActiveTab('home');
+
+    // Logout is optimistic: remove the local session immediately so a slow
+    // network response can never hold the interface on the authenticated view.
+    void (async () => {
     try {
       await initializeCsrf();
-      await apiRequest('/auth/logout', { method: 'POST' });
-    } finally {
-      restoreSessionPromise = null;
-      localStorage.removeItem('skuggle_authenticated');
-      setCurrentView('landing');
-      setActiveTab('home');
+      await apiRequest('/auth/logout', { method: 'POST', suppressErrorNotification: true });
+    } catch {
+      // The local session is already closed. Server-side expiry remains the
+      // fallback if the best-effort logout request cannot be completed.
     }
+    })();
   };
 
   // Switch persona entry from landing page

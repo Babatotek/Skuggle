@@ -30,7 +30,7 @@ import {
   SubscriptionPlanType,
   CBTQuiz,
 } from '../types';
-import { apiMutation, apiRequest, describeApiError, hasLikelyBrowserSession } from '../lib/apiClient';
+import { apiMutation, apiRequest, describeApiError } from '../lib/apiClient';
 
 // Demonstration data lives only in the database-owned DemoTenant. The client never fabricates a session.
 const demoMode = false;
@@ -1098,7 +1098,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (demoMode) return;
     let active = true;
+    let loading = false;
     const loadStudents = async () => {
+      if (loading) return;
+      loading = true;
       try {
         const response = await apiRequest<{
           success: true;
@@ -1135,12 +1138,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }));
       } catch {
         if (active) setStudents([]);
+      } finally {
+        loading = false;
       }
     };
 
     window.addEventListener('skuggle:authenticated', loadStudents);
     window.addEventListener('skuggle:workspace-changed', loadStudents);
-    if (hasLikelyBrowserSession()) void loadStudents();
     return () => {
       active = false;
       window.removeEventListener('skuggle:authenticated', loadStudents);
@@ -1151,19 +1155,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (demoMode) return;
     let active = true;
+    let hydrating = false;
     const list = async (path: string) => {
       const response = await apiRequest<{ success: true; data: { data?: Array<Record<string, unknown>> } | Array<Record<string, unknown>> }>(path, { suppressErrorNotification: true });
       const payload = response.data;
       return Array.isArray(payload) ? payload : (payload.data ?? []);
     };
     const hydrate = async () => {
-      const [sessionRows, classRows, subjectRows, staffRows, assessmentRows, paymentRows, inviteRows, onboarding, planRows, lessonRows, me] = await Promise.allSettled([
-        list('/academic-sessions?perPage=100'), list('/classes?perPage=100'), list('/subjects?perPage=100'), list('/employees?perPage=100'),
-        list('/assessments?perPage=100'), list('/payments?perPage=100'), list('/invites'),
-        apiRequest<{ success: true; data: Record<string, unknown> }>('/onboarding', { suppressErrorNotification: true }), list('/plans'), list('/lesson-plans'),
-        apiRequest<{ success: true; data: { user: Record<string, unknown> } }>('/auth/me', { suppressErrorNotification: true }),
-      ]);
-      if (!active) return;
+      if (hydrating) return;
+      hydrating = true;
+      try {
+        const [sessionRows, classRows, subjectRows, staffRows, assessmentRows, paymentRows, inviteRows, onboarding, planRows, lessonRows, me] = await Promise.allSettled([
+          list('/academic-sessions?perPage=100'), list('/classes?perPage=100'), list('/subjects?perPage=100'), list('/employees?perPage=100'),
+          list('/assessments?perPage=100'), list('/payments?perPage=100'), list('/invites'),
+          apiRequest<{ success: true; data: Record<string, unknown> }>('/onboarding', { suppressErrorNotification: true }), list('/plans'), list('/lesson-plans'),
+          apiRequest<{ success: true; data: { user: Record<string, unknown> } }>('/auth/me', { suppressErrorNotification: true }),
+        ]);
+        if (!active) return;
       if (sessionRows.status === 'fulfilled') {
         setSessions(sessionRows.value.map((row) => ({ id: String(row.id), name: String(row.name), isCurrent: Boolean(row.isCurrent), startDate: String(row.startsAt ?? ''), endDate: String(row.endsAt ?? '') })));
         setTerms(sessionRows.value.flatMap((row) => (Array.isArray(row.terms) ? row.terms : []).map((term: Record<string, unknown>) => ({ id: String(term.id), sessionId: String(row.id), name: String(term.name), isCurrent: Boolean(term.isCurrent), startDate: String(term.startsAt ?? ''), endDate: String(term.endsAt ?? '') }))));
@@ -1181,7 +1189,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       if (planRows.status === 'fulfilled') setSubscriptionPlans(planRows.value.map((row) => { const limits = (row.limits ?? {}) as Record<string, unknown>; return { id: String(row.code) as SubscriptionPlanType, category: String(row.code).includes('personal') ? 'personal' : 'school', name: String(row.name), tagline: 'Secure, scalable Skuggle plan', priceNGN: Number(row.priceMinor ?? 0) / 100, billingPeriod: String(row.billingInterval) === 'yearly' ? 'yearly' : Number(row.priceMinor ?? 0) === 0 ? 'free' : 'monthly', features: Array.isArray(row.features) ? row.features.map((feature) => ({ name: String(feature), included: true })) : [], studentLimit: Number(limits.students ?? 0) || undefined, staffLimit: Number(limits.users ?? 0) || undefined, highlight: false } as SubscriptionPlan; }));
       if (lessonRows.status === 'fulfilled') setLessonPlans(lessonRows.value.map((row) => ({ ...((row.content ?? {}) as TeacherLessonPlan), id: String(row.id), title: String(row.title), createdAt: String(row.createdAt ?? '').slice(0, 10) })));
-      if (me.status === 'fulfilled') {
+        if (me.status === 'fulfilled') {
         const user = me.value.data.user;
         const tenant = user.tenant as Record<string, unknown>;
         const memberships = Array.isArray(user.memberships) ? user.memberships as Array<Record<string, unknown>> : [];
@@ -1202,11 +1210,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else {
           setBranding((current) => ({ ...current, schoolId: String(tenant.id), schoolName: String(tenant.name), schoolCode: String(tenant.code), logoUrl: String(tenant.logoUrl ?? current.logoUrl) }));
         }
+        }
+      } finally {
+        hydrating = false;
       }
     };
     window.addEventListener('skuggle:authenticated', hydrate);
     window.addEventListener('skuggle:workspace-changed', hydrate);
-    if (hasLikelyBrowserSession()) void hydrate();
     return () => { active = false; window.removeEventListener('skuggle:authenticated', hydrate); window.removeEventListener('skuggle:workspace-changed', hydrate); };
   }, []);
 

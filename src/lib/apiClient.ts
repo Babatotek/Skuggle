@@ -48,14 +48,23 @@ export function hasLikelyBrowserSession(): boolean {
   return localStorage.getItem('skuggle_authenticated') === '1';
 }
 
-export async function initializeCsrf(): Promise<void> {
-  const response = await fetch('/sanctum/csrf-cookie', {
-    credentials: 'include',
-    headers: { Accept: 'application/json' },
-  });
-  if (!response.ok && response.status !== 204) {
-    throw new ApiError(response.status, 'CSRF_INITIALIZATION_FAILED', 'A secure sign-in session could not be started.');
+let csrfInitialization: Promise<void> | null = null;
+
+export function initializeCsrf(): Promise<void> {
+  if (!csrfInitialization) {
+    csrfInitialization = fetch('/sanctum/csrf-cookie', {
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    }).then((response) => {
+      if (!response.ok && response.status !== 204) {
+        throw new ApiError(response.status, 'CSRF_INITIALIZATION_FAILED', 'A secure sign-in session could not be started.');
+      }
+    }).catch((error) => {
+      csrfInitialization = null;
+      throw error;
+    });
   }
+  return csrfInitialization;
 }
 
 export interface ApiRequestOptions extends RequestInit {
