@@ -3,7 +3,10 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\Role;
+use App\Models\Tenant;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Tests\Support\CreatesTenantUsers;
 use Tests\TestCase;
 
@@ -61,5 +64,37 @@ class MinimalRegistrationTest extends TestCase
             ->assertJsonPath('data.requiresVerification', true);
 
         $this->assertDatabaseHas('tenants', ['name' => 'New Academy', 'type' => 'school']);
+    }
+
+    public function test_verified_school_admin_logs_into_the_requested_school_workspace(): void
+    {
+        Notification::fake();
+        $this->seedAccessControl();
+
+        $this->postJson('/api/v1/schools/register', [
+            'schoolName' => 'Flow Academy',
+            'adminName' => 'Flow Owner',
+            'adminEmail' => 'owner@flow-academy.example',
+            'password' => 'Pass123!',
+            'password_confirmation' => 'Pass123!',
+        ], ['Idempotency-Key' => 'school-onboarding-flow'])
+            ->assertCreated();
+
+        $user = User::query()->where('email', 'owner@flow-academy.example')->firstOrFail();
+        $user->markEmailAsVerified();
+        $school = Tenant::query()->where('name', 'Flow Academy')->firstOrFail();
+
+        $this->withHeaders([
+            'Origin' => 'http://localhost:3000',
+            'Referer' => 'http://localhost:3000/',
+        ])->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'Pass123!',
+            'tenant' => $school->slug,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.user.role', 'school_admin')
+            ->assertJsonPath('data.user.tenant.type', 'school')
+            ->assertJsonPath('data.user.tenant.id', $school->public_id);
     }
 }

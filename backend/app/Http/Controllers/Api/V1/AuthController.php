@@ -128,8 +128,22 @@ class AuthController extends Controller
         $user = $request->user();
         $preferredTenantId = $request->hasSession() ? $request->session()->get('tenant_public_id') : null;
         $membership = null;
-        if ($preferredTenantId) {
+        $requestedTenant = trim((string) $request->input('tenant', ''));
+        if ($requestedTenant !== '') {
             $membership = $user->memberships()
+                ->with(['tenant', 'role.permissions'])
+                ->where('status', 'active')
+                ->whereHas('tenant', fn ($query) => $query
+                    ->whereIn('status', ['active', 'trial'])
+                    ->where(function ($tenantQuery) use ($requestedTenant): void {
+                        $tenantQuery->where('slug', $requestedTenant)
+                            ->orWhere('code', $requestedTenant)
+                            ->orWhere('public_id', $requestedTenant);
+                    }))
+                ->first();
+        }
+        if ($preferredTenantId) {
+            $membership ??= $user->memberships()
                 ->with(['tenant', 'role.permissions'])
                 ->where('status', 'active')
                 ->whereHas('tenant', fn ($q) => $q->where('public_id', $preferredTenantId)->whereIn('status', ['active', 'trial']))
@@ -333,16 +347,31 @@ class AuthController extends Controller
             $user->notify(new WelcomeToSkuggleNotification);
         }
 
-        Auth::guard('web')->login($user, true);
+        // Verification proves ownership of the email address; it must not also
+        // authenticate the browser. The administrator sees the school's public
+        // welcome/login experience and enters credentials exactly once.
+        Auth::guard('web')->logout();
         if ($request->hasSession()) {
-            $request->session()->regenerate();
-            $membership = $this->defaultMembership($user);
-            if ($membership) {
-                $request->session()->put('tenant_public_id', $membership->tenant->public_id);
-            }
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
         }
 
-        return redirect()->away("{$frontend}/verify-email?status=success");
+        $school = $user->memberships()
+            ->with('tenant')
+            ->where('status', 'active')
+            ->whereHas('tenant', fn ($query) => $query->where('type', 'school')->whereIn('status', ['active', 'trial']))
+            ->latest('joined_at')
+            ->first()?->tenant;
+
+        if (! $school) {
+            return redirect()->away("{$frontend}/verify-email?status=success");
+        }
+
+        return redirect()->away($frontend.'/?'.http_build_query([
+            'school' => $school->slug,
+            'schoolName' => $school->name,
+            'verified' => 'success',
+        ]));
     }
 
     /**

@@ -111,6 +111,8 @@ function MainAppContent() {
     && new URLSearchParams(window.location.search).get('status') === 'success';
   const isVerificationRoute = window.location.pathname.replace(/\/+$/, '') === '/verify-email';
   const verificationStatus = isVerificationRoute ? new URLSearchParams(window.location.search).get('status') : null;
+  const schoolNameFromLocation = new URLSearchParams(window.location.search).get('schoolName') || undefined;
+  const schoolKey = schoolKeyFromLocation() || undefined;
 
   // Active App Navigation Tab
   const [activeTab, setActiveTab] = useState<string>('home');
@@ -317,6 +319,7 @@ function MainAppContent() {
           email={verifyGateEmail}
           title="Verify your email to continue"
           onClose={() => setVerifyGateEmail(null)}
+          closeLabel={currentView === 'register-school' ? 'Got it — I will check my email' : undefined}
         />
       )}
 
@@ -356,14 +359,7 @@ function MainAppContent() {
       ) : currentView === 'register-school' ? (
         <SchoolRegistrationStepper
           onCancel={() => setCurrentView('landing')}
-          onComplete={() => {
-            setWelcomeMode('entry');
-            setCurrentView('tenant-welcome');
-          }}
-          onPreviewWelcome={() => {
-            setWelcomeMode('preview');
-            setCurrentView('tenant-welcome');
-          }}
+          onVerificationRequired={(email) => setVerifyGateEmail(email)}
         />
       ) : currentView === 'tenant-welcome' ? (
         <TenantWelcome
@@ -375,9 +371,11 @@ function MainAppContent() {
               setCurrentView('tenant-login');
             }
           }}
-          onSkip={() => setCurrentView(welcomeMode === 'preview' ? 'app' : 'tenant-login')}
           onOpenResultChecker={() => setCurrentView('result-checker')}
           onBackToLanding={() => setCurrentView('landing')}
+          onAuthenticated={enterAuthenticatedApp}
+          schoolName={schoolNameFromLocation}
+          schoolKey={schoolKey}
         />
       ) : currentView === 'tenant-login' ? (
         <TenantLogin

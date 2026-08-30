@@ -20,22 +20,42 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { BrandMark } from '../../components/BrandMark';
+import { ApiError, apiRequest, initializeCsrf } from '../../lib/apiClient';
+import { UserRole } from '../../types';
 
 interface TenantWelcomeProps {
   previewOnly?: boolean;
   onContinue: () => void;
-  onSkip?: () => void;
   onOpenResultChecker?: () => void;
   onBackToLanding?: () => void;
+  onAuthenticated?: (role: UserRole) => void;
+  schoolName?: string;
+  schoolKey?: string;
+}
+
+interface LoginResponse {
+  success: true;
+  data: { user: { role: string; mfaRequired: boolean; mfaConfirmed: boolean } };
+}
+
+function toUserRole(role: string): UserRole {
+  const roles: Record<string, UserRole> = {
+    school_admin: 'School Admin', principal: 'Principal', teacher: 'Teacher',
+    parent: 'Parent', student: 'Student', platform_owner: 'Platform Owner',
+  };
+  return roles[role.trim().toLowerCase().replace(/[ -]+/g, '_')] || 'Student';
 }
 
 export const TenantWelcome: React.FC<TenantWelcomeProps> = ({
   onContinue,
-  onSkip,
   onOpenResultChecker,
   onBackToLanding,
+  onAuthenticated,
+  schoolName,
+  schoolKey,
 }) => {
   const { branding, showToast, currentRole } = useApp();
+  const displaySchoolName = schoolName?.trim() || branding.schoolName;
   
   // OS prefers-reduced-motion
   const systemReducedMotion = useReducedMotion();
@@ -51,13 +71,14 @@ export const TenantWelcome: React.FC<TenantWelcomeProps> = ({
 
   // Form states inside the login panel
   const [authMethod, setAuthMethod] = useState<'password' | 'otp' | 'qr'>('password');
-  const [identifier, setIdentifier] = useState('principal@crownheights.edu.ng');
-  const [password, setPassword] = useState('••••••••••••');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   // Auto-advance timer from welcome to login panel (unless reduced motion or skipped)
   useEffect(() => {
@@ -80,11 +101,7 @@ export const TenantWelcome: React.FC<TenantWelcomeProps> = ({
       setPhase('login');
       showToast('Animation Skipped', 'Directly navigated to secure school portal login.');
     } else {
-      if (onSkip) {
-        onSkip();
-      } else {
-        onContinue();
-      }
+      setPhase('welcome');
     }
   };
 
@@ -94,15 +111,31 @@ export const TenantWelcome: React.FC<TenantWelcomeProps> = ({
     setAnimationKey((k) => k + 1);
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-
-    setTimeout(() => {
+    setLoginError(null);
+    try {
+      await initializeCsrf();
+      const response = await apiRequest<LoginResponse>('/auth/login', {
+        suppressErrorNotification: true,
+        method: 'POST',
+        body: JSON.stringify({ email: identifier.trim().toLowerCase(), password, remember: rememberMe, tenant: schoolKey }),
+      });
+      if (response.data.user.mfaRequired && !response.data.user.mfaConfirmed) {
+        setLoginError('Complete the authenticator challenge from the standard school sign-in page.');
+        return;
+      }
+      const role = toUserRole(response.data.user.role);
+      localStorage.setItem('skuggle_authenticated', '1');
+      window.dispatchEvent(new Event('skuggle:authenticated'));
+      showToast('Authentication successful', `Welcome to ${displaySchoolName}!`);
+      onAuthenticated?.(role);
+    } catch (error) {
+      setLoginError(error instanceof ApiError ? error.message : 'Sign in could not be completed. Please try again.');
+    } finally {
       setIsSubmitting(false);
-      showToast('Authentication Successful', `Welcome to ${branding.schoolName}!`);
-      onContinue();
-    }, isReducedMotion ? 200 : 700);
+    }
   };
 
   const handleSendOtp = () => {
@@ -190,7 +223,7 @@ export const TenantWelcome: React.FC<TenantWelcomeProps> = ({
             onClick={handleSkipAnimation}
             className="text-xs font-bold text-slate-300 hover:text-white px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
-            <span>{phase === 'welcome' ? 'Skip to Login' : 'Skip'}</span>
+            <span>{phase === 'welcome' ? 'Skip to Login' : 'Back to Welcome'}</span>
             <FastForward className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -234,7 +267,7 @@ export const TenantWelcome: React.FC<TenantWelcomeProps> = ({
                 {branding.logoUrl ? (
                   <img
                     src={branding.logoUrl}
-                    alt={`${branding.schoolName} crest`}
+                    alt={`${displaySchoolName} crest`}
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-cover rounded-2xl"
                   />
@@ -266,7 +299,7 @@ export const TenantWelcome: React.FC<TenantWelcomeProps> = ({
                 </div>
 
                 <h1 className="font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
-                  {branding.schoolName}
+                  {displaySchoolName}
                 </h1>
 
                 {branding.motto && (
@@ -338,7 +371,7 @@ export const TenantWelcome: React.FC<TenantWelcomeProps> = ({
                     {branding.logoUrl ? (
                       <img
                         src={branding.logoUrl}
-                        alt={branding.schoolName}
+                        alt={displaySchoolName}
                         referrerPolicy="no-referrer"
                         className="w-full h-full object-cover rounded-xl"
                       />
@@ -348,7 +381,7 @@ export const TenantWelcome: React.FC<TenantWelcomeProps> = ({
                   </motion.div>
                   <div>
                     <h2 className="font-display font-bold text-lg text-slate-900 leading-tight">
-                      {branding.schoolName}
+                      {displaySchoolName}
                     </h2>
                     <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
                       <span>Tenant ID:</span>
@@ -410,6 +443,7 @@ export const TenantWelcome: React.FC<TenantWelcomeProps> = ({
 
               {/* Login Form */}
               <form onSubmit={handleLoginSubmit} className="space-y-4">
+                {loginError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700">{loginError}</div>}
                 {authMethod === 'password' && (
                   <>
                     <div>
@@ -553,7 +587,7 @@ export const TenantWelcome: React.FC<TenantWelcomeProps> = ({
                     </>
                   ) : (
                     <>
-                      <span>Enter {branding.schoolName} Portal</span>
+                      <span>Enter {displaySchoolName} Portal</span>
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}

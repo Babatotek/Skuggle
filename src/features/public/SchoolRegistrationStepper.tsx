@@ -4,9 +4,12 @@ import { BrandMark } from '../../components/BrandMark';
 import { useApp } from '../../context/AppContext';
 import { apiRequest, describeApiError, initializeCsrf } from '../../lib/apiClient';
 
-interface SchoolRegistrationStepperProps { onCancel: () => void; onComplete: () => void; onPreviewWelcome: () => void }
+interface SchoolRegistrationStepperProps {
+  onCancel: () => void;
+  onVerificationRequired: (email: string) => void;
+}
 
-export const SchoolRegistrationStepper: React.FC<SchoolRegistrationStepperProps> = ({ onCancel, onComplete }) => {
+export const SchoolRegistrationStepper: React.FC<SchoolRegistrationStepperProps> = ({ onCancel, onVerificationRequired }) => {
   const { showToast } = useApp();
   const [schoolName, setSchoolName] = useState('');
   const [adminName, setAdminName] = useState('');
@@ -24,9 +27,10 @@ export const SchoolRegistrationStepper: React.FC<SchoolRegistrationStepperProps>
     setIsSubmitting(true);
     try {
       await initializeCsrf();
-      await apiRequest('/schools/register', { suppressErrorNotification: true, method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() }, body: JSON.stringify({ schoolName: schoolName.trim(), adminName: adminName.trim(), adminEmail: adminEmail.trim().toLowerCase(), password, password_confirmation: confirmation }) });
-      showToast('School account created', 'Verify your email, then complete the guided school setup.', 'success');
-      onComplete();
+      const email = adminEmail.trim().toLowerCase();
+      await apiRequest('/schools/register', { suppressErrorNotification: true, method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() }, body: JSON.stringify({ schoolName: schoolName.trim(), adminName: adminName.trim(), adminEmail: email, password, password_confirmation: confirmation }) });
+      showToast('School account created', 'Open the verification link sent to your email before entering the school portal.', 'success');
+      onVerificationRequired(email);
     } catch (cause) { setError(describeApiError(cause)); } finally { setIsSubmitting(false); }
   };
 

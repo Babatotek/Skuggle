@@ -9,6 +9,7 @@ interface EmailVerificationModalProps {
   onResent?: () => void;
   title?: string;
   description?: string;
+  closeLabel?: string;
 }
 
 export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
@@ -17,6 +18,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
   onResent,
   title = 'Verify your email',
   description,
+  closeLabel = 'Got it — back to sign in',
 }) => {
   const [resending, setResending] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -90,7 +92,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
               onClick={onClose}
               className="w-full rounded-xl bg-violet-600 py-3 text-sm font-bold text-white hover:bg-violet-700 transition-colors"
             >
-              Got it — back to sign in
+              {closeLabel}
             </button>
             <button
               type="button"
