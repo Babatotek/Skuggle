@@ -1098,63 +1098,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (demoMode) return;
     let active = true;
-    let loading = false;
-    const loadStudents = async () => {
-      if (loading) return;
-      loading = true;
-      try {
-        const response = await apiRequest<{
-          success: true;
-          data: { data: Array<Record<string, unknown>> };
-        }>('/students?perPage=100', { suppressErrorNotification: true });
-        if (!active) return;
-        setStudents(response.data.data.map((row) => {
-          const guardians = Array.isArray(row.guardians) ? row.guardians as Array<Record<string, unknown>> : [];
-          const guardian = guardians[0] || {};
-          const rawStatus = String(row.status || 'active');
-          const rawGender = String(row.gender || 'male');
-          const rawFees = String(row.feesStatus || 'Pending');
-          return {
-            id: String(row.id),
-            admissionNo: String(row.admissionNumber || ''),
-            firstName: String(row.firstName || ''),
-            lastName: String(row.lastName || ''),
-            gender: rawGender.toLowerCase() === 'female' ? 'Female' : 'Male',
-            dateOfBirth: String(row.dateOfBirth || ''),
-            classLevel: String(row.className || ''),
-            arm: String(row.classArm || '').replace(String(row.className || ''), '').trim(),
-            status: ({ active: 'Active', suspended: 'Suspended', graduated: 'Graduated', transferred: 'Transferred' } as const)[rawStatus.toLowerCase() as 'active'] || 'Active',
-            photoUrl: String(row.photoUrl || ''),
-            guardianId: String(guardian.id || ''),
-            guardianName: String(guardian.name || ''),
-            guardianRelationship: ['Father', 'Mother'].includes(String(guardian.relationship)) ? guardian.relationship as 'Father' | 'Mother' : 'Guardian',
-            guardianPhone: String(guardian.phone || ''),
-            guardianEmail: String(guardian.email || ''),
-            attendanceRate: Number(row.attendanceRate || 0),
-            termAverage: Number(row.currentAverage || 0),
-            feesStatus: rawFees === 'Paid' || rawFees === 'Partial' ? rawFees : 'Pending',
-            balanceDue: Number(row.outstandingFees || 0),
-          };
-        }));
-      } catch {
-        if (active) setStudents([]);
-      } finally {
-        loading = false;
-      }
-    };
-
-    window.addEventListener('skuggle:authenticated', loadStudents);
-    window.addEventListener('skuggle:workspace-changed', loadStudents);
-    return () => {
-      active = false;
-      window.removeEventListener('skuggle:authenticated', loadStudents);
-      window.removeEventListener('skuggle:workspace-changed', loadStudents);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (demoMode) return;
-    let active = true;
     let hydrating = false;
     const list = async (path: string) => {
       const response = await apiRequest<{ success: true; data: { data?: Array<Record<string, unknown>> } | Array<Record<string, unknown>> }>(path, { suppressErrorNotification: true });
@@ -1165,14 +1108,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (hydrating) return;
       hydrating = true;
       try {
-        const [sessionRows, classRows, subjectRows, staffRows, assessmentRows, paymentRows, inviteRows, onboarding, planRows, lessonRows, me] = await Promise.allSettled([
-          list('/academic-sessions?perPage=100'), list('/classes?perPage=100'), list('/subjects?perPage=100'), list('/employees?perPage=100'),
-          list('/assessments?perPage=100'), list('/payments?perPage=100'), list('/invites'),
-          apiRequest<{ success: true; data: Record<string, unknown> }>('/onboarding', { suppressErrorNotification: true }), list('/plans'), list('/lesson-plans'),
-          apiRequest<{ success: true; data: { user: Record<string, unknown> } }>('/auth/me', { suppressErrorNotification: true }),
-        ]);
+        // Establish the active membership before loading module data. Personal
+        // accounts and limited school roles must never probe admin-only routes.
+        const me = await apiRequest<{ success: true; data: { user: Record<string, unknown> } }>('/auth/me', { suppressErrorNotification: true });
         if (!active) return;
-      if (sessionRows.status === 'fulfilled') {
+        const user = me.data.user;
+        const tenant = user.tenant as Record<string, unknown>;
+        const permissions = new Set(Array.isArray(user.permissions) ? user.permissions.map(String) : []);
+        const isSchoolWorkspace = String(tenant.type) !== 'individual';
+        const permittedList = (permission: string, path: string) => permissions.has(permission) ? list(path) : Promise.resolve([]);
+
+        const [sessionRows, classRows, subjectRows, staffRows, assessmentRows, paymentRows, inviteRows, onboarding, planRows, lessonRows, studentRows] = await Promise.allSettled([
+          permittedList('settings.configure', '/academic-sessions?perPage=100'),
+          permittedList('students.view', '/classes?perPage=100'),
+          permittedList('students.view', '/subjects?perPage=100'),
+          permittedList('users.manage', '/employees?perPage=100'),
+          permittedList('assessments.view', '/assessments?perPage=100'),
+          permittedList('finance.view', '/payments?perPage=100'),
+          isSchoolWorkspace && permissions.has('users.manage') ? list('/invites') : Promise.resolve([]),
+          permissions.has('students.view')
+            ? apiRequest<{ success: true; data: Record<string, unknown> }>('/onboarding', { suppressErrorNotification: true })
+            : Promise.resolve({ success: true as const, data: {} as Record<string, unknown> }),
+          isSchoolWorkspace ? list('/plans') : Promise.resolve([]),
+          permittedList('ai.generate', '/lesson-plans'),
+          permittedList('students.view', '/students?perPage=100'),
+        ] as const);
+        if (!active) return;
+        if (sessionRows.status === 'fulfilled') {
         setSessions(sessionRows.value.map((row) => ({ id: String(row.id), name: String(row.name), isCurrent: Boolean(row.isCurrent), startDate: String(row.startsAt ?? ''), endDate: String(row.endsAt ?? '') })));
         setTerms(sessionRows.value.flatMap((row) => (Array.isArray(row.terms) ? row.terms : []).map((term: Record<string, unknown>) => ({ id: String(term.id), sessionId: String(row.id), name: String(term.name), isCurrent: Boolean(term.isCurrent), startDate: String(term.startsAt ?? ''), endDate: String(term.endsAt ?? '') }))));
       }
@@ -1189,9 +1151,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       if (planRows.status === 'fulfilled') setSubscriptionPlans(planRows.value.map((row) => { const limits = (row.limits ?? {}) as Record<string, unknown>; return { id: String(row.code) as SubscriptionPlanType, category: String(row.code).includes('personal') ? 'personal' : 'school', name: String(row.name), tagline: 'Secure, scalable Skuggle plan', priceNGN: Number(row.priceMinor ?? 0) / 100, billingPeriod: String(row.billingInterval) === 'yearly' ? 'yearly' : Number(row.priceMinor ?? 0) === 0 ? 'free' : 'monthly', features: Array.isArray(row.features) ? row.features.map((feature) => ({ name: String(feature), included: true })) : [], studentLimit: Number(limits.students ?? 0) || undefined, staffLimit: Number(limits.users ?? 0) || undefined, highlight: false } as SubscriptionPlan; }));
       if (lessonRows.status === 'fulfilled') setLessonPlans(lessonRows.value.map((row) => ({ ...((row.content ?? {}) as TeacherLessonPlan), id: String(row.id), title: String(row.title), createdAt: String(row.createdAt ?? '').slice(0, 10) })));
-        if (me.status === 'fulfilled') {
-        const user = me.value.data.user;
-        const tenant = user.tenant as Record<string, unknown>;
+      if (studentRows.status === 'fulfilled') setStudents(studentRows.value.map((row) => {
+        const guardians = Array.isArray(row.guardians) ? row.guardians as Array<Record<string, unknown>> : [];
+        const guardian = guardians[0] || {};
+        const rawStatus = String(row.status || 'active');
+        const rawGender = String(row.gender || 'male');
+        const rawFees = String(row.feesStatus || 'Pending');
+        return { id: String(row.id), admissionNo: String(row.admissionNumber || ''), firstName: String(row.firstName || ''), lastName: String(row.lastName || ''), gender: rawGender.toLowerCase() === 'female' ? 'Female' : 'Male', dateOfBirth: String(row.dateOfBirth || ''), classLevel: String(row.className || ''), arm: String(row.classArm || '').replace(String(row.className || ''), '').trim(), status: ({ active: 'Active', suspended: 'Suspended', graduated: 'Graduated', transferred: 'Transferred' } as const)[rawStatus.toLowerCase() as 'active'] || 'Active', photoUrl: String(row.photoUrl || ''), guardianId: String(guardian.id || ''), guardianName: String(guardian.name || ''), guardianRelationship: ['Father', 'Mother'].includes(String(guardian.relationship)) ? guardian.relationship as 'Father' | 'Mother' : 'Guardian', guardianPhone: String(guardian.phone || ''), guardianEmail: String(guardian.email || ''), attendanceRate: Number(row.attendanceRate || 0), termAverage: Number(row.currentAverage || 0), feesStatus: rawFees === 'Paid' || rawFees === 'Partial' ? rawFees : 'Pending', balanceDue: Number(row.outstandingFees || 0) };
+      }));
+
         const memberships = Array.isArray(user.memberships) ? user.memberships as Array<Record<string, unknown>> : [];
         const availableWorkspaces: WorkspaceItem[] = memberships.map((membership) => ({ id: String(membership.tenantId), name: String(membership.tenantName), type: String(membership.tenantType) === 'individual' ? 'personal' : 'school', role: backendRole(membership.role), logoUrl: String(membership.logoUrl ?? ''), schoolCode: String(membership.tenantCode ?? '') }));
         const activeWorkspace = availableWorkspaces.find((workspace) => workspace.id === String(tenant.id)) ?? availableWorkspaces[0];
@@ -1209,7 +1177,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setFeeTransactions([]);
         } else {
           setBranding((current) => ({ ...current, schoolId: String(tenant.id), schoolName: String(tenant.name), schoolCode: String(tenant.code), logoUrl: String(tenant.logoUrl ?? current.logoUrl) }));
-        }
         }
       } finally {
         hydrating = false;

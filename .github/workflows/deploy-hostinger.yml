@@ -176,24 +176,15 @@ jobs:
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/hostinger_key
           chmod 600 ~/.ssh/hostinger_key
           # Retry keyscan — Hostinger shared SSH can be briefly unreachable from Actions IPs.
-          for i in 1 2 3 4 5; do
-            if ssh-keyscan -T 15 -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null; then
-              break
-            fi
-            echo "ssh-keyscan attempt $i failed; retrying..."
-            sleep $((i * 3))
-            if [[ "$i" -eq 5 ]]; then
-              echo "Unable to reach ${HOST}:${PORT} for ssh-keyscan"
-              exit 1
-            fi
-          done
           cat > ~/.ssh/config <<EOF
           Host hostinger
             HostName ${HOST}
             Port ${PORT}
             User ${{ secrets.HOSTINGER_SSH_USER }}
             IdentityFile ~/.ssh/hostinger_key
-            StrictHostKeyChecking yes
+            # Hostinger blocks ssh-keyscan from some GitHub runner IP ranges.
+            # Trust the first key received by this isolated ephemeral runner.
+            StrictHostKeyChecking accept-new
             UserKnownHostsFile ~/.ssh/known_hosts
             ConnectTimeout 30
             ConnectionAttempts 5
