@@ -981,6 +981,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem('skuggle_active_workspace');
     return saved ? JSON.parse(saved) : initialWorkspaces[0];
   });
+  const currentWorkspaceRef = useRef(currentWorkspace);
+  currentWorkspaceRef.current = currentWorkspace;
 
   const [currentUser, setCurrentUser] = useState<CurrentUser>({
     id: demoMode ? 'usr-001' : '',
@@ -1562,20 +1564,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const setCurrentRole = (role: UserRole) => {
+  // This callback is consumed by App's session-restoration effect. It must stay
+  // referentially stable: recreating it after every provider update makes that
+  // effect restore the session again, dispatch another authenticated event and
+  // start an unbounded API hydration loop.
+  const setCurrentRole = useCallback((role: UserRole) => {
     if (!demoMode) {
-      setCurrentWorkspace((prev) => ({ ...prev, role }));
+      setCurrentWorkspace((prev) => prev.role === role ? prev : { ...prev, role });
       return;
     }
+    const activeWorkspace = currentWorkspaceRef.current;
     const matchingWs = initialWorkspaces.find(
-      (w) => w.type === currentWorkspace.type && w.role === role
-    ) || initialWorkspaces.find((w) => w.role === role);
-    if (matchingWs) {
-      activateWorkspace(matchingWs);
-    } else {
-      setCurrentWorkspace((prev) => ({ ...prev, role }));
+      (workspace) => workspace.type === activeWorkspace.type && workspace.role === role
+    ) || initialWorkspaces.find((workspace) => workspace.role === role);
+    if (!matchingWs) {
+      setCurrentWorkspace((prev) => prev.role === role ? prev : { ...prev, role });
+      return;
     }
-  };
+
+    setStudents(readStored(tenantStorageKey(matchingWs, 'students'), initialStudents));
+    setStaff(readStored(tenantStorageKey(matchingWs, 'staff'), initialStaff));
+    setAssessments(readStored(tenantStorageKey(matchingWs, 'assessments'), initialAssessments));
+    setInvoices(readStored(tenantStorageKey(matchingWs, 'invoices'), initialInvoices));
+    setFeeTransactions(readStored(tenantStorageKey(matchingWs, 'fee-transactions'), initialFeeTransactions));
+    setResultPINs(readStored(tenantStorageKey(matchingWs, 'pins'), initialPINs));
+    setCurrentWorkspace(matchingWs);
+    localStorage.setItem('skuggle_active_workspace', JSON.stringify(matchingWs));
+  }, []);
 
   const addStudent = (student: StudentRecord) => {
     setStudents((prev) => [student, ...prev]);

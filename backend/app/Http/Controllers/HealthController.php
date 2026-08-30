@@ -18,7 +18,7 @@ class HealthController extends Controller
         return response()->json([
             'status' => 'ok',
             'timestamp' => now()->toIso8601String(),
-        ]);
+        ])->header('Cache-Control', 'no-store, private');
     }
 
     /**
@@ -106,7 +106,8 @@ class HealthController extends Controller
             'timestamp' => now()->toIso8601String(),
         ];
 
-        return response()->json($response, $allHealthy ? 200 : 503);
+        return response()->json($response, $allHealthy ? 200 : 503)
+            ->header('Cache-Control', 'no-store, private');
     }
 
     /**
@@ -160,7 +161,8 @@ class HealthController extends Controller
             'timestamp' => now()->toIso8601String(),
         ];
 
-        return response()->json($response, $ready ? 200 : 503);
+        return response()->json($response, $ready ? 200 : 503)
+            ->header('Cache-Control', 'no-store, private');
     }
 
     /**
@@ -173,6 +175,6 @@ class HealthController extends Controller
         return response()->json([
             'status' => 'alive',
             'timestamp' => now()->toIso8601String(),
-        ]);
+        ])->header('Cache-Control', 'no-store, private');
     }
 }

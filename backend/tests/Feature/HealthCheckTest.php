@@ -24,6 +24,16 @@ class HealthCheckTest extends TestCase
     }
 
     #[Test]
+    public function health_probes_do_not_start_a_browser_session(): void
+    {
+        foreach (['/health', '/live', '/ready', '/startup'] as $path) {
+            $response = $this->getJson($path);
+            $response->assertCookieMissing(config('session.cookie'));
+            $this->assertFalse($response->headers->has('Set-Cookie'), "Probe {$path} must not Set-Cookie");
+        }
+    }
+
+    #[Test]
     public function ready_endpoint_returns_200_when_all_dependencies_healthy(): void
     {
         // Ensure database is accessible
