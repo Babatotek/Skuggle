@@ -14,6 +14,7 @@ class AssessmentQuestion extends Model
 
     protected $hidden = ['id', 'tenant_id', 'correct_answer'];
 
+    /** @return array{options: 'array', correct_answer: 'encrypted', rubric: 'array'} */
     protected function casts(): array
     {
         return ['options' => 'array', 'correct_answer' => 'encrypted', 'rubric' => 'array'];

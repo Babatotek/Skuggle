@@ -263,7 +263,7 @@ final class SmartmarkController extends Controller
             'detectedScore' => (float) $sheet->detected_score,
             'confidence' => (float) $sheet->confidence,
             'confidenceBand' => $band,
-            'flagged' => (bool) $sheet->human_review_required,
+            'flagged' => (bool) ($sheet->human_review_required || $band !== 'HIGH_CONFIDENCE'),
             'flagReason' => $sheet->flag_reason,
             'reviewedAt' => $sheet->reviewed_at?->toIso8601String(),
             'committedAt' => $sheet->committed_at?->toIso8601String(),

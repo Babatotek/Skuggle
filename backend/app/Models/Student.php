@@ -34,6 +34,7 @@ class Student extends Model
         return $this->belongsToMany(Guardian::class, 'student_guardians')->withPivot(['relationship', 'preferred_contact', 'billing_responsible', 'authorized_pickup', 'lives_with_student'])->withTimestamps();
     }
 
+    /** @return HasMany<Enrollment, $this> */
     public function enrollments(): HasMany
     {
         return $this->hasMany(Enrollment::class);

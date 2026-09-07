@@ -54,7 +54,7 @@ class AssessmentController extends Controller
     private function present(Assessment $item): array
     {
         $meta = $item->metadata ?? [];
-        $expected = ($meta['participantMode'] ?? 'class') === 'selected' ? count($meta['studentIds'] ?? []) : (int) $item->expected_count;
+        $expected = ($meta['participantMode'] ?? 'class') === 'selected' ? count($meta['studentIds'] ?? []) : (int) $item->getAttribute('expected_count');
         $duration = max(1, (int) ($meta['duration'] ?? 60));
         $availableFrom = $item->scheduled_at?->toIso8601String();
         $availableUntil = $item->scheduled_at?->copy()->addMinutes($duration)->toIso8601String();
@@ -174,8 +174,8 @@ class AssessmentController extends Controller
                 '"%s","%s",%s,%s,%s',
                 str_replace('"', '""', (string) $student->admission_number),
                 str_replace('"', '""', trim($student->first_name.' '.$student->last_name)),
-                $score?->score ?? '',
-                $score?->status ?? 'MISSING',
+                $score->score ?? '',
+                $score->status ?? 'MISSING',
                 $score?->metadata['source'] ?? ''
             );
         }
@@ -328,7 +328,7 @@ class AssessmentController extends Controller
         return ApiResponse::success(['assessmentId' => $item->public_id, 'title' => $item->title, 'maxScore' => (float) $item->maximum_score, 'status' => $item->status, 'editable' => $this->access->allows('assessment.score.enter') && in_array($item->status, AssessmentWorkflow::EDITABLE, true), 'revision' => $this->workflow->revision($item), 'students' => $this->workflow->roster($item)->map(function ($student) use ($scores) {
             $score = $scores->get($student->getKey());
 
-            return ['id' => $student->public_id, 'admissionNumber' => $student->admission_number, 'fullName' => trim($student->first_name.' '.$student->middle_name.' '.$student->last_name), 'score' => $score?->score === null ? null : (float) $score->score, 'state' => $score?->status === 'draft' ? ($score->score === null ? 'NOT_ENTERED' : 'ENTERED') : ($score?->status ?? 'NOT_ENTERED'), 'comment' => $score?->metadata['comment'] ?? ''];
+            return ['id' => $student->public_id, 'admissionNumber' => $student->admission_number, 'fullName' => trim($student->first_name.' '.$student->middle_name.' '.$student->last_name), 'score' => $score?->score === null ? null : (float) $score->score, 'state' => $score?->status === 'draft' ? ($score->score === null ? 'NOT_ENTERED' : 'ENTERED') : ($score->status ?? 'NOT_ENTERED'), 'comment' => $score?->metadata['comment'] ?? ''];
         })]);
     }
 
@@ -379,7 +379,7 @@ class AssessmentController extends Controller
             if ($data['action'] === 'reopen') {
                 abort_if(empty(trim($data['reason'] ?? '')), 422, 'A reason is required to reopen scores.');
                 $impact = $this->workflow->unlockImpact($item);
-                if (($impact['requiresAcknowledgement'] ?? false) && ! ($data['acknowledgeImpact'] ?? false)) {
+                if ($impact['requiresAcknowledgement'] && ! ($data['acknowledgeImpact'] ?? false)) {
                     throw new ApiException('UNLOCK_IMPACT_UNACKNOWLEDGED', 'Acknowledge the Performance and results impact before unlocking scores.', 422, [
                         'warnings' => $impact['warnings'],
                     ]);

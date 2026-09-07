@@ -15,21 +15,25 @@ class Enrollment extends Model
 
     protected $hidden = ['id', 'tenant_id'];
 
+    /** @return BelongsTo<Student, $this> */
     public function student(): BelongsTo
     {
         return $this->belongsTo(Student::class);
     }
 
+    /** @return BelongsTo<SchoolClass, $this> */
     public function schoolClass(): BelongsTo
     {
         return $this->belongsTo(SchoolClass::class, 'class_id');
     }
 
+    /** @return BelongsTo<AcademicSession, $this> */
     public function academicSession(): BelongsTo
     {
         return $this->belongsTo(AcademicSession::class);
     }
 
+    /** @return BelongsTo<Term, $this> */
     public function term(): BelongsTo
     {
         return $this->belongsTo(Term::class);

@@ -650,9 +650,7 @@ class PlatformController extends Controller
             'storage' => [
                 'usedBytes' => $storageUsedBytes,
                 'totalBytes' => $storageTotalBytes,
-                'percent' => $storageTotalBytes > 0
-                    ? (int) round(($storageUsedBytes / $storageTotalBytes) * 100)
-                    : 0,
+                'percent' => (int) round(($storageUsedBytes / $storageTotalBytes) * 100),
             ],
             'featureUsage' => $featureUsage,
         ]);

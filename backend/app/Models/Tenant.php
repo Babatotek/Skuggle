@@ -15,6 +15,7 @@ class Tenant extends Model
 
     protected $hidden = ['id'];
 
+    /** @return array{subscription_started_at: 'datetime', subscription_expires_at: 'datetime', settings: 'array', quota_limits: 'array', quota_usage: 'array'} */
     protected function casts(): array
     {
         return [

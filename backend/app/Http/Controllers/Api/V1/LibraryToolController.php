@@ -197,7 +197,7 @@ class LibraryToolController extends Controller
         $series = $scores->groupBy('student_id')->map(function ($items): array {
             $student = $items->first()->student;
 
-            return ['id' => 'student-'.$student->public_id, 'studentId' => $student->public_id, 'studentName' => trim("{$student->first_name} {$student->last_name}"), 'points' => $items->sortBy('graded_at')->map(fn ($score) => ['id' => $score->public_id, 'date' => ($score->graded_at ?? $score->created_at)->toDateString(), 'score' => round(((float) $score->score / max((float) $score->assessment->maximum_score, 1)) * 100, 1), 'quizTitle' => $score->assessment->title])->values()];
+            return ['id' => 'student-'.$student->public_id, 'studentId' => $student->public_id, 'studentName' => trim("{$student->first_name} {$student->last_name}"), 'points' => $items->toBase()->sortBy('graded_at')->map(fn ($score) => ['id' => $score->public_id, 'date' => ($score->graded_at ?? $score->created_at)->toDateString(), 'score' => round(((float) $score->score / max((float) $score->assessment->maximum_score, 1)) * 100, 1), 'quizTitle' => $score->assessment->title])->values()];
         })->values();
         $gaps = $scores->groupBy(fn ($score) => $score->assessment->subject?->name ?? 'Uncategorised')->map(function ($items, $subject): array {
             $average = $items->avg(fn ($score) => ((float) $score->score / max((float) $score->assessment->maximum_score, 1)) * 100);

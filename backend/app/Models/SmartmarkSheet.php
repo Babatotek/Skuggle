@@ -14,6 +14,7 @@ final class SmartmarkSheet extends Model
 
     protected $hidden = ['id', 'tenant_id', 'batch_id'];
 
+    /** @return array{answers: 'array', human_review_required: 'boolean', reviewed_at: 'datetime', committed_at: 'datetime'} */
     protected function casts(): array
     {
         return ['answers' => 'array', 'human_review_required' => 'boolean', 'reviewed_at' => 'datetime', 'committed_at' => 'datetime'];

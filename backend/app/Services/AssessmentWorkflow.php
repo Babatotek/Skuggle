@@ -125,7 +125,7 @@ final class AssessmentWorkflow
                 'assessmentId' => $item->public_id,
                 'code' => $meta['code'] ?? null,
                 'title' => $item->title,
-                'className' => trim(($item->schoolClass?->name ?? '').' '.($item->schoolClass?->arm ?? '')),
+                'className' => trim(($item->schoolClass->name ?? '').' '.($item->schoolClass->arm ?? '')),
                 'subject' => $item->subject?->name,
                 'session' => $item->academicSession?->name,
                 'term' => $item->term?->name,
@@ -250,7 +250,7 @@ final class AssessmentWorkflow
 
         foreach ($roster as $student) {
             $score = $scores->get($student->getKey());
-            $state = $score?->status ?? 'NOT_ENTERED';
+            $state = $score->status ?? 'NOT_ENTERED';
             $value = $score?->score;
             if (in_array($state, ['ABSENT'], true)) {
                 $absent++;
@@ -351,7 +351,7 @@ final class AssessmentWorkflow
     }
 
     /**
-     * @return array{performanceExposed:bool,publishedResults:int,lockVersion:int,lockedAt:?string,warnings:list<string>}
+     * @return array{performanceExposed:bool,publishedResults:int,lockVersion:int,lockedAt:?string,requiresAcknowledgement:bool,warnings:list<string>}
      */
     public function unlockImpact(Assessment $item): array
     {

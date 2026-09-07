@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\ApiException;
 use App\Models\Assessment;
+use App\Models\AssessmentQuestion;
 use App\Models\AssessmentScore;
 use App\Models\AssessmentSubmission;
 use App\Models\Student;
@@ -21,7 +22,7 @@ final class AssessmentTheoryMarkingService
             ->where('student_id', $student->getKey())
             ->where('status', 'submitted')
             ->first();
-        abort_unless($submission, 422, 'No submitted attempt found for theory suggestion.');
+        abort_unless($submission !== null, 422, 'No submitted attempt found for theory suggestion.');
         $assessment->loadMissing('questions');
         $theory = $assessment->questions->filter(fn ($q) => in_array($q->question_type, ['short-answer', 'essay', 'fill-blank', 'calculation'], true))->values();
         abort_if($theory->isEmpty(), 422, 'This assessment has no theory questions to suggest marks for.');
@@ -35,7 +36,7 @@ final class AssessmentTheoryMarkingService
     }
 
     /**
-     * @param  Collection|iterable  $theory
+     * @param  iterable<AssessmentQuestion>  $theory
      * @param  array<string, mixed>  $answers
      */
     private function fakeSuggestion(Assessment $assessment, $theory, array $answers): array

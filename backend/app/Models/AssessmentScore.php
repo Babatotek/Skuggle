@@ -15,16 +15,19 @@ class AssessmentScore extends Model
 
     protected $hidden = ['id', 'tenant_id'];
 
+    /** @return array{score: 'decimal:2', submitted_at: 'datetime', graded_at: 'datetime', metadata: 'array'} */
     protected function casts(): array
     {
         return ['score' => 'decimal:2', 'submitted_at' => 'datetime', 'graded_at' => 'datetime', 'metadata' => 'array'];
     }
 
+    /** @return BelongsTo<Student, $this> */
     public function student(): BelongsTo
     {
         return $this->belongsTo(Student::class);
     }
 
+    /** @return BelongsTo<Assessment, $this> */
     public function assessment(): BelongsTo
     {
         return $this->belongsTo(Assessment::class);

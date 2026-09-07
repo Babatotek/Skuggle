@@ -223,7 +223,7 @@ final class StudentCbtService
         return [
             'id' => $item->public_id,
             'title' => $item->title,
-            'className' => trim(($item->schoolClass?->name ?? '').' '.($item->schoolClass?->arm ?? '')),
+            'className' => trim(($item->schoolClass->name ?? '').' '.($item->schoolClass->arm ?? '')),
             'subject' => $item->subject?->name,
             'status' => $item->status,
             'maxScore' => (float) $item->maximum_score,
@@ -256,7 +256,7 @@ final class StudentCbtService
         return [
             'id' => $item->public_id,
             'title' => $item->title,
-            'className' => trim(($item->schoolClass?->name ?? '').' '.($item->schoolClass?->arm ?? '')),
+            'className' => trim(($item->schoolClass->name ?? '').' '.($item->schoolClass->arm ?? '')),
             'subject' => $item->subject?->name,
             'status' => $item->status,
             'maxScore' => (float) $item->maximum_score,
@@ -276,6 +276,6 @@ final class StudentCbtService
     private function assertSupportedQuestions(Assessment $item): void
     {
         $unsupported = $item->questions->first(fn ($q) => ! in_array($q->question_type, self::ATTEMPTABLE, true));
-        abort_if($unsupported, 422, 'This CBT paper includes unsupported question types for the student player.');
+        abort_if($unsupported !== null, 422, 'This CBT paper includes unsupported question types for the student player.');
     }
 }

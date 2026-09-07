@@ -46,10 +46,10 @@ final class ProcessSmartmarkBatch implements ShouldQueue
             foreach ($rows as $row) {
                 $match = $matcher->match($assessment, $row['admission_number'] ?? null, $row['student_name'] ?? null);
                 $evaluation = $scoring->evaluate(
-                    (array) ($row['answers'] ?? []),
+                    $row['answers'],
                     $batch->answer_key,
                     (int) $batch->max_score,
-                    (float) ($row['confidence'] ?? 0),
+                    $row['confidence'],
                     $row['flag_reason'] ?? null,
                     $match['student'] !== null,
                 );
@@ -64,7 +64,7 @@ final class ProcessSmartmarkBatch implements ShouldQueue
                     'student_id' => $match['student']?->getKey(),
                     'admission_number' => $row['admission_number'] ?? $match['student']?->admission_number,
                     'student_name' => $row['student_name'] ?? ($match['student'] ? trim(($match['student']->first_name ?? '').' '.($match['student']->last_name ?? '')) : null),
-                    'answers' => $row['answers'] ?? [],
+                    'answers' => $row['answers'],
                     'detected_score' => $evaluation['detected_score'],
                     'confidence' => $evaluation['confidence'],
                     'human_review_required' => ! $autoPropose,

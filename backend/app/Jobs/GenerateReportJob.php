@@ -60,11 +60,11 @@ class GenerateReportJob implements ShouldQueue
                         $rows[] = [
                             $student->admission_number,
                             trim($student->first_name.' '.$student->last_name),
-                            trim(($assessment->schoolClass?->name ?? '').' '.($assessment->schoolClass?->arm ?? '')),
+                            trim(($assessment->schoolClass?->name ?? '').' '.($assessment->schoolClass->arm ?? '')),
                             $assessment->subject?->name,
                             $assessment->title,
                             $score?->score,
-                            $score?->status ?? 'MISSING',
+                            $score->status ?? 'MISSING',
                         ];
                     }
                 }
@@ -72,7 +72,7 @@ class GenerateReportJob implements ShouldQueue
                 $students = Student::query()->with('enrollments.schoolClass')->orderBy('last_name')->orderBy('first_name')->get();
                 $rows = [['Admission number', 'Student', 'Class', 'Status']];
                 foreach ($students as $student) {
-                    $rows[] = [$student->admission_number, trim("{$student->first_name} {$student->middle_name} {$student->last_name}"), $student->enrollments->first()?->schoolClass?->name ?? '', $student->status];
+                    $rows[] = [$student->admission_number, trim("{$student->first_name} {$student->middle_name} {$student->last_name}"), $student->enrollments->first()?->schoolClass->name ?? '', $student->status];
                 }
             }
             $job->update(['progress_percent' => 60, 'message' => 'Rendering report']);

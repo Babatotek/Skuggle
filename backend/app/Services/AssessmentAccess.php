@@ -24,6 +24,12 @@ final class AssessmentAccess
         return $this->allows('assessment.assessment.manage');
     }
 
+    /**
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
+     */
     public function scope(Builder $query): Builder
     {
         if ($this->tenantWide()) {

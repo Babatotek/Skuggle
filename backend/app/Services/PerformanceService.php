@@ -122,6 +122,7 @@ final class PerformanceService
             ->groupBy('students.id', 'students.public_id', 'students.first_name', 'students.last_name')
             ->orderByDesc(DB::raw('avg(assessment_scores.score)'))
             ->limit(50)
+            ->toBase()
             ->get([
                 'students.public_id as student_public_id',
                 'students.first_name',
@@ -148,6 +149,7 @@ final class PerformanceService
             ->groupBy('subjects.id', 'subjects.public_id', 'subjects.name')
             ->orderByDesc(DB::raw('avg(assessment_scores.score)'))
             ->limit(40)
+            ->toBase()
             ->get([
                 'subjects.public_id as subject_public_id',
                 'subjects.name',
@@ -173,6 +175,7 @@ final class PerformanceService
             ->groupBy('school_classes.id', 'school_classes.public_id', 'school_classes.name', 'school_classes.arm')
             ->orderByDesc(DB::raw('avg(assessment_scores.score)'))
             ->limit(40)
+            ->toBase()
             ->get([
                 'school_classes.public_id as class_public_id',
                 'school_classes.name',
@@ -197,6 +200,7 @@ final class PerformanceService
             ->selectRaw('DATE(assessments.updated_at) as day, avg(assessment_scores.score) as average_score, count(*) as scores')
             ->groupBy(DB::raw('DATE(assessments.updated_at)'))
             ->orderBy('day')
+            ->toBase()
             ->get()
             ->map(fn ($row) => [
                 'day' => $row->day,

@@ -7,8 +7,8 @@ use App\Domain\Assessments\SmartmarkConfidenceBand;
 final class SmartmarkScoringService
 {
     /**
-     * @param  list<string>  $answers
-     * @param  list<string>  $answerKey
+     * @param  array<array-key, string>  $answers
+     * @param  array<array-key, string>  $answerKey
      * @return array{detected_score:float,confidence:float,band:SmartmarkConfidenceBand,human_review_required:bool,flag_reason:?string,ambiguous_count:int,correct:int}
      */
     public function evaluate(array $answers, array $answerKey, int $maxScore, float $ocrConfidence, ?string $ocrFlagReason = null, bool $matched = true): array

@@ -15,6 +15,7 @@ class AssessmentSubmission extends Model
 
     protected $hidden = ['id', 'tenant_id'];
 
+    /** @return array{answers: 'array', started_at: 'datetime', submitted_at: 'datetime'} */
     protected function casts(): array
     {
         return [
@@ -24,11 +25,13 @@ class AssessmentSubmission extends Model
         ];
     }
 
+    /** @return BelongsTo<Assessment, $this> */
     public function assessment(): BelongsTo
     {
         return $this->belongsTo(Assessment::class);
     }
 
+    /** @return BelongsTo<Student, $this> */
     public function student(): BelongsTo
     {
         return $this->belongsTo(Student::class);
