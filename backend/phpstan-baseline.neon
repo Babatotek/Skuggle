@@ -1015,24 +1015,6 @@ parameters:
 			path: app/Http/Controllers/Api/V1/SchoolStructureController.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$academicSession\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/Api/V1/StudentController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$admission_type\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/Api/V1/StudentController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$boarding_type\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/Api/V1/StudentController.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email\.$#'
 			identifier: property.notFound
 			count: 2
@@ -1060,24 +1042,6 @@ parameters:
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$public_id\.$#'
 			identifier: property.notFound
 			count: 2
-			path: app/Http/Controllers/Api/V1/StudentController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$schoolClass\.$#'
-			identifier: property.notFound
-			count: 8
-			path: app/Http/Controllers/Api/V1/StudentController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$student_category\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/Api/V1/StudentController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$term\.$#'
-			identifier: property.notFound
-			count: 1
 			path: app/Http/Controllers/Api/V1/StudentController.php
 
 		-
@@ -1435,12 +1399,6 @@ parameters:
 			path: app/Providers/FortifyServiceProvider.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$schoolClass\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/DuplicateStudentDetector.php
-
-		-
 			message: '#^Cannot call method toDateString\(\) on string\.$#'
 			identifier: method.nonObject
 			count: 1
@@ -1645,18 +1603,6 @@ parameters:
 			path: app/Services/StudentImportService.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$academicSession\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Services/StudentProfileSheetService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$admission_type\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/StudentProfileSheetService.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email\.$#'
 			identifier: property.notFound
 			count: 1
@@ -1676,18 +1622,6 @@ parameters:
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$pivot\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/StudentProfileSheetService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$schoolClass\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Services/StudentProfileSheetService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$student_category\.$#'
 			identifier: property.notFound
 			count: 1
 			path: app/Services/StudentProfileSheetService.php
