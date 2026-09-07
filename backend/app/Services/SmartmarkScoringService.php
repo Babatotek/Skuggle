@@ -21,6 +21,7 @@ final class SmartmarkScoringService
             $given = $responses[$i] ?? '';
             if ($given === '' || $given === '?' || $given === '*') {
                 $ambiguous++;
+
                 continue;
             }
             if ($given === $expected) {

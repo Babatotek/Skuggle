@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Domain\Tenancy\TenantContext;
 use App\Http\Controllers\Controller;
 use App\Models\CbtAttempt;
 use App\Models\CbtQuiz;
+use App\Services\AssessmentAccess;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,9 +14,10 @@ final class CbtController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $access = app(\App\Services\AssessmentAccess::class);
+        $access = app(AssessmentAccess::class);
         abort_unless($access->allows('assessment.assessment.view'), 403);
         $paginator = CbtQuiz::query()->when(! $access->tenantWide(), fn ($q) => $q->where('created_by', $request->user()->getKey()))->latest()->paginate(min(max($request->integer('perPage', 10), 1), 100));
+
         return ApiResponse::success(['data' => collect($paginator->items())->map(fn (CbtQuiz $q) => $this->present($q, false)), 'meta' => ['currentPage' => $paginator->currentPage(), 'perPage' => $paginator->perPage(), 'total' => $paginator->total(), 'lastPage' => $paginator->lastPage()]]);
     }
 

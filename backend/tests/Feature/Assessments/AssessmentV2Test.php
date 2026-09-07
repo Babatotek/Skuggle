@@ -17,6 +17,7 @@ use App\Models\Subject;
 use App\Models\TeacherAssignment;
 use App\Models\Term;
 use App\Services\PermissionRegistrySynchronizer;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -337,8 +338,8 @@ class AssessmentV2Test extends TestCase
         $this->assertNotEmpty($shown['availableFrom']);
         $this->assertNotEmpty($shown['availableUntil']);
         $this->assertSame(
-            \Carbon\Carbon::parse($shown['availableFrom'])->addMinutes(45)->toIso8601String(),
-            \Carbon\Carbon::parse($shown['availableUntil'])->toIso8601String()
+            Carbon::parse($shown['availableFrom'])->addMinutes(45)->toIso8601String(),
+            Carbon::parse($shown['availableUntil'])->toIso8601String()
         );
 
         $this->getJson('/api/v1/assessments?delivery=cbt')

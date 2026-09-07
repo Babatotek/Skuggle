@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Domain\Admissions\ApplicationStatus;
 use App\Domain\Tenancy\TenantContext;
+use App\Models\AcademicSession;
 use App\Models\AdmissionApplication;
 use App\Models\AdmissionConversion;
 use App\Models\AdmissionCycle;
@@ -20,7 +21,6 @@ use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class AdmissionsSeeder extends Seeder
@@ -629,7 +629,7 @@ class AdmissionsSeeder extends Seeder
                             'storage_key' => "admissions/{$school->getKey()}/{$app->getKey()}/{$origName}",
                             'mime_type' => 'application/pdf',
                             'file_size' => rand(150000, 750000),
-                            'sha256' => hash('sha256', $origName . $app->getKey()),
+                            'sha256' => hash('sha256', $origName.$app->getKey()),
                             'scan_status' => 'clean',
                             'uploaded_by' => $adminId,
                         ]);
@@ -671,7 +671,7 @@ class AdmissionsSeeder extends Seeder
                         'public_id' => (string) Str::ulid(),
                         'offered_class_id' => $offeredClass?->getKey(),
                         'decision' => $decInfo['decision'],
-                        'offer_reference' => $decInfo['offer_ref'] ?? ('OFF-' . now()->format('Ym') . '-' . Str::upper(Str::random(6))),
+                        'offer_reference' => $decInfo['offer_ref'] ?? ('OFF-'.now()->format('Ym').'-'.Str::upper(Str::random(6))),
                         'expires_at' => $decInfo['expires_at'] ?? Carbon::today()->addDays(14)->toDateString(),
                         'notes' => $decInfo['notes'] ?? null,
                         'decided_at' => $data['submitted_at']?->copy()->addDays(4) ?? now(),
@@ -719,7 +719,7 @@ class AdmissionsSeeder extends Seeder
                     if (! $existingStudent) {
                         $existingStudent = Student::query()->create([
                             'tenant_id' => $school->getKey(),
-                            'admission_number' => 'RGA26/' . rand(2000, 2999),
+                            'admission_number' => 'RGA26/'.rand(2000, 2999),
                             'first_name' => $data['first_name'],
                             'middle_name' => $data['middle_name'] ?? null,
                             'last_name' => $data['last_name'],
@@ -731,11 +731,11 @@ class AdmissionsSeeder extends Seeder
                         ]);
                     }
 
-                    $academicSession = \App\Models\AcademicSession::query()
+                    $academicSession = AcademicSession::query()
                         ->where('tenant_id', $school->getKey())
                         ->where('is_current', true)
                         ->first()
-                        ?? \App\Models\AcademicSession::query()
+                        ?? AcademicSession::query()
                             ->where('tenant_id', $school->getKey())
                             ->first();
 
@@ -763,7 +763,7 @@ class AdmissionsSeeder extends Seeder
                         [
                             'student_id' => $existingStudent->getKey(),
                             'enrollment_id' => $enrollment?->getKey(),
-                            'idempotency_key' => 'conv_' . $app->getKey(),
+                            'idempotency_key' => 'conv_'.$app->getKey(),
                             'converted_by' => $adminId,
                             'converted_at' => $data['submitted_at']?->copy()->addDays(10) ?? now(),
                             'public_id' => (string) Str::ulid(),
@@ -782,7 +782,7 @@ class AdmissionsSeeder extends Seeder
                 }
             }
 
-            $this->command?->info("Admissions seeded successfully for {$school->name} (" . count($applicants) . ' applicants).');
+            $this->command?->info("Admissions seeded successfully for {$school->name} (".count($applicants).' applicants).');
         } finally {
             $context->clear();
         }

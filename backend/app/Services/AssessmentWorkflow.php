@@ -2,10 +2,15 @@
 
 namespace App\Services;
 
+use App\Domain\Tenancy\TenantContext;
 use App\Exceptions\ApiException;
 use App\Models\Assessment;
 use App\Models\AssessmentScore;
+use App\Models\AuditLog;
 use App\Models\Enrollment;
+use App\Models\ResultPublication;
+use App\Models\SmartmarkBatch;
+use App\Support\QrCodeSvg;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -110,7 +115,7 @@ final class AssessmentWorkflow
             'name' => trim($student->first_name.' '.$student->last_name),
             'admissionNumber' => $student->admission_number,
             'scanCode' => 'SM|'.$item->public_id.'|'.($student->admission_number ?: $student->public_id),
-            'qrSvg' => \App\Support\QrCodeSvg::dataUri('SM|'.$item->public_id.'|'.($student->admission_number ?: $student->public_id), 96),
+            'qrSvg' => QrCodeSvg::dataUri('SM|'.$item->public_id.'|'.($student->admission_number ?: $student->public_id), 96),
         ])->all();
 
         $omr = $this->omrLayout($item, $includeAnswers);
@@ -133,7 +138,7 @@ final class AssessmentWorkflow
                 'maximumScore' => (float) $item->maximum_score,
                 'delivery' => $delivery,
                 'identifier' => 'SKUGGLE-'.$item->public_id,
-                'qrSvg' => \App\Support\QrCodeSvg::dataUri('SKUGGLE-'.$item->public_id, 96),
+                'qrSvg' => QrCodeSvg::dataUri('SKUGGLE-'.$item->public_id, 96),
             ],
             'questions' => $questions,
             'candidates' => $candidates,
@@ -252,6 +257,7 @@ final class AssessmentWorkflow
                 if ($value !== null) {
                     $absentWithScore++;
                 }
+
                 continue;
             }
             if (in_array($state, ['EXEMPT'], true)) {
@@ -259,10 +265,12 @@ final class AssessmentWorkflow
                 if ($value !== null) {
                     $absentWithScore++;
                 }
+
                 continue;
             }
             if ($value === null) {
                 $missing++;
+
                 continue;
             }
             $numeric = (float) $value;
@@ -272,7 +280,7 @@ final class AssessmentWorkflow
             $entered[] = $numeric;
         }
 
-        $openSmartmark = \App\Models\SmartmarkBatch::query()
+        $openSmartmark = SmartmarkBatch::query()
             ->where('assessment_id', $item->getKey())
             ->whereNotIn('state', ['committed'])
             ->count();
@@ -298,7 +306,7 @@ final class AssessmentWorkflow
         $submittedAt = $item->metadata['submittedAt'] ?? null;
         $adjustmentsAfterSubmit = 0;
         if ($submittedAt) {
-            $adjustmentsAfterSubmit = \App\Models\AuditLog::query()
+            $adjustmentsAfterSubmit = AuditLog::query()
                 ->where('action', 'assessment.score_adjusted')
                 ->where('resource_type', AssessmentScore::class)
                 ->whereIn('resource_id', $scores->pluck('public_id')->filter()->all())
@@ -329,9 +337,9 @@ final class AssessmentWorkflow
                 'maximumEntered' => $entered === [] ? null : max($entered),
                 'maximumScore' => $max,
                 'status' => $item->status,
-                'moderationRequired' => (bool) ((app(\App\Domain\Tenancy\TenantContext::class)->tenant()->settings['assessment']['moderationRequired'] ?? true)),
+                'moderationRequired' => (bool) ((app(TenantContext::class)->tenant()->settings['assessment']['moderationRequired'] ?? true)),
                 'moderationStage' => $item->metadata['moderationStage'] ?? ($item->status === 'moderation' ? 'subject_head' : ($item->status === 'under_review' ? 'examination_officer' : null)),
-                'multiStageModeration' => (bool) ((app(\App\Domain\Tenancy\TenantContext::class)->tenant()->settings['assessment']['multiStageModeration'] ?? true)),
+                'multiStageModeration' => (bool) ((app(TenantContext::class)->tenant()->settings['assessment']['multiStageModeration'] ?? true)),
             ],
             'checks' => $checks,
             'unlockImpact' => $this->unlockImpact($item),
@@ -353,7 +361,7 @@ final class AssessmentWorkflow
         $publishedResults = 0;
         $rosterIds = $this->roster($item)->pluck('id');
         if ($rosterIds->isNotEmpty()) {
-            $publishedResults = \App\Models\ResultPublication::query()
+            $publishedResults = ResultPublication::query()
                 ->where('academic_session_id', $item->academic_session_id)
                 ->where('term_id', $item->term_id)
                 ->whereIn('student_id', $rosterIds)

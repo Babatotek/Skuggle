@@ -13,6 +13,7 @@ export const SCHOOL_DOMAINS = [
   'admissions',
   'academics',
   'assessment',
+  'student-cbt',
   'performance',
   'learning-resources',
   'attendance',
@@ -56,6 +57,8 @@ export type PageKey =
   | 'academics'
   | 'timetable'
   | 'assessment'
+  | 'student-cbt'
+  | 'student-cbt-take'
   | 'performance'
   | 'results'
   | 'report-cards'

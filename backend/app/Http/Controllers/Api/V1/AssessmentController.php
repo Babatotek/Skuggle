@@ -10,9 +10,12 @@ use App\Models\Campus;
 use App\Models\Enrollment;
 use App\Models\SchoolClass;
 use App\Models\SmartmarkBatch;
+use App\Models\Student;
 use App\Models\Subject;
 use App\Services\AcademicContext;
 use App\Services\AssessmentAccess;
+use App\Services\AssessmentItemAnalyticsService;
+use App\Services\AssessmentTheoryMarkingService;
 use App\Services\AssessmentWorkflow;
 use App\Services\AuditLogger;
 use App\Support\ApiResponse;
@@ -154,7 +157,7 @@ class AssessmentController extends Controller
     {
         $item = $this->item($request, $assessment);
 
-        return ApiResponse::success(app(\App\Services\AssessmentItemAnalyticsService::class)->analyse($item));
+        return ApiResponse::success(app(AssessmentItemAnalyticsService::class)->analyse($item));
     }
 
     public function exportScores(string $assessment, Request $request)
@@ -164,7 +167,7 @@ class AssessmentController extends Controller
         $item->loadMissing(['schoolClass', 'subject', 'scores']);
         $roster = $this->workflow->roster($item);
         $scores = $item->scores->keyBy('student_id');
-        $lines = ["Admission,Name,Score,Status,Source"];
+        $lines = ['Admission,Name,Score,Status,Source'];
         foreach ($roster as $student) {
             $score = $scores->get($student->getKey());
             $lines[] = sprintf(
@@ -190,9 +193,9 @@ class AssessmentController extends Controller
         abort_unless($this->access->allows('assessment.score.enter'), 403);
         $item = $this->item($request, $assessment);
         $this->authorize('updateScores', $item);
-        $member = \App\Models\Student::query()->where('public_id', $student)->firstOrFail();
+        $member = Student::query()->where('public_id', $student)->firstOrFail();
         abort_unless($this->workflow->roster($item)->contains(fn ($row) => (int) $row->getKey() === (int) $member->getKey()), 422, 'Student is not on this roster.');
-        $suggestion = app(\App\Services\AssessmentTheoryMarkingService::class)->suggest($item, $member);
+        $suggestion = app(AssessmentTheoryMarkingService::class)->suggest($item, $member);
 
         return ApiResponse::success($suggestion);
     }
@@ -206,9 +209,9 @@ class AssessmentController extends Controller
             'score' => 'required|numeric|min:0',
             'suggestion' => 'required|array',
         ]);
-        $member = \App\Models\Student::query()->where('public_id', $student)->firstOrFail();
+        $member = Student::query()->where('public_id', $student)->firstOrFail();
         abort_unless($this->workflow->roster($item)->contains(fn ($row) => (int) $row->getKey() === (int) $member->getKey()), 422, 'Student is not on this roster.');
-        $row = app(\App\Services\AssessmentTheoryMarkingService::class)->applySuggestion(
+        $row = app(AssessmentTheoryMarkingService::class)->applySuggestion(
             $item,
             $member,
             (float) $data['score'],

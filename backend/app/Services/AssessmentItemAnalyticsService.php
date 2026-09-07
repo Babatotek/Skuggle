@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Assessment;
 use App\Models\AssessmentSubmission;
-use Illuminate\Support\Collection;
 
 final class AssessmentItemAnalyticsService
 {

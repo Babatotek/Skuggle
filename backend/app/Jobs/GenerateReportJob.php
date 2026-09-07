@@ -4,8 +4,10 @@ namespace App\Jobs;
 
 use App\Domain\Tenancy\TenantContext;
 use App\Domain\Tenancy\TenantJobEnvelope;
+use App\Models\Assessment;
 use App\Models\ReportJob;
 use App\Models\Student;
+use App\Services\AssessmentWorkflow;
 use App\Services\SimplePdf;
 use App\Services\SimpleXlsx;
 use Illuminate\Bus\Queueable;
@@ -47,11 +49,11 @@ class GenerateReportJob implements ShouldQueue
             if ($job->report_key === 'assessment-performance') {
                 $assessmentId = $job->filters['assessmentId'] ?? null;
                 $assessment = $assessmentId
-                    ? \App\Models\Assessment::query()->where('public_id', $assessmentId)->with(['scores', 'schoolClass', 'subject'])->first()
+                    ? Assessment::query()->where('public_id', $assessmentId)->with(['scores', 'schoolClass', 'subject'])->first()
                     : null;
                 $rows = [['Admission number', 'Student', 'Class', 'Subject', 'Assessment', 'Score', 'Status']];
                 if ($assessment) {
-                    $roster = app(\App\Services\AssessmentWorkflow::class)->roster($assessment);
+                    $roster = app(AssessmentWorkflow::class)->roster($assessment);
                     $scores = $assessment->scores->keyBy('student_id');
                     foreach ($roster as $student) {
                         $score = $scores->get($student->getKey());

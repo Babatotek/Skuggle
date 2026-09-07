@@ -13,6 +13,7 @@ use App\Models\Enrollment;
 use App\Models\Permission;
 use App\Models\SchoolClass;
 use App\Models\SmartmarkBatch;
+use App\Models\Student;
 use App\Models\Subject;
 use App\Models\TeacherAssignment;
 use App\Models\Term;
@@ -28,7 +29,7 @@ final class SmartmarkPipelineTest extends TestCase
 {
     use CreatesTenantUsers, RefreshDatabase;
 
-    /** @return array{actor: array, assessment: Assessment, student: \App\Models\Student} */
+    /** @return array{actor: array, assessment: Assessment, student: Student} */
     private function fixture(): array
     {
         $actor = $this->makeTenantUser('teacher');
