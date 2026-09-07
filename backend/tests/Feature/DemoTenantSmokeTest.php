@@ -40,8 +40,8 @@ class DemoTenantSmokeTest extends TestCase
             ->getJson('/api/v1/students?perPage=100')
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.meta.total', 9)
-            ->assertJsonCount(9, 'data.data');
+            ->assertJsonPath('data.meta.total', 11)
+            ->assertJsonCount(11, 'data.data');
 
         $this->withHeaders($headers)
             ->getJson('/api/v1/dashboards/operations')

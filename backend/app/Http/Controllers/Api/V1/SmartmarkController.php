@@ -62,8 +62,9 @@ final class SmartmarkController extends Controller
         $file = $request->file('file');
         $scanner->scan($file);
         $disk = (string) config('skuggle.library.disk');
-        $key = 'smartmark/'.app(TenantContext::class)->tenantId().'/'.Str::ulid().'.'.$file->extension();
-        $bytes = file_get_contents($file->getRealPath());
+        $extension = strtolower($file->guessExtension() ?: $file->getClientOriginalExtension() ?: 'png');
+        $key = 'smartmark/'.app(TenantContext::class)->tenantId().'/'.Str::ulid().'.'.$extension;
+        $bytes = $file->getContent();
         Storage::disk($disk)->put($key, $bytes, ['visibility' => 'private']);
         $batch = SmartmarkBatch::query()->create([
             'assessment_id' => $assessment->getKey(),

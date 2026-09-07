@@ -41,7 +41,7 @@ final class ProcessSmartmarkBatch implements ShouldQueue
             $batch->update(['state' => 'processing', 'error_message' => null]);
             $assessment = Assessment::query()->findOrFail($batch->assessment_id);
             $disk = (string) config('skuggle.library.disk');
-            $bytes = Storage::disk($disk)->get($batch->storage_key);
+            $bytes = (string) (Storage::disk($disk)->get($batch->storage_key) ?? '');
             $rows = $ocr->extract($bytes, $batch->mime_type, $batch->answer_key, (int) $batch->max_score);
             foreach ($rows as $row) {
                 $match = $matcher->match($assessment, $row['admission_number'] ?? null, $row['student_name'] ?? null);
