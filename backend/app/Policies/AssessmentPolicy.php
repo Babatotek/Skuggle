@@ -2,9 +2,11 @@
 
 namespace App\Policies;
 
+use App\Domain\Authorization\PermissionRegistry;
 use App\Domain\Tenancy\TenantContext;
 use App\Models\Assessment;
 use App\Models\User;
+use App\Services\AssessmentAccess;
 
 class AssessmentPolicy
 {
@@ -15,7 +17,7 @@ class AssessmentPolicy
 
     public function view(User $user, Assessment $assessment): bool
     {
-        return $this->sameTenant($assessment) && $this->allows($user, 'assessments.view');
+        return $this->sameTenant($assessment) && $this->allows($user, 'assessments.view') && app(AssessmentAccess::class)->resource($assessment);
     }
 
     public function create(User $user): bool
@@ -25,7 +27,7 @@ class AssessmentPolicy
 
     public function updateScores(User $user, Assessment $assessment): bool
     {
-        return $this->sameTenant($assessment) && $this->allows($user, 'scores.edit');
+        return $this->view($user, $assessment) && $this->allows($user, 'scores.edit') && in_array($assessment->status, ['draft', 'ready', 'scheduled', 'active', 'completed', 'marking', 'reopened', 'submitted', 'moderation', 'under_review'], true);
     }
 
     private function allows(User $user, string $permission): bool
@@ -35,7 +37,9 @@ class AssessmentPolicy
             return false;
         }
 
-        return in_array($permission, $context->membership()->permissionNames(), true);
+        $canonical = PermissionRegistry::canonicalFor($permission);
+
+        return $canonical !== null && app(AssessmentAccess::class)->allows($canonical);
     }
 
     private function sameTenant(Assessment $assessment): bool

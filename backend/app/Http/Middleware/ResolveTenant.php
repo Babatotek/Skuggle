@@ -6,6 +6,7 @@ use App\Domain\Tenancy\TenantContext;
 use App\Support\ApiResponse;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 final class ResolveTenant
@@ -24,7 +25,13 @@ final class ResolveTenant
             $requestedPublicId = $request->session()->get('tenant_public_id');
         }
         $headerTenant = trim((string) $request->header('X-Tenant-Id', ''));
-        if ($headerTenant !== '') {
+        if ($headerTenant !== '' && $requestedPublicId !== null && ! hash_equals((string) $requestedPublicId, $headerTenant)) {
+            Log::warning('tenant_context_mismatch', ['reason_code' => 'TENANT_HEADER_SESSION_MISMATCH', 'correlation_id' => (string) $request->attributes->get('request_id'), 'route' => $request->route()?->getName() ?? 'unnamed']);
+            if (! $request->is('api/v1/auth/switch-workspace')) {
+                return ApiResponse::error('TENANT_CONTEXT_MISMATCH', 'The requested workspace does not match the authenticated session.', 403);
+            }
+        }
+        if ($headerTenant !== '' && $requestedPublicId === null) {
             $requestedPublicId = $headerTenant;
         }
 
@@ -52,9 +59,10 @@ final class ResolveTenant
             return ApiResponse::error('TENANT_UNAVAILABLE', 'This workspace is not currently active.', 403);
         }
 
-        $this->context->set($membership->tenant, $membership);
+        $this->context->set($membership->tenant, $membership, (string) $request->attributes->get('request_id'));
         $request->attributes->set('tenant', $membership->tenant);
         $request->attributes->set('membership', $membership);
+        $request->attributes->set('tenant_context_version', TenantContext::VERSION);
 
         try {
             return $next($request);

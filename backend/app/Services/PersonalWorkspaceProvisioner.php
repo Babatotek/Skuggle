@@ -65,6 +65,7 @@ final class PersonalWorkspaceProvisioner
         $previousTenant = $previousHadTenant ? $this->context->tenant() : null;
         $previousMembership = $previousHadTenant ? $this->context->membership() : null;
 
+        $this->context->clear();
         $this->context->set($tenant, $membership);
         try {
             if ($accountType === 'parent') {
@@ -98,6 +99,7 @@ final class PersonalWorkspaceProvisioner
             }
         } finally {
             if ($previousHadTenant && $previousTenant) {
+                $this->context->clear();
                 $this->context->set($previousTenant, $previousMembership);
             } else {
                 $this->context->clear();

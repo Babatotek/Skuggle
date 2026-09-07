@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Domain\Tenancy\Concerns\BelongsToTenant;
 use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 final class SmartmarkBatch extends Model
@@ -23,5 +24,10 @@ final class SmartmarkBatch extends Model
     public function sheets(): HasMany
     {
         return $this->hasMany(SmartmarkSheet::class, 'batch_id');
+    }
+
+    public function assessment(): BelongsTo
+    {
+        return $this->belongsTo(Assessment::class);
     }
 }

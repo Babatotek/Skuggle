@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Domain\Tenancy\TenantContext;
+use App\Exceptions\ApiException;
 use App\Models\AcademicSession;
 use App\Models\Enrollment;
 use App\Models\Guardian;
@@ -29,12 +30,15 @@ final class StudentImportService
     public function __construct(
         private readonly TenantContext $context,
         private readonly TenantSequence $sequence,
+        private readonly FormEngineService $forms,
     ) {}
 
     public function templateCsv(): string
     {
-        $lines = [implode(',', self::HEADERS)];
-        $lines[] = 'Ada,Okoro,female,2012-05-14,2025-09-01,JSS 1 A,Jane Okoro,08030000001,jane@example.com';
+        $customHeaders = collect($this->forms->legacyDefinitions($this->context->tenant(), 'student', true))
+            ->pluck('key')->map(fn ($key) => 'custom_'.$key)->all();
+        $lines = [implode(',', [...self::HEADERS, ...$customHeaders])];
+        $lines[] = implode(',', array_pad(['Ada', 'Okoro', 'female', '2012-05-14', '2025-09-01', 'JSS 1 A', 'Jane Okoro', '08030000001', 'jane@example.com'], count(self::HEADERS) + count($customHeaders), ''));
 
         return implode("\n", $lines)."\n";
     }
@@ -57,6 +61,7 @@ final class StudentImportService
         }
 
         $indexes = array_flip($header);
+        $configuredFields = collect($this->forms->legacyDefinitions($this->context->tenant(), 'student', true))->keyBy('key');
         $validRows = [];
         $errors = [];
         $rowNumber = 1;
@@ -70,6 +75,13 @@ final class StudentImportService
             $record = [];
             foreach (self::HEADERS as $column) {
                 $record[$column] = trim((string) ($row[$indexes[$column]] ?? ''));
+            }
+            $record['custom_fields'] = [];
+            foreach ($configuredFields as $key => $definition) {
+                $column = 'custom_'.$key;
+                if (isset($indexes[$column])) {
+                    $record['custom_fields'][$key] = trim((string) ($row[$indexes[$column]] ?? ''));
+                }
             }
 
             $rowErrors = $this->validateRow($record, $rowNumber);
@@ -109,6 +121,13 @@ final class StudentImportService
                         continue;
                     }
 
+                    $customFields = $this->forms->validateValues(
+                        $this->context->tenant(),
+                        'student.enrolment',
+                        (array) ($row['custom_fields'] ?? []),
+                        true,
+                    );
+
                     $student = Student::query()->create([
                         'admission_number' => sprintf('SKU-%s-%06d', now()->format('Y'), $this->sequence->next('student_admission')),
                         'first_name' => $row['first_name'],
@@ -117,6 +136,7 @@ final class StudentImportService
                         'date_of_birth' => $row['date_of_birth'],
                         'admission_date' => $row['admission_date'],
                         'status' => 'active',
+                        'metadata' => $customFields === [] ? null : ['custom_fields' => $customFields],
                     ]);
 
                     Enrollment::query()->create([
@@ -150,7 +170,7 @@ final class StudentImportService
         return ['imported' => $imported, 'errors' => $errors];
     }
 
-    /** @param array<string, string> $record */
+    /** @param array<string, mixed> $record */
     private function validateRow(array $record, int $rowNumber): array
     {
         $errors = [];
@@ -172,6 +192,23 @@ final class StudentImportService
 
         if ($record['guardian_email'] !== '' && ! filter_var($record['guardian_email'], FILTER_VALIDATE_EMAIL)) {
             $errors[] = ['row' => $rowNumber, 'field' => 'guardian_email', 'message' => 'Guardian email is invalid.'];
+        }
+
+        try {
+            $record['custom_fields'] = $this->forms->validateValues(
+                $this->context->tenant(),
+                'student.enrolment',
+                (array) ($record['custom_fields'] ?? []),
+                true,
+            );
+        } catch (ApiException $exception) {
+            foreach ($exception->fields as $field => $messages) {
+                $errors[] = [
+                    'row' => $rowNumber,
+                    'field' => str_replace('customFields.', 'custom_', (string) $field),
+                    'message' => (string) (is_array($messages) ? reset($messages) : $messages),
+                ];
+            }
         }
 
         return $errors;

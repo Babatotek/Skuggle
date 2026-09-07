@@ -1,13 +1,58 @@
 @import "tailwindcss";
+@import "./styles/tokens.css";
+
+@utility field {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-slate-200);
+  background: white;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
+  outline: none;
+}
+
+:root {
+  /* Legacy aliases retained while consumers migrate to semantic tokens. */
+  --skuggle-primary: var(--color-action-primary);
+  --skuggle-primary-hover: var(--color-action-primary-hover);
+  --skuggle-bg: var(--color-bg-canvas);
+  --skuggle-surface: var(--color-surface);
+  --skuggle-border: var(--color-border-default);
+  --skuggle-text-main: var(--color-text-primary);
+  --skuggle-text-muted: var(--color-text-secondary);
+}
 
 @layer base {
   body {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-ui);
+    font-size: var(--font-size-body);
+    line-height: var(--line-height-body);
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-canvas);
   }
 
   h1, h2, h3, h4, h5, h6, .font-display {
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-heading);
   }
+
+  :focus-visible {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+  }
+}
+
+@layer components {
+  .ds-focus-ring { outline: none; }
+  .ds-focus-ring:focus-visible { outline: var(--focus-width) solid var(--color-focus-ring); outline-offset: var(--focus-offset); }
+  .ds-control { min-height: var(--button-height); border-radius: var(--radius-control); transition-duration: var(--motion-micro); transition-timing-function: var(--motion-ease); }
+  .ds-field-control { width: 100%; min-height: var(--field-height); border: var(--border-width-default) solid var(--color-border-strong); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text-primary); padding: var(--space-2) var(--space-3); font-size: var(--font-size-data); line-height: var(--line-height-data); transition: border-color var(--motion-micro) var(--motion-ease), box-shadow var(--motion-micro) var(--motion-ease); }
+  .ds-field-control:hover:not(:disabled):not([readonly]) { border-color: var(--color-text-muted); }
+  .ds-field-control:focus-visible { border-color: var(--color-focus-ring); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-focus-ring) 18%, transparent); }
+  .ds-field-control[aria-invalid='true'] { border-color: var(--color-status-negative-text); }
+  .ds-field-control:disabled { cursor: not-allowed; background: var(--color-surface-muted); color: var(--color-text-disabled); opacity: var(--opacity-disabled); }
+  .ds-field-control[readonly] { background: var(--color-surface-muted); }
+  .ds-surface { background: var(--color-surface); border: var(--border-width-default) solid var(--color-border-default); border-radius: var(--radius-surface); }
+  .ds-tabular { font-variant-numeric: tabular-nums; }
 }
 
 /* Custom subtle scrollbar */
@@ -24,6 +69,11 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+.module-tabs-scroller {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
 }
 
 /* Grading roading and shimmer animation keyframes */
@@ -230,5 +280,3 @@
     page-break-after: always;
   }
 }
-
-

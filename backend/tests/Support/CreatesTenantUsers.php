@@ -16,11 +16,21 @@ trait CreatesTenantUsers
     protected function seedAccessControl(): void
     {
         $permissions = [
-            'students.view', 'students.create', 'attendance.view', 'attendance.create',
+            'students.view', 'students.create', 'students.edit', 'students.import',
+            'students.medical.view', 'students.medical.edit',
+            'attendance.view', 'attendance.create',
             'assessments.view', 'assessment.create', 'scores.edit', 'results.view',
+            'assessment.smartmark.process', 'assessment.smartmark.review',
             'results.approve', 'results.publish',
             'reports.view', 'reports.export', 'finance.view', 'finance.manage',
             'library.view', 'library.create', 'ai.generate', 'settings.configure', 'users.manage',
+            'roles.manage', 'security.manage', 'audit.view',
+            'admissions.manage',
+            'admissions.application.view', 'admissions.application.create', 'admissions.application.update',
+            'admissions.screening.manage', 'admissions.decision.manage', 'admissions.enrolment.convert',
+            'admissions.document.manage', 'admissions.settings.update',
+            'communication.send', 'operations.manage', 'services.manage', 'learning.manage',
+            'assessment.cbt.attempt',
         ];
 
         foreach ($permissions as $name) {
@@ -28,15 +38,46 @@ trait CreatesTenantUsers
         }
 
         foreach ([
-            'school_admin' => ['privileged' => true, 'permissions' => $permissions],
+            'school_super_admin' => [
+                'privileged' => true,
+                'permissions' => array_merge($permissions, ['roles.manage', 'security.manage', 'audit.view']),
+            ],
+            'school_admin' => [
+                'privileged' => false,
+                'permissions' => [
+                    'students.view', 'students.create', 'students.edit', 'students.import',
+                    'students.medical.view', 'students.medical.edit',
+                    'attendance.view', 'attendance.create',
+                    'assessments.view', 'assessment.create', 'scores.edit',
+                    'assessment.smartmark.process', 'assessment.smartmark.review',
+                    'results.view', 'reports.view', 'finance.view', 'users.manage',
+                    'library.view',
+                    'admissions.manage',
+                    'admissions.application.view', 'admissions.application.create', 'admissions.application.update',
+                    'admissions.screening.manage', 'admissions.decision.manage', 'admissions.enrolment.convert',
+                    'admissions.document.manage', 'admissions.settings.update',
+                    'communication.send', 'operations.manage', 'services.manage', 'learning.manage',
+                ],
+            ],
+            'admission_officer' => [
+                'privileged' => false,
+                'permissions' => [
+                    'students.view', 'students.create', 'students.edit', 'students.import',
+                    'admissions.application.view', 'admissions.application.create', 'admissions.application.update',
+                    'admissions.screening.manage', 'admissions.decision.manage', 'admissions.enrolment.convert',
+                    'admissions.document.manage', 'admissions.settings.update',
+                ],
+            ],
             'examination_officer' => [
                 'privileged' => false,
                 'permissions' => [
                     'students.view', 'assessments.view', 'assessment.create', 'scores.edit',
+                    'assessment.smartmark.process', 'assessment.smartmark.review',
                     'results.view', 'results.approve', 'results.publish', 'reports.view', 'reports.export',
                 ],
             ],
-            'teacher' => ['privileged' => false, 'permissions' => ['students.view', 'attendance.view', 'attendance.create', 'assessments.view', 'assessment.create', 'scores.edit', 'results.view', 'library.view', 'ai.generate']],
+            'teacher' => ['privileged' => false, 'permissions' => ['students.view', 'attendance.view', 'attendance.create', 'assessments.view', 'assessment.create', 'scores.edit', 'assessment.smartmark.process', 'assessment.smartmark.review', 'results.view', 'library.view', 'ai.generate']],
+            'student' => ['privileged' => false, 'permissions' => ['assessments.view', 'assessment.cbt.attempt', 'results.view', 'library.view']],
             'parent' => ['privileged' => false, 'permissions' => ['results.view', 'library.view']],
         ] as $roleName => $config) {
             $role = Role::query()->updateOrCreate(

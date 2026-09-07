@@ -241,6 +241,7 @@ class DemoTenantDataSeeder extends Seeder
             $this->seedCommunications($school, $users);
             $this->seedPayments($school, $studentsByAdmission);
             $this->seedLibrary($school, $users, $subjects);
+            $this->call(AdmissionsSeeder::class);
 
             $school->update([
                 'quota_usage' => array_merge($school->quota_usage ?? [], [

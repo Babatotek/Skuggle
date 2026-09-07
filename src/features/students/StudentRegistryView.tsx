@@ -1,437 +1,348 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useMemo, useState } from 'react';
 import {
-  Users,
-  Search,
-  PlusCircle,
-  Filter,
   Eye,
-  CheckCircle2,
-  AlertCircle,
-  Phone,
-  Mail,
-  Calendar,
   Award,
-  X,
   UserPlus,
+  Upload,
+  GraduationCap,
+  CircleAlert,
+  Users,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useAccess } from '../../state/ApplicationStateProviders';
 import { StudentRecord } from '../../types';
+import {
+  Button,
+  StatusBadge,
+  MetricCard,
+  Modal,
+  Select,
+  SearchInput,
+  DataTable,
+  Column,
+  FilterBar,
+  SegmentedControl,
+  PageHeader,
+} from '../../components/ui';
+import { StudentEnrolmentWizard } from './enrolment/StudentEnrolmentWizard';
+import { StudentProfileView } from './StudentProfileView';
 
-export const StudentRegistryView: React.FC = () => {
-  const { students, addStudent, showToast } = useApp();
+interface StudentRegistryViewProps {
+  mode?: 'register' | 'import';
+  studentPublicId?: string;
+  onOpenStudent?: (id: string) => void;
+  onCloseStudent?: () => void;
+}
+
+/** @deprecated LEGACY_FRONTEND_V1. Retained only as a controlled rollback surface. */
+export const StudentRegistryView: React.FC<StudentRegistryViewProps> = ({ mode = 'register', studentPublicId, onOpenStudent, onCloseStudent }) => {
+  const { students, refreshStudents, classes, showToast, currentUser, demoMode } = useApp();
+
+  const { hasCapability } = useAccess();
+  const canCreate = demoMode || hasCapability('students.profile.create');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [classFilter, setClassFilter] = useState('ALL');
+  const [feeFilter, setFeeFilter] = useState<'ALL' | StudentRecord['feesStatus']>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | StudentRecord['status']>('ALL');
   const [selectedStudent, setSelectedStudent] = useState<StudentRecord | null>(null);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [profileStudentId, setProfileStudentId] = useState<string | null>(studentPublicId ?? null);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(mode === 'import');
 
-  // New Student Form State
-  const [newStudent, setNewStudent] = useState({
-    firstName: '',
-    lastName: '',
-    admissionNo: '',
-    classLevel: 'JSS 1',
-    arm: 'A',
-    gender: 'Male' as const,
-    dateOfBirth: '2012-05-15',
-    guardianName: '',
-    guardianPhone: '+234 ',
-    guardianEmail: '',
-  });
+  const classOptions = useMemo(
+    () => Array.from(new Set(students.map((item) => item.classLevel).filter(Boolean))),
+    [students],
+  );
 
-  const filtered = students.filter((s) => {
-    const matchesClass = classFilter === 'ALL' || s.classLevel === classFilter;
-    const matchesSearch =
-      s.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.admissionNo.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesClass && matchesSearch;
-  });
-
-  const handleCreateStudent = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newStudent.firstName || !newStudent.lastName || !newStudent.admissionNo) return;
-
-    addStudent({
-      id: `std-${Date.now()}`,
-      firstName: newStudent.firstName,
-      lastName: newStudent.lastName,
-      admissionNo: newStudent.admissionNo.toUpperCase(),
-      classLevel: newStudent.classLevel,
-      arm: newStudent.arm,
-      gender: newStudent.gender,
-      dateOfBirth: newStudent.dateOfBirth,
-      guardianName: newStudent.guardianName,
-      guardianPhone: newStudent.guardianPhone,
-      guardianEmail: newStudent.guardianEmail,
-      attendanceRate: 100,
-      termAverage: 0,
-      feesStatus: 'Pending',
-      positionInClass: students.length + 1,
-      totalStudentsInClass: students.length + 1,
-      status: 'Active',
-      photoUrl: '',
-      guardianId: `guardian-${Date.now()}`,
-      guardianRelationship: 'Guardian',
-      balanceDue: 0,
+  const filtered = useMemo(() => {
+    return students.filter((student) => {
+      const matchesClass = classFilter === 'ALL' || student.classLevel === classFilter;
+      const matchesFee = feeFilter === 'ALL' || student.feesStatus === feeFilter;
+      const matchesStatus = statusFilter === 'ALL' || student.status === statusFilter;
+      const haystack = `${student.firstName} ${student.lastName} ${student.admissionNo}`.toLowerCase();
+      return matchesClass && matchesFee && matchesStatus && haystack.includes(searchQuery.toLowerCase());
     });
+  }, [students, classFilter, feeFilter, statusFilter, searchQuery]);
 
-    setIsAddModalOpen(false);
-    showToast('Student Enrolled', `${newStudent.firstName} ${newStudent.lastName} registered successfully.`);
-    setNewStudent({
-      firstName: '',
-      lastName: '',
-      admissionNo: '',
-      classLevel: 'JSS 1',
-      arm: 'A',
-      gender: 'Male',
-      dateOfBirth: '2012-05-15',
-      guardianName: '',
-      guardianPhone: '+234 ',
-      guardianEmail: '',
-    });
+  const kpis = {
+    enrolled: students.length,
+    active: students.filter((item) => item.status === 'Active').length,
+    outstanding: students.filter((item) => item.feesStatus !== 'Paid').length,
+    atRisk: students.filter((item) => item.termAverage > 0 && item.termAverage < 50).length,
   };
+
+  React.useEffect(() => {
+    if (studentPublicId) {
+      setProfileStudentId(studentPublicId);
+      setSelectedStudent(students.find((item) => item.id === studentPublicId) || null);
+    }
+  }, [studentPublicId, students]);
+
+  const openStudent = (student: StudentRecord) => {
+    if (onOpenStudent) {
+      onOpenStudent(student.id);
+      return;
+    }
+    setSelectedStudent(student);
+    setProfileStudentId(student.id);
+  };
+
+  const handleEnrolmentComplete = async (studentId: string) => {
+    await refreshStudents();
+    if (onOpenStudent) onOpenStudent(studentId);
+    else setProfileStudentId(studentId);
+  };
+
+  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    showToast('Import queued', `${file.name} will be validated against admission numbers and class codes.`, 'info');
+    event.target.value = '';
+    setIsImportModalOpen(false);
+  };
+
+  const columns: Column<StudentRecord>[] = [
+    {
+      key: 'name',
+      header: 'Student',
+      sortable: true,
+      sortValue: (row) => `${row.firstName} ${row.lastName}`,
+      accessor: (student) => (
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-700 font-bold flex items-center justify-center text-xs border border-indigo-100/80 shrink-0">
+            {student.firstName[0]}
+            {student.lastName[0]}
+          </div>
+          <div className="min-w-0">
+            <span className="font-semibold text-slate-900 block truncate">
+              {student.firstName} {student.lastName}
+            </span>
+            <span className="text-[11px] text-slate-500 block">
+              {student.gender} · <span className="text-slate-400">{student.status}</span>
+            </span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'admissionNo',
+      header: 'Admission No',
+      sortable: true,
+      accessor: (student) => (
+        <span className="font-mono font-medium text-slate-700 text-xs px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200/60">
+          {student.admissionNo}
+        </span>
+      ),
+    },
+    {
+      key: 'class',
+      header: 'Class & Arm',
+      sortable: true,
+      sortValue: (row) => `${row.classLevel} ${row.arm}`,
+      accessor: (student) => (
+        <span className="font-medium text-slate-800">
+          {student.classLevel} <span className="text-slate-400">({student.arm})</span>
+        </span>
+      ),
+    },
+    {
+      key: 'attendanceRate',
+      header: 'Attendance',
+      sortable: true,
+      accessor: (student) => (
+        <span
+          className={`font-semibold ${
+            student.attendanceRate >= 85
+              ? 'text-emerald-700'
+              : student.attendanceRate >= 70
+              ? 'text-amber-700'
+              : 'text-rose-700'
+          }`}
+        >
+          {student.attendanceRate}%
+        </span>
+      ),
+    },
+    {
+      key: 'termAverage',
+      header: 'Term Avg',
+      sortable: true,
+      accessor: (student) => (
+        <span className="font-semibold text-slate-900 font-display">{student.termAverage}%</span>
+      ),
+    },
+    {
+      key: 'feesStatus',
+      header: 'Fee Status',
+      sortable: true,
+      accessor: (student) => <StatusBadge status={student.feesStatus} />,
+    },
+    {
+      key: 'actions',
+      header: '',
+      align: 'right',
+      accessor: (student) => (
+        <Button
+          variant="ghost"
+          size="xs"
+          leftIcon={<Eye className="w-3.5 h-3.5" />}
+          onClick={(e) => {
+            e.stopPropagation();
+            setSelectedStudent(student);
+            setProfileStudentId(student.id);
+          }}
+        >
+          Profile
+        </Button>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-6">
-      {/* Top Banner */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="p-2 rounded-xl bg-indigo-100 text-indigo-700">
-              <Users className="w-5 h-5" />
-            </span>
-            <h1 className="font-display font-bold text-xl sm:text-2xl text-slate-900">
-              Student Register & 360 Profiles
-            </h1>
-            <span className="px-2.5 py-0.5 text-xs font-bold bg-indigo-100 text-indigo-800 rounded-full">
-              {students.length} Total Enrolled
-            </span>
-          </div>
-          <p className="text-xs sm:text-sm text-slate-500">
-            Maintain verified student bio-data, guardian contacts, academic trajectories, and fee statuses.
-          </p>
-        </div>
-
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="px-4 py-2 text-xs font-bold text-white bg-indigo-900 hover:bg-indigo-950 rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
-        >
-          <UserPlus className="w-3.5 h-3.5" />
-          <span>New Student Admission</span>
-        </button>
+      <PageHeader
+        title="Student registry"
+        description="Find, review and enrol students without changing the current workspace or route."
+        breadcrumbs={[{ label: 'Students' }, { label: 'Registry' }]}
+        primaryAction={canCreate ? <Button leftIcon={<UserPlus className="h-4 w-4" />} onClick={() => setIsWizardOpen(true)}>Enrol student</Button> : undefined}
+      />
+      {/* Top Metric Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <MetricCard
+          label="Total Enrolled"
+          value={kpis.enrolled}
+          icon={<Users className="w-5 h-5" />}
+          variant="default"
+          subtitle="Registered students"
+        />
+        <MetricCard
+          label="Active Students"
+          value={kpis.active}
+          icon={<GraduationCap className="w-5 h-5" />}
+          variant="primary"
+          subtitle="In session"
+        />
+        <MetricCard
+          label="Fee Outstanding"
+          value={kpis.outstanding}
+          icon={<CircleAlert className="w-5 h-5" />}
+          variant="warning"
+          subtitle="Pending or partial"
+        />
+        <MetricCard
+          label="Academic At-Risk"
+          value={kpis.atRisk}
+          icon={<Award className="w-5 h-5" />}
+          variant="danger"
+          subtitle="Average below 50%"
+        />
       </div>
 
-      {/* Filter & Search Bar */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Class Filter:</span>
-            <select
+      {/* Main Table Card */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        {/* Table Filters Toolbar */}
+        <FilterBar
+          resultsLabel={`${filtered.length} students`}
+          search={<SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search student or admission no…" className="w-full sm:w-64" aria-label="Search students" />}
+          actions={<><Button variant="secondary" size="sm" leftIcon={<Upload className="w-3.5 h-3.5" />} onClick={() => setIsImportModalOpen(true)}>Import</Button></>}
+        >
+            <Select
               value={classFilter}
               onChange={(e) => setClassFilter(e.target.value)}
-              className="text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50"
+              className="w-auto font-semibold"
+              aria-label="Filter by class"
             >
               <option value="ALL">All Classes</option>
-              <option value="JSS 1">JSS 1</option>
-              <option value="JSS 2">JSS 2</option>
-              <option value="SSS 1">SSS 1</option>
-            </select>
-          </div>
-
-          <div className="relative w-full sm:w-72">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by name or admission no..."
-              className="w-full text-xs pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-slate-50"
-            />
-          </div>
-        </div>
-
-        {/* Students Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 font-bold">
-                <th className="py-3 px-4">Student Name</th>
-                <th className="py-3 px-3">Admission No</th>
-                <th className="py-3 px-3">Class & Arm</th>
-                <th className="py-3 px-3">Attendance</th>
-                <th className="py-3 px-3">Term Average</th>
-                <th className="py-3 px-3">Fee Status</th>
-                <th className="py-3 px-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filtered.map((s) => (
-                <tr key={s.id} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-900 font-bold flex items-center justify-center text-xs">
-                        {s.firstName[0]}
-                        {s.lastName[0]}
-                      </div>
-                      <div>
-                        <strong className="text-xs font-bold text-slate-900 block">
-                          {s.firstName} {s.lastName}
-                        </strong>
-                        <span className="text-[11px] text-slate-500">{s.gender} · Born {s.dateOfBirth}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-3 px-3 font-mono font-bold text-slate-700">{s.admissionNo}</td>
-                  <td className="py-3 px-3">
-                    <span className="px-2 py-0.5 rounded-md bg-slate-100 font-semibold text-slate-800">
-                      {s.classLevel} - {s.arm}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="font-bold text-emerald-700">{s.attendanceRate}%</span>
-                  </td>
-                  <td className="py-3 px-3 font-bold text-indigo-900">{s.termAverage}%</td>
-                  <td className="py-3 px-3">
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                        s.feesStatus === 'Paid'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : s.feesStatus === 'Partial'
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-rose-100 text-rose-800'
-                      }`}
-                    >
-                      {s.feesStatus === 'Paid' ? 'Paid Full' : s.feesStatus === 'Partial' ? 'Partial' : 'Pending'}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3 text-right">
-                    <button
-                      onClick={() => setSelectedStudent(s)}
-                      className="px-2.5 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors inline-flex items-center gap-1"
-                    >
-                      <Eye className="w-3 h-3" />
-                      <span>360 Profile</span>
-                    </button>
-                  </td>
-                </tr>
+              {classOptions.map((level) => (
+                <option key={level} value={level}>
+                  {level}
+                </option>
               ))}
-            </tbody>
-          </table>
-        </div>
+              {classes.map((item) => (
+                <option key={item.id} value={item.name}>
+                  {item.name}
+                </option>
+              ))}
+            </Select>
+
+            <SegmentedControl label="Fee status" value={feeFilter} onValueChange={(value) => setFeeFilter(value as typeof feeFilter)} segments={(['ALL', 'Paid', 'Partial', 'Pending'] as const).map((value) => ({ value, label: value === 'ALL' ? 'All fees' : value }))} />
+            <SegmentedControl label="Student status" value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)} segments={(['ALL', 'Active', 'Suspended'] as const).map((value) => ({ value, label: value === 'ALL' ? 'All statuses' : value }))} />
+        </FilterBar>
+
+        {/* Canonical Data Grid */}
+        <DataTable
+          columns={columns}
+          data={filtered}
+          keyExtractor={(item) => item.id}
+          pageSize={10}
+          onRowClick={(student) => openStudent(student)}
+          emptyTitle="No students found"
+          emptyDescription="No students match the selected class, fee status, or search keywords."
+          emptyAction={canCreate ? {
+            label: 'Enrol Student',
+            onClick: () => setIsWizardOpen(true),
+          } : undefined}
+          caption="Students matching the current filters"
+          mobileRenderer={(student) => (
+            <button type="button" onClick={() => openStudent(student)} className="ds-focus-ring flex w-full items-center justify-between gap-3 p-4 text-left">
+              <span className="min-w-0"><span className="block truncate text-sm font-semibold text-[var(--color-text-primary)]">{student.firstName} {student.lastName}</span><span className="block text-xs text-[var(--color-text-secondary)]">{student.admissionNo} · {student.classLevel} ({student.arm})</span></span>
+              <StatusBadge status={student.status} />
+            </button>
+          )}
+          className="border-none rounded-none shadow-none"
+        />
       </div>
 
-      {/* Student 360 Profile Drawer / Modal */}
-      <AnimatePresence>
-        {selectedStudent && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden"
-            >
-              <div className="px-6 py-5 bg-indigo-950 text-white flex items-center justify-between">
-                <div>
-                  <h3 className="font-display font-bold text-lg">
-                    {selectedStudent.firstName} {selectedStudent.lastName}
-                  </h3>
-                  <p className="text-xs text-indigo-200 font-mono">{selectedStudent.admissionNo}</p>
-                </div>
-                <button
-                  onClick={() => setSelectedStudent(null)}
-                  className="p-1.5 rounded-lg text-indigo-200 hover:text-white hover:bg-indigo-800"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+      <StudentProfileView
+        studentId={profileStudentId}
+        fallback={selectedStudent}
+        onClose={() => {
+          setProfileStudentId(null);
+          setSelectedStudent(null);
+          onCloseStudent?.();
+        }}
+        onUpdated={() => void refreshStudents()}
+        showToast={showToast}
+      />
 
-              <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto text-xs">
-                {/* Highlights Grid */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="p-3 rounded-2xl bg-indigo-50 border border-indigo-100 text-center">
-                    <span className="text-[10px] text-slate-500 font-bold block uppercase">Term Average</span>
-                    <span className="font-display font-extrabold text-lg text-indigo-950">
-                      {selectedStudent.termAverage}%
-                    </span>
-                  </div>
-                  <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-100 text-center">
-                    <span className="text-[10px] text-slate-500 font-bold block uppercase">Attendance</span>
-                    <span className="font-display font-extrabold text-lg text-emerald-950">
-                      {selectedStudent.attendanceRate}%
-                    </span>
-                  </div>
-                  <div className="p-3 rounded-2xl bg-purple-50 border border-purple-100 text-center">
-                    <span className="text-[10px] text-slate-500 font-bold block uppercase">Class Rank</span>
-                    <span className="font-display font-extrabold text-lg text-purple-950">
-                      {selectedStudent.positionInClass}nd / {selectedStudent.totalStudentsInClass}
-                    </span>
-                  </div>
-                </div>
+      <StudentEnrolmentWizard
+        isOpen={isWizardOpen}
+        onClose={() => setIsWizardOpen(false)}
+        onComplete={(id) => void handleEnrolmentComplete(id)}
+        showToast={showToast}
+        canCreate={canCreate}
+      />
 
-                {/* Guardian Details */}
-                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-2">
-                  <h4 className="font-bold text-slate-900 text-xs">Verified Guardian Information</h4>
-                  <div className="grid grid-cols-2 gap-2 text-slate-700">
-                    <div>
-                      <span className="text-slate-400 block text-[10px]">Guardian Name:</span>
-                      <strong>{selectedStudent.guardianName}</strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block text-[10px]">Phone Number:</span>
-                      <strong className="font-mono">{selectedStudent.guardianPhone}</strong>
-                    </div>
-                    <div className="col-span-2">
-                      <span className="text-slate-400 block text-[10px]">Guardian Email:</span>
-                      <span className="text-slate-800">{selectedStudent.guardianEmail}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 text-right">
-                <button
-                  onClick={() => setSelectedStudent(null)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 border border-slate-300 rounded-xl bg-white"
-                >
-                  Close Profile
-                </button>
-              </div>
-            </motion.div>
+      {/* Bulk Import Modal — kept separate from enrolment wizard */}
+      <Modal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        title="Bulk Import Students"
+        description="Upload a CSV file containing student records and guardian contact details."
+        size="md"
+      >
+        <div className="space-y-4">
+          <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center hover:border-indigo-300 transition-colors bg-slate-50/50">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
+              <Upload className="w-6 h-6" />
+            </div>
+            <p className="text-sm font-semibold text-slate-800">Choose CSV file or drag and drop</p>
+            <p className="text-xs text-slate-400 mt-1">Columns: Admission No, First Name, Last Name, Class, Arm, Guardian Phone</p>
+            <label className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold cursor-pointer hover:bg-indigo-700 transition-colors shadow-xs">
+              <Upload className="w-4 h-4" />
+              Browse CSV File
+              <input type="file" accept=".csv,text/csv" className="hidden" onChange={handleImport} />
+            </label>
           </div>
-        )}
-      </AnimatePresence>
 
-      {/* New Student Modal */}
-      <AnimatePresence>
-        {isAddModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden"
-            >
-              <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                  <h3 className="font-display font-bold text-lg text-slate-900">New Student Admission</h3>
-                  <p className="text-xs text-slate-500">Add student bio-data and parent contact details.</p>
-                </div>
-                <button onClick={() => setIsAddModalOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-700">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <form onSubmit={handleCreateStudent} className="p-6 space-y-4 text-xs">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">First Name *</label>
-                    <input
-                      type="text"
-                      value={newStudent.firstName}
-                      onChange={(e) => setNewStudent({ ...newStudent, firstName: e.target.value })}
-                      placeholder="e.g. Samuel"
-                      className="w-full p-2.5 rounded-xl border border-slate-300 bg-slate-50"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Last Name *</label>
-                    <input
-                      type="text"
-                      value={newStudent.lastName}
-                      onChange={(e) => setNewStudent({ ...newStudent, lastName: e.target.value })}
-                      placeholder="e.g. Balogun"
-                      className="w-full p-2.5 rounded-xl border border-slate-300 bg-slate-50"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Admission No *</label>
-                    <input
-                      type="text"
-                      value={newStudent.admissionNo}
-                      onChange={(e) => setNewStudent({ ...newStudent, admissionNo: e.target.value })}
-                      placeholder="CHIA/2026/..."
-                      className="w-full p-2.5 rounded-xl border border-slate-300 bg-slate-50 font-mono uppercase"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Class Level</label>
-                    <select
-                      value={newStudent.classLevel}
-                      onChange={(e) => setNewStudent({ ...newStudent, classLevel: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-slate-300 bg-slate-50 font-semibold"
-                    >
-                      <option value="JSS 1">JSS 1</option>
-                      <option value="JSS 2">JSS 2</option>
-                      <option value="SSS 1">SSS 1</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Arm</label>
-                    <select
-                      value={newStudent.arm}
-                      onChange={(e) => setNewStudent({ ...newStudent, arm: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-slate-300 bg-slate-50 font-semibold"
-                    >
-                      <option value="A">Arm A</option>
-                      <option value="B">Arm B</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-slate-100">
-                  <h4 className="font-bold text-slate-800 mb-2">Guardian Information</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block font-bold text-slate-700 mb-1">Guardian Name</label>
-                      <input
-                        type="text"
-                        value={newStudent.guardianName}
-                        onChange={(e) => setNewStudent({ ...newStudent, guardianName: e.target.value })}
-                        placeholder="e.g. Chief O. Balogun"
-                        className="w-full p-2.5 rounded-xl border border-slate-300 bg-slate-50"
-                      />
-                    </div>
-                    <div>
-                      <label className="block font-bold text-slate-700 mb-1">Guardian Phone</label>
-                      <input
-                        type="tel"
-                        value={newStudent.guardianPhone}
-                        onChange={(e) => setNewStudent({ ...newStudent, guardianPhone: e.target.value })}
-                        placeholder="+234 803 000 0000"
-                        className="w-full p-2.5 rounded-xl border border-slate-300 bg-slate-50"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddModalOpen(false)}
-                    className="px-4 py-2 font-semibold text-slate-600 bg-slate-100 rounded-xl"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 font-bold text-white bg-indigo-900 hover:bg-indigo-950 rounded-xl shadow-xs"
-                  >
-                    Complete Enrollment
-                  </button>
-                </div>
-              </form>
-            </motion.div>
+          <div className="flex items-center justify-end gap-2.5 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setIsImportModalOpen(false)}>
+              Close
+            </Button>
           </div>
-        )}
-      </AnimatePresence>
+        </div>
+      </Modal>
     </div>
   );
 };

@@ -13,7 +13,7 @@ class PrivilegedMfaTest extends TestCase
 
     public function test_privileged_mfa_is_optional_by_default(): void
     {
-        ['tenant' => $tenant, 'user' => $user] = $this->makeTenantUser('school_admin');
+        ['tenant' => $tenant, 'user' => $user] = $this->makeTenantUser('school_super_admin');
 
         $response = $this->actingAsTenantUser($user, $tenant)
             ->getJson('/api/v1/auth/me');
@@ -25,7 +25,7 @@ class PrivilegedMfaTest extends TestCase
 
     public function test_school_admin_can_enable_privileged_mfa_policy(): void
     {
-        ['tenant' => $tenant, 'user' => $user] = $this->makeTenantUser('school_admin');
+        ['tenant' => $tenant, 'user' => $user] = $this->makeTenantUser('school_super_admin');
 
         $this->actingAsTenantUser($user, $tenant)
             ->withHeader('Idempotency-Key', 'enable-mfa-policy')
@@ -42,7 +42,7 @@ class PrivilegedMfaTest extends TestCase
 
     public function test_privileged_role_without_mfa_is_blocked_only_when_school_policy_is_enabled(): void
     {
-        ['tenant' => $tenant, 'user' => $user] = $this->makeTenantUser('school_admin');
+        ['tenant' => $tenant, 'user' => $user] = $this->makeTenantUser('school_super_admin');
 
         $this->actingAsTenantUser($user, $tenant)
             ->withHeader('Idempotency-Key', 'enable-mfa-policy-for-gate')

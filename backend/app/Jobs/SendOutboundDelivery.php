@@ -3,8 +3,8 @@
 namespace App\Jobs;
 
 use App\Domain\Tenancy\TenantContext;
+use App\Domain\Tenancy\TenantJobEnvelope;
 use App\Models\OutboundDelivery;
-use App\Models\Tenant;
 use App\Services\ChannelDeliveryService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -20,15 +20,16 @@ final class SendOutboundDelivery implements ShouldQueue
 
     public array $backoff = [30, 120, 600];
 
-    public function __construct(public int $deliveryId, public int $tenantId, public string $body)
+    /** @param array<string, int|string|null> $tenantEnvelope */
+    public function __construct(public int $deliveryId, public array $tenantEnvelope, public string $body)
     {
         $this->onQueue('communications');
     }
 
     public function handle(ChannelDeliveryService $service, TenantContext $context): void
     {
-        $context->setPublicTenant(Tenant::query()->findOrFail($this->tenantId));
         try {
+            TenantJobEnvelope::fromArray($this->tenantEnvelope)->activate($context);
             $delivery = OutboundDelivery::query()->findOrFail($this->deliveryId);
             if (in_array($delivery->status, ['sent', 'delivered'], true)) {
                 return;

@@ -1,14 +1,45 @@
+/// <reference types="node" />
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import path from 'path';
-import {defineConfig} from 'vite';
+import type { ClientRequest, IncomingMessage } from 'node:http';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { defineConfig, type ProxyOptions } from 'vite';
 
-export default defineConfig(() => {
+const dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const emailProxy: ProxyOptions = {
+  target: 'http://127.0.0.1:8000',
+  changeOrigin: true,
+  configure: (proxy) => {
+    proxy.on('proxyReq', (proxyReq: ClientRequest, req: IncomingMessage) => {
+      const host = req.headers.host;
+      if (host) {
+        proxyReq.setHeader('X-Forwarded-Host', host);
+        proxyReq.setHeader('X-Forwarded-Proto', 'http');
+      }
+    });
+  },
+};
+
+function resolveViteBuildId(command: 'build' | 'serve'): string {
+  const existing = process.env.VITE_BUILD_ID?.trim();
+  if (existing) {
+    return existing;
+  }
+
+  // HTML env replacement requires VITE_BUILD_ID; deploy scripts set the real release id.
+  return command === 'serve' ? 'dev' : `local-${Date.now()}`;
+}
+
+export default defineConfig(({ command }) => {
+  process.env.VITE_BUILD_ID = resolveViteBuildId(command);
+
   return {
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(dirname, '.'),
       },
     },
     optimizeDeps: {
@@ -16,11 +47,8 @@ export default defineConfig(() => {
       exclude: ['@google/genai'],
     },
     server: {
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
-      // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      watch: process.env.DISABLE_HMR === 'true' ? { ignored: ['**'] } : {},
       proxy: {
         '/api': 'http://127.0.0.1:8000',
         '/sanctum': 'http://127.0.0.1:8000',
@@ -29,20 +57,7 @@ export default defineConfig(() => {
         '/live': 'http://127.0.0.1:8000',
         '/startup': 'http://127.0.0.1:8000',
         '/version': 'http://127.0.0.1:8000',
-        // Signed verification emails use FRONTEND_URL locally; proxy to Laravel.
-        '/email': {
-          target: 'http://127.0.0.1:8000',
-          changeOrigin: true,
-          configure: (proxy) => {
-            proxy.on('proxyReq', (proxyReq, req) => {
-              const host = req.headers.host;
-              if (host) {
-                proxyReq.setHeader('X-Forwarded-Host', host);
-                proxyReq.setHeader('X-Forwarded-Proto', 'http');
-              }
-            });
-          },
-        },
+        '/email': emailProxy,
       },
     },
     build: {
@@ -52,40 +67,34 @@ export default defineConfig(() => {
       minify: 'esbuild',
       rollupOptions: {
         output: {
-          manualChunks: (id) => {
-            // Core vendor chunks - process in order to avoid circular dependencies
+          manualChunks: (id: string) => {
             if (id.includes('node_modules')) {
-              // Motion before the broad "react" match — paths like motion/react
-              // would otherwise land in react-vendor and create circular chunks.
               if (id.includes('motion') || id.includes('framer-motion')) {
                 return 'motion-vendor';
               }
-              // Charts library
               if (id.includes('recharts') || id.includes('d3-') || id.includes('victory')) {
                 return 'charts-vendor';
               }
-              // Icons
               if (id.includes('lucide-react')) {
                 return 'icons-vendor';
               }
-              // React core only (avoid matching every package with "react" in the path)
+              if (id.includes('react-router')) {
+                return 'router-vendor';
+              }
               if (
                 /node_modules[/\\](react|react-dom|scheduler)[/\\]/.test(id)
                 || id.includes('react-dom')
               ) {
                 return 'react-vendor';
               }
-              // AI and utilities
               if (id.includes('@google/genai') || id.includes('canvas-confetti')) {
                 return 'utils-vendor';
               }
-              // Everything else goes to vendor
               return 'vendor';
             }
-            
-            // Application code splitting by feature area
-            // Keep dashboards and shared features together to avoid circular chunks
-            // (dashboard imports feature widgets and vice versa).
+            if (id.includes('/shell/')) {
+              return 'app-shell';
+            }
             if (id.includes('/features/')) {
               if (id.includes('/features/public/')) {
                 return 'app-public';
@@ -96,26 +105,9 @@ export default defineConfig(() => {
               if (id.includes('/features/finance/') || id.includes('/features/results/')) {
                 return 'app-admin';
               }
-              if (
-                id.includes('/features/dashboard/')
-                || id.includes('/features/academics/')
-                || id.includes('/features/attendance/')
-                || id.includes('/features/assessments/')
-                || id.includes('/features/students/')
-                || id.includes('/features/staff/')
-                || id.includes('/features/cbt/')
-                || id.includes('/features/communication/')
-                || id.includes('/features/onboarding/')
-                || id.includes('/features/subscription/')
-                || id.includes('/features/branding/')
-                || id.includes('/features/invitations/')
-              ) {
-                return 'app-features';
-              }
               return 'app-features';
             }
           },
-          // Optimize chunk naming for caching
           chunkFileNames: 'assets/js/[name]-[hash].js',
           entryFileNames: 'assets/js/[name]-[hash].js',
           assetFileNames: 'assets/[ext]/[name]-[hash].[ext]',

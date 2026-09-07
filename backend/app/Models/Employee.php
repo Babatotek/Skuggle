@@ -6,6 +6,7 @@ use App\Domain\Tenancy\Concerns\BelongsToTenant;
 use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Employee extends Model
@@ -32,5 +33,10 @@ class Employee extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function teacherProfile(): HasOne
+    {
+        return $this->hasOne(TeacherProfile::class);
     }
 }

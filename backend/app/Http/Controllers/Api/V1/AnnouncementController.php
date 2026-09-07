@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Domain\Tenancy\TenantContext;
+use App\Domain\Tenancy\TenantJobEnvelope;
 use App\Http\Controllers\Controller;
 use App\Jobs\SendOutboundDelivery;
 use App\Models\Announcement;
@@ -69,7 +70,7 @@ class AnnouncementController extends Controller
                         ['destination' => $destination, 'provider' => $channel === 'sms' ? (string) config('skuggle.messaging.sms.provider') : 'meta', 'status' => 'queued'],
                     );
                     if ($delivery->wasRecentlyCreated) {
-                        SendOutboundDelivery::dispatch($delivery->getKey(), app(TenantContext::class)->tenantId(), $announcement->title."\n".$announcement->body);
+                        SendOutboundDelivery::dispatch($delivery->getKey(), TenantJobEnvelope::fromContext(app(TenantContext::class))->toArray(), $announcement->title."\n".$announcement->body);
                         $queued++;
                     }
                 }

@@ -38,7 +38,7 @@ interface MfaConfirmResponse { success: true; data: { confirmed: true; recoveryC
 
 function toUserRole(role: string): UserRole {
   const map: Record<string, UserRole> = {
-    school_admin: 'School Admin', principal: 'Principal', teacher: 'Teacher',
+    school_super_admin: 'Super Admin', school_admin: 'School Admin', principal: 'Principal', teacher: 'Teacher',
     parent: 'Parent', student: 'Student', platform_owner: 'Platform Owner',
     platform_super_admin: 'Platform Owner', bursar: 'Bursar',
   };
@@ -194,7 +194,6 @@ export const SchoolAuthPage: React.FC<SchoolAuthPageProps> = ({ onSuccess, onBac
         const setup = await apiRequest<MfaSetupResponse>('/auth/mfa/enable', { method: 'POST' });
         setPendingRole(role); setMfaKey(setup.data.setupKey); return;
       }
-      window.dispatchEvent(new Event('skuggle:authenticated'));
       onSuccess(role);
     } catch (e) {
       if (e instanceof ApiError && e.code === 'EMAIL_UNVERIFIED') {
@@ -240,7 +239,7 @@ export const SchoolAuthPage: React.FC<SchoolAuthPageProps> = ({ onSuccess, onBac
       setError(err instanceof ApiError ? err.message : 'Code could not be confirmed.');
     } finally { setLoading(false); }
   };
-  const finishMfa = () => { window.dispatchEvent(new Event('skuggle:authenticated')); onSuccess(pendingRole); };
+  const finishMfa = () => { onSuccess(pendingRole); };
 
   /* strength */
   const strength = regPwd.length >= 12 ? 'strong' : regPwd.length >= 8 ? 'good' : regPwd.length > 0 ? 'weak' : '';

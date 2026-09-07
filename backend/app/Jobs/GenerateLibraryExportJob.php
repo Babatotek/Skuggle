@@ -3,10 +3,9 @@
 namespace App\Jobs;
 
 use App\Domain\Tenancy\TenantContext;
+use App\Domain\Tenancy\TenantJobEnvelope;
 use App\Models\ExportJob;
 use App\Models\LibraryResource;
-use App\Models\Tenant;
-use App\Models\TenantMembership;
 use App\Services\SimplePdf;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -26,7 +25,8 @@ class GenerateLibraryExportJob implements ShouldQueue
 
     public array $backoff = [15, 60, 180];
 
-    public function __construct(public readonly int $exportJobId)
+    /** @param array<string, int|string|null> $tenantEnvelope */
+    public function __construct(public readonly int $exportJobId, public readonly array $tenantEnvelope)
     {
         $this->onQueue('exports');
     }
@@ -38,11 +38,10 @@ class GenerateLibraryExportJob implements ShouldQueue
 
     public function handle(TenantContext $context, SimplePdf $pdf): void
     {
-        $job = ExportJob::query()->withoutGlobalScopes()->findOrFail($this->exportJobId);
-        $tenant = Tenant::query()->findOrFail($job->tenant_id);
-        $membership = TenantMembership::query()->with(['tenant', 'role.permissions'])->where('tenant_id', $tenant->getKey())->where('user_id', $job->requested_by)->firstOrFail();
-        $context->set($tenant, $membership);
         try {
+            TenantJobEnvelope::fromArray($this->tenantEnvelope)->activate($context);
+            $job = ExportJob::query()->withoutGlobalScopes()->where('tenant_id', $context->tenantId())->findOrFail($this->exportJobId);
+            $tenant = $context->tenant();
             $job->update(['state' => 'processing', 'progress_percent' => 10, 'message' => 'Collecting resources']);
             $resources = LibraryResource::query()->whereIn('public_id', $job->resource_ids)->where('status', 'published')->get()->keyBy('public_id');
             if ($resources->count() !== count($job->resource_ids)) {

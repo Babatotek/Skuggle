@@ -11,7 +11,7 @@ use Illuminate\Auth\Notifications\VerifyEmail;
  */
 final class VerifyEmailNotification extends VerifyEmail
 {
-    public function toMail($notifiable): SkuggleBrandedMail
+    public function toMail($notifiable)
     {
         $url = $this->verificationUrl($notifiable);
 

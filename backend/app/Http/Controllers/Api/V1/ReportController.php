@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Domain\Tenancy\TenantContext;
+use App\Domain\Tenancy\TenantJobEnvelope;
 use App\Http\Controllers\Controller;
 use App\Jobs\GenerateReportJob;
 use App\Models\AcademicSession;
@@ -30,12 +32,12 @@ class ReportController extends Controller
         ]);
     }
 
-    public function store(Request $request, AuditLogger $audit): JsonResponse
+    public function store(Request $request, AuditLogger $audit, TenantContext $context): JsonResponse
     {
         $this->authorize('create', ReportJob::class);
         $data = $request->validate(['reportId' => ['required', Rule::in(['student-directory', 'attendance-summary', 'assessment-performance'])], 'format' => ['required', Rule::in(['pdf', 'xlsx'])], 'filters' => ['nullable', 'array']]);
         $job = ReportJob::query()->create(['requested_by' => $request->user()->getKey(), 'report_key' => $data['reportId'], 'parameters' => $data['filters'] ?? [], 'format' => $data['format'], 'state' => 'queued', 'progress_percent' => 0, 'message' => 'Queued for generation']);
-        GenerateReportJob::dispatch($job->getKey());
+        GenerateReportJob::dispatch($job->getKey(), TenantJobEnvelope::fromContext($context)->toArray());
         $audit->record('report.requested', $job, [], ['report' => $job->report_key, 'format' => $job->format]);
 
         return ApiResponse::success($this->present($job), [], 202);

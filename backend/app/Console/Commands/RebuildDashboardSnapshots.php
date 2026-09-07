@@ -25,6 +25,7 @@ class RebuildDashboardSnapshots extends Command
         $rebuilt = 0;
 
         foreach ($tenants as $tenant) {
+            $context->clear();
             $context->set($tenant);
 
             try {

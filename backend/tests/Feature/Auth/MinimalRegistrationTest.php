@@ -3,7 +3,9 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\Role;
+use App\Models\RoleAssignment;
 use App\Models\Tenant;
+use App\Models\TenantMembership;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
@@ -64,6 +66,8 @@ class MinimalRegistrationTest extends TestCase
             ->assertJsonPath('data.requiresVerification', true);
 
         $this->assertDatabaseHas('tenants', ['name' => 'New Academy', 'type' => 'school']);
+        $membership = TenantMembership::query()->whereHas('user', fn ($query) => $query->where('email', 'owner@new-academy.example'))->firstOrFail();
+        $this->assertSame(1, RoleAssignment::query()->where('tenant_membership_id', $membership->id)->where('role_id', $membership->role_id)->where('source', RoleAssignment::LEGACY_PRIMARY)->count());
     }
 
     public function test_verified_school_admin_logs_into_the_requested_school_workspace(): void
@@ -93,7 +97,7 @@ class MinimalRegistrationTest extends TestCase
             'tenant' => $school->slug,
         ])
             ->assertOk()
-            ->assertJsonPath('data.user.role', 'school_admin')
+            ->assertJsonPath('data.user.role', 'school_super_admin')
             ->assertJsonPath('data.user.tenant.type', 'school')
             ->assertJsonPath('data.user.tenant.id', $school->public_id);
     }

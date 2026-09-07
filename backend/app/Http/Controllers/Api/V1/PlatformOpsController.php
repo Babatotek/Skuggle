@@ -245,7 +245,7 @@ class PlatformOpsController extends Controller
                     ->where('tenant_id', $invoice->tenant_id)
                     ->where('status', 'active')
                     ->get()
-                    ->filter(fn (TenantMembership $membership): bool => in_array($membership->role?->name, ['school_admin', 'admin'], true));
+                    ->filter(fn (TenantMembership $membership): bool => in_array($membership->role?->name, ['school_super_admin', 'school_admin'], true));
 
                 foreach ($admins as $membership) {
                     try {
@@ -383,7 +383,7 @@ class PlatformOpsController extends Controller
 
             if ($publish) {
                 $audienceRoles = match ($audience) {
-                    'school_admins' => ['school_admin', 'admin'],
+                    'school_admins' => ['school_super_admin', 'school_admin'],
                     'teachers' => ['teacher'],
                     default => ['all'],
                 };
@@ -393,6 +393,7 @@ class PlatformOpsController extends Controller
                 $previous = $tenantContext->hasTenant() ? $tenantContext->tenant() : null;
 
                 foreach ($tenants as $tenant) {
+                    $tenantContext->clear();
                     $tenantContext->setPublicTenant($tenant);
                     Announcement::query()->create([
                         'title' => $data['title'],
@@ -405,6 +406,7 @@ class PlatformOpsController extends Controller
                 }
 
                 if ($previous) {
+                    $tenantContext->clear();
                     $tenantContext->setPublicTenant($previous);
                 } else {
                     $tenantContext->clear();

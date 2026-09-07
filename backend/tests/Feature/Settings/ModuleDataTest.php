@@ -13,7 +13,7 @@ final class ModuleDataTest extends TestCase
 
     public function test_admin_can_persist_timetable_with_optimistic_concurrency(): void
     {
-        ['tenant' => $tenant, 'user' => $user] = $this->makeTenantUser('school_admin', userOverrides: ['two_factor_confirmed_at' => now()]);
+        ['tenant' => $tenant, 'user' => $user] = $this->makeTenantUser('school_super_admin', userOverrides: ['two_factor_confirmed_at' => now()]);
         $headers = ['Idempotency-Key' => 'timetable-save-1'];
 
         $this->actingAsTenantUser($user, $tenant)->getJson('/api/v1/module-data/timetable')
@@ -32,8 +32,8 @@ final class ModuleDataTest extends TestCase
 
     public function test_module_payload_is_tenant_scoped(): void
     {
-        ['tenant' => $tenantA, 'user' => $userA] = $this->makeTenantUser('school_admin', userOverrides: ['two_factor_confirmed_at' => now()]);
-        ['tenant' => $tenantB, 'user' => $userB] = $this->makeTenantUser('school_admin', userOverrides: ['two_factor_confirmed_at' => now()]);
+        ['tenant' => $tenantA, 'user' => $userA] = $this->makeTenantUser('school_super_admin', userOverrides: ['two_factor_confirmed_at' => now()]);
+        ['tenant' => $tenantB, 'user' => $userB] = $this->makeTenantUser('school_super_admin', userOverrides: ['two_factor_confirmed_at' => now()]);
 
         $this->actingAsTenantUser($userA, $tenantA)->putJson('/api/v1/module-data/fee-structure', [
             'revision' => 0, 'payload' => ['items' => [['name' => 'Tenant A tuition']]],

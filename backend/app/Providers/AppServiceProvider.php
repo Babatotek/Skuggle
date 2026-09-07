@@ -2,16 +2,22 @@
 
 namespace App\Providers;
 
+use App\Domain\Authorization\AuthorizationShadowEvaluator;
+use App\Domain\Authorization\CanonicalAuthorizationEvaluator;
 use App\Domain\Library\AI\AIProvider;
 use App\Domain\Library\AI\GeminiProvider;
 use App\Domain\Library\AI\GroqProvider;
 use App\Domain\Library\AI\NullAIProvider;
+use App\Domain\Tenancy\PlatformContext;
+use App\Domain\Tenancy\PublicTenantContext;
 use App\Domain\Tenancy\TenantContext;
+use App\Models\AdmissionApplication;
 use App\Models\Assessment;
 use App\Models\LibraryResource;
 use App\Models\ReportJob;
 use App\Models\SchoolClass;
 use App\Models\Student;
+use App\Policies\AdmissionApplicationPolicy;
 use App\Policies\AssessmentPolicy;
 use App\Policies\AttendancePolicy;
 use App\Policies\LibraryResourcePolicy;
@@ -37,6 +43,10 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->scoped(TenantContext::class, fn () => new TenantContext);
+        $this->app->scoped(PublicTenantContext::class, fn () => new PublicTenantContext);
+        $this->app->scoped(PlatformContext::class, fn () => new PlatformContext);
+        $this->app->scoped(CanonicalAuthorizationEvaluator::class);
+        $this->app->scoped(AuthorizationShadowEvaluator::class);
         $this->app->bind(AIProvider::class, function () {
             return match (config('skuggle.ai.provider')) {
                 'gemini' => new GeminiProvider,
@@ -108,6 +118,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('public-ai', fn (Request $request) => Limit::perMinute(3)->by($request->ip()));
 
         Gate::policy(Student::class, StudentPolicy::class);
+        Gate::policy(AdmissionApplication::class, AdmissionApplicationPolicy::class);
         Gate::policy(Assessment::class, AssessmentPolicy::class);
         Gate::policy(SchoolClass::class, AttendancePolicy::class);
         Gate::policy(LibraryResource::class, LibraryResourcePolicy::class);

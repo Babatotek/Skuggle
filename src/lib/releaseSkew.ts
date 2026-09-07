@@ -4,7 +4,10 @@ const RELOAD_KEY = 'skuggle-version-reload';
 
 export function frontendReleaseId(): string {
   const value = import.meta.env.VITE_BUILD_ID;
-  if (typeof value !== 'string' || value.length === 0 || value.startsWith('%')) {
+  // Vite assigns `dev` locally. There is no deployed release to reconcile in
+  // that mode, and Laravel may intentionally be running separately (or not at
+  // all), so avoid generating a noisy /version proxy failure.
+  if (typeof value !== 'string' || value.length === 0 || value === 'dev' || value.startsWith('%')) {
     return '';
   }
   return value;

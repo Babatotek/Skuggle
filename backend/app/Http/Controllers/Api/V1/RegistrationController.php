@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Domain\Identity\SchoolRoles;
 use App\Domain\Tenancy\TenantContext;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\RegisterIndividualRequest;
@@ -54,7 +55,7 @@ class RegistrationController extends Controller
                 'phone' => $request->string('phone')->toString(),
                 'password' => $request->string('password')->toString(),
             ]);
-            $role = Role::query()->where('name', 'school_admin')->firstOrFail();
+            $role = Role::query()->where('name', SchoolRoles::SCHOOL_SUPER_ADMIN)->firstOrFail();
             $membership = TenantMembership::query()->create(['tenant_id' => $tenant->getKey(), 'user_id' => $user->getKey(), 'role_id' => $role->getKey(), 'status' => 'active', 'joined_at' => now()]);
             $context->set($tenant, $membership->load('role.permissions', 'tenant'));
             Campus::query()->create(['name' => 'Main Campus', 'code' => 'MAIN', 'status' => 'active']);
@@ -196,7 +197,7 @@ class RegistrationController extends Controller
                     'email' => $email,
                 ]);
             }
-            if (in_array($roleName, ['teacher', 'bursar', 'principal', 'school_admin', 'examination_officer', 'admission_officer'], true)) {
+            if (in_array($roleName, ['teacher', 'bursar', 'principal', 'school_admin', 'school_super_admin', 'examination_officer', 'admission_officer'], true)) {
                 Employee::query()->create([
                     'user_id' => $user->getKey(),
                     'employee_number' => 'INV-'.Str::upper(Str::random(8)),

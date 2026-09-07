@@ -38,7 +38,7 @@ class EmailVerificationTest extends TestCase
 
     public function test_unverified_user_cannot_access_verified_routes(): void
     {
-        ['tenant' => $tenant, 'user' => $user] = $this->makeTenantUser('school_admin', [], [
+        ['tenant' => $tenant, 'user' => $user] = $this->makeTenantUser('school_super_admin', [], [
             'email_verified_at' => null,
         ]);
 
@@ -52,7 +52,7 @@ class EmailVerificationTest extends TestCase
     public function test_signed_verification_link_marks_email_verified(): void
     {
         Notification::fake();
-        ['user' => $user] = $this->makeTenantUser('school_admin', [], [
+        ['user' => $user] = $this->makeTenantUser('school_super_admin', [], [
             'email_verified_at' => null,
         ]);
 
@@ -91,7 +91,7 @@ class EmailVerificationTest extends TestCase
     {
         Notification::fake();
 
-        ['tenant' => $tenant, 'user' => $user] = $this->makeTenantUser('school_admin', [], [
+        ['tenant' => $tenant, 'user' => $user] = $this->makeTenantUser('school_super_admin', [], [
             'email_verified_at' => null,
         ]);
 
@@ -106,7 +106,7 @@ class EmailVerificationTest extends TestCase
     {
         Notification::fake();
 
-        ['user' => $user] = $this->makeTenantUser('school_admin', [], [
+        ['user' => $user] = $this->makeTenantUser('school_super_admin', [], [
             'email_verified_at' => null,
         ]);
 

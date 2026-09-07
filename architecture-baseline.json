@@ -1,0 +1,15 @@
+{
+  "permissionVocabulary": ["admissions.manage","ai.generate","assessment.create","assessments.view","attendance.create","attendance.view","audit.view","communication.send","finance.manage","finance.view","learning.manage","library.annotate","library.assign","library.create","library.export","library.insights","library.version.manage","library.view","operations.manage","platform.view","reports.export","reports.view","results.publish","results.view","roles.manage","scores.edit","security.manage","services.manage","settings.configure","students.create","students.edit","students.medical.edit","students.medical.view","students.view","users.manage"],
+  "genericStorageTypes": {
+    "backend/app/Http/Controllers/Api/V1/ModuleDataController.php": ["timetable","fee-structure"],
+    "backend/app/Domain/School/SchoolModuleCatalog.php": ["houses","facilities","calendar","admissions-applications","admissions-screening","admissions-decisions","admissions-letters","admissions-waiting","admissions-settings","scheme-of-work","lesson-plans","exam-scheduling","interventions","staff-attendance","absences","late-arrivals","biometrics","attendance-notifications","discounts","scholarships","payment-plans","expenses","reconciliation","email-campaigns","sms-campaigns","push-campaigns","virtual-classes","live-lessons","recorded-lessons","assignments","discussions","behaviour","discipline","welfare","counselling","transport","student-support","assets","inventory","approvals","documents","workflows","automation","integrations","security-settings","auth-policies","system-config"]
+  },
+  "legacyRoleAuthorization": [
+    {"file":"backend/app/Http/Controllers/Api/V1/AttendanceController.php","token":"role->name === 'teacher'","reason":"teacher assignment relationship restriction","owner":"IAM","wave":"4","review":"replace with capability plus assignment policy"},
+    {"file":"backend/app/Http/Controllers/Api/V1/DashboardController.php","token":"SchoolRoles::isSchoolSuperAdmin","reason":"legacy dashboard persona gate","owner":"IAM","wave":"4","review":"permission registry migration"},
+    {"file":"backend/app/Http/Controllers/Api/V1/TenantMembershipController.php","token":"SchoolRoles::isSchoolSuperAdmin","reason":"legacy protected role administration","owner":"IAM","wave":"5","review":"RoleAssignments administration migration"}
+  ],
+  "legacyUiDebt": [
+    {"file":"src/components/ui/MetricCard.tsx","rule":"CLICKABLE_DIV","reason":"legacy optional card interaction API","owner":"Design System","wave":"2","review":"replace with semantic interactive wrapper"}
+  ]
+}

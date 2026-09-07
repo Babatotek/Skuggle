@@ -19,8 +19,8 @@ export const getAccountModuleAccess = (
   const isPersonal = workspace.type === 'personal';
   const isSchool = workspace.type === 'school';
   const isPlatformOwner = workspace.type === 'platform' && role === 'Platform Owner';
-  const isSchoolAdmin = isSchool && role === 'School Admin';
-  const isSchoolBillingManager = isSchool && (role === 'School Admin' || role === 'Bursar');
+  const isSchoolAdmin = isSchool && (role === 'School Admin' || role === 'Super Admin');
+  const isSchoolBillingManager = isSchool && (role === 'School Admin' || role === 'Super Admin' || role === 'Bursar');
 
   return {
     launchBlueprint: isSchoolAdmin,

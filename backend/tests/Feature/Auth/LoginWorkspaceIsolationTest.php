@@ -24,7 +24,7 @@ class LoginWorkspaceIsolationTest extends TestCase
 
     public function test_school_code_opens_the_requested_demo_workspace(): void
     {
-        ['user' => $admin] = $this->makeTenantUser('school_admin', [
+        ['user' => $admin] = $this->makeTenantUser('school_super_admin', [
             'name' => 'DemoTenant',
             'slug' => 'demo-tenant',
             'code' => 'DEMO-TENANT',
@@ -45,7 +45,7 @@ class LoginWorkspaceIsolationTest extends TestCase
 
     public function test_real_school_admin_cannot_open_demo_tenant_with_school_code(): void
     {
-        ['user' => $realAdmin] = $this->makeTenantUser('school_admin', [
+        ['user' => $realAdmin] = $this->makeTenantUser('school_super_admin', [
             'name' => 'Fanimo Academy',
             'code' => 'FANIMO-ACAD',
         ], [
@@ -53,7 +53,7 @@ class LoginWorkspaceIsolationTest extends TestCase
             'password' => 'RealSchool!2026',
         ]);
 
-        $this->makeTenantUser('school_admin', [
+        $this->makeTenantUser('school_super_admin', [
             'name' => 'DemoTenant',
             'slug' => 'demo-tenant',
             'code' => 'DEMO-TENANT',
@@ -73,7 +73,7 @@ class LoginWorkspaceIsolationTest extends TestCase
 
     public function test_login_does_not_keep_the_previous_account_workspace(): void
     {
-        ['user' => $realAdmin] = $this->makeTenantUser('school_admin', [
+        ['user' => $realAdmin] = $this->makeTenantUser('school_super_admin', [
             'name' => 'Fanimo Academy',
             'code' => 'FANIMO-ACAD',
         ], [
@@ -81,7 +81,7 @@ class LoginWorkspaceIsolationTest extends TestCase
             'password' => 'RealSchool!2026',
         ]);
 
-        ['user' => $demoAdmin] = $this->makeTenantUser('school_admin', [
+        ['user' => $demoAdmin] = $this->makeTenantUser('school_super_admin', [
             'name' => 'DemoTenant',
             'slug' => 'demo-tenant',
             'code' => 'DEMO-TENANT',

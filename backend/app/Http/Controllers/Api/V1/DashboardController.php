@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Domain\Identity\SchoolRoles;
 use App\Domain\Tenancy\TenantContext;
 use App\Http\Controllers\Controller;
 use App\Models\Assessment;
 use App\Models\AttendanceRecord;
 use App\Models\ResultPublication;
 use App\Models\Student;
+use App\Services\SuperAdminDashboardService;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,10 +20,16 @@ class DashboardController extends Controller
 {
     public function show(string $experience, Request $request, TenantContext $context): JsonResponse
     {
-        abort_unless(in_array($experience, ['platform', 'leadership', 'operations', 'teacher', 'parent', 'student'], true), 404);
+        abort_unless(in_array($experience, ['platform', 'leadership', 'operations', 'teacher', 'parent', 'student', 'superadmin'], true), 404);
 
         if ($experience === 'platform') {
             return app(PlatformController::class)->overview();
+        }
+
+        if ($experience === 'superadmin') {
+            abort_unless(SchoolRoles::isSchoolSuperAdmin($context->membership()->role?->name), 403);
+
+            return ApiResponse::success(app(SuperAdminDashboardService::class)->assemble());
         }
 
         $cacheKey = "skuggle:v1:tenant:{$context->tenantId()}:dashboard:{$experience}";

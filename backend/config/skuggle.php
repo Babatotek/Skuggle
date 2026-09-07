@@ -1,6 +1,22 @@
 <?php
 
 return [
+    'iam' => [
+        'role_assignments' => [
+            'mode' => env('IAM_ROLE_ASSIGNMENTS_MODE', 'SHADOW'),
+            'canary_tenants' => array_values(array_filter(array_map('trim', explode(',', (string) env('IAM_ROLE_ASSIGNMENTS_CANARY_TENANTS', ''))))),
+        ],
+    ],
+    'tenant_context' => [
+        'version' => 2,
+        'mode' => env('TENANT_CONTEXT_V2_MODE', 'shadow'),
+        'canary_tenants' => array_values(array_filter(array_map('trim', explode(',', (string) env('TENANT_CONTEXT_V2_CANARY_TENANTS', ''))))),
+    ],
+    'authz' => [
+        'registry_version' => 1,
+        'mode' => env('AUTHZ_CANONICAL_PERMISSIONS_MODE', 'shadow'),
+        'canary_tenants' => array_values(array_filter(array_map('trim', explode(',', (string) env('AUTHZ_CANONICAL_PERMISSIONS_CANARY_TENANTS', ''))))),
+    ],
     'frontend_url' => env('FRONTEND_URL', 'http://127.0.0.1:3000'),
     /*
     | Seed the public DemoTenant + walkthrough logins. Local and testing always
@@ -59,6 +75,8 @@ return [
         'provider' => env('OCR_PROVIDER', 'none'),
         'timeout' => (int) env('OCR_TIMEOUT_SECONDS', 90),
         'review_threshold' => (float) env('OCR_REVIEW_THRESHOLD', 92),
+        'medium_threshold' => (float) env('OCR_MEDIUM_THRESHOLD', 75),
+        'low_threshold' => (float) env('OCR_LOW_THRESHOLD', 50),
     ],
     'messaging' => [
         'sms' => [

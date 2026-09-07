@@ -43,19 +43,7 @@ parameters:
 			path: app/Domain/Identity/SessionPresenter.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$label\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Domain/Identity/SessionPresenter.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 4
-			path: app/Domain/Identity/SessionPresenter.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$privileged\.$#'
 			identifier: property.notFound
 			count: 2
 			path: app/Domain/Identity/SessionPresenter.php
@@ -91,32 +79,20 @@ parameters:
 			path: app/Domain/Identity/SessionPresenter.php
 
 		-
-			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{tenantId\: mixed, tenantName\: mixed, tenantCode\: mixed, tenantType\: mixed, tenantStatus\: mixed, role\: mixed, roleLabel\: mixed, logoUrl\: mixed, current\: bool\}, Closure\(App\\Models\\TenantMembership\)\: array\{tenantId\: mixed, tenantName\: mixed, tenantCode\: mixed, tenantType\: mixed, tenantStatus\: mixed, role\: mixed, roleLabel\: mixed, logoUrl\: mixed, current\: bool\} given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Domain/Identity/SessionPresenter.php
-
-		-
-			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:filter\(\) expects \(callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: bool\)\|null, Closure\(App\\Models\\TenantMembership\)\: bool given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Domain/Identity/SessionPresenter.php
-
-		-
-			message: '#^Access to an undefined property App\\Models\\AcademicSession\:\:\$terms\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/Api/V1/AcademicSessionController.php
-
-		-
 			message: '#^Cannot call method toDateString\(\) on string\.$#'
 			identifier: method.nonObject
 			count: 4
 			path: app/Http/Controllers/Api/V1/AcademicSessionController.php
 
 		-
-			message: '#^Relation ''terms'' is not found in App\\Models\\AcademicSession model\.$#'
-			identifier: larastan.relationExistence
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Controllers/Api/V1/AcademicSessionController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{id\: string, name\: string, sequence\: int\<0, max\>, startsAt\: mixed, endsAt\: mixed, isCurrent\: bool\}, Closure\(App\\Models\\Term\)\: array\{id\: string, name\: string, sequence\: int\<0, max\>, startsAt\: mixed, endsAt\: mixed, isCurrent\: bool\} given\.$#'
+			identifier: argument.type
 			count: 1
 			path: app/Http/Controllers/Api/V1/AcademicSessionController.php
 
@@ -327,7 +303,7 @@ parameters:
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$tenant\.$#'
 			identifier: property.notFound
-			count: 3
+			count: 4
 			path: app/Http/Controllers/Api/V1/AuthController.php
 
 		-
@@ -424,6 +400,12 @@ parameters:
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
 			identifier: property.notFound
 			count: 1
+			path: app/Http/Controllers/Api/V1/DashboardController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
 			path: app/Http/Controllers/Api/V1/EmployeeController.php
 
 		-
@@ -475,6 +457,12 @@ parameters:
 			path: app/Http/Controllers/Api/V1/GoogleAuthController.php
 
 		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: string, Closure\(App\\Models\\Student\)\: string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Api/V1/GuardianController.php
+
+		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
 			identifier: property.notFound
 			count: 1
@@ -489,7 +477,7 @@ parameters:
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
 			identifier: property.notFound
-			count: 6
+			count: 7
 			path: app/Http/Controllers/Api/V1/InviteController.php
 
 		-
@@ -1183,6 +1171,66 @@ parameters:
 			path: app/Http/Controllers/Api/V1/ResultController.php
 
 		-
+			message: '#^Offset ''payload'' on array\{title\: string, status\: string, reference\?\: string\|null, payload\: array\<string, mixed\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Http/Controllers/Api/V1/SchoolModuleRecordController.php
+
+		-
+			message: '#^Offset ''status'' on array\{title\: string, status\: string, reference\?\: string\|null, payload\: array\<string, mixed\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Http/Controllers/Api/V1/SchoolModuleRecordController.php
+
+		-
+			message: '#^Offset ''title'' on array\{title\: string, status\: string, reference\?\: string\|null, payload\: array\<string, mixed\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Http/Controllers/Api/V1/SchoolModuleRecordController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$first_name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Api/V1/SchoolStructureController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$last_name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Api/V1/SchoolStructureController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 7
+			path: app/Http/Controllers/Api/V1/SchoolStructureController.php
+
+		-
+			message: '#^Cannot call method toDateString\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 4
+			path: app/Http/Controllers/Api/V1/SchoolStructureController.php
+
+		-
+			message: '#^Match arm comparison between ''terms'' and ''terms'' is always true\.$#'
+			identifier: match.alwaysTrue
+			count: 1
+			path: app/Http/Controllers/Api/V1/SchoolStructureController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\<string, mixed\>, Closure\(App\\Models\\Term\)\: array\<string, mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Api/V1/SchoolStructureController.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type string\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 4
+			path: app/Http/Controllers/Api/V1/SchoolStructureController.php
+
+		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$admission_number\.$#'
 			identifier: property.notFound
 			count: 1
@@ -1249,39 +1297,69 @@ parameters:
 			path: app/Http/Controllers/Api/V1/SmartmarkController.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email\.$#'
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$academicSession\.$#'
 			identifier: property.notFound
 			count: 1
+			path: app/Http/Controllers/Api/V1/StudentController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$admission_type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Api/V1/StudentController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$boarding_type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Api/V1/StudentController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email\.$#'
+			identifier: property.notFound
+			count: 2
 			path: app/Http/Controllers/Api/V1/StudentController.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
 			identifier: property.notFound
-			count: 2
+			count: 4
 			path: app/Http/Controllers/Api/V1/StudentController.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$phone\.$#'
 			identifier: property.notFound
-			count: 2
+			count: 3
 			path: app/Http/Controllers/Api/V1/StudentController.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$pivot\.$#'
 			identifier: property.notFound
-			count: 4
+			count: 5
 			path: app/Http/Controllers/Api/V1/StudentController.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$public_id\.$#'
 			identifier: property.notFound
-			count: 1
+			count: 2
 			path: app/Http/Controllers/Api/V1/StudentController.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$schoolClass\.$#'
 			identifier: property.notFound
-			count: 4
+			count: 8
+			path: app/Http/Controllers/Api/V1/StudentController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$student_category\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Api/V1/StudentController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$term\.$#'
+			identifier: property.notFound
+			count: 1
 			path: app/Http/Controllers/Api/V1/StudentController.php
 
 		-
@@ -1293,7 +1371,7 @@ parameters:
 		-
 			message: '#^Call to function is_array\(\) with string\|null will always evaluate to false\.$#'
 			identifier: function.impossibleType
-			count: 1
+			count: 2
 			path: app/Http/Controllers/Api/V1/StudentController.php
 
 		-
@@ -1351,6 +1429,12 @@ parameters:
 			path: app/Http/Controllers/Api/V1/StudentController.php
 
 		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\SchoolClass\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Controllers/Api/V1/StudentController.php
+
+		-
 			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
 			identifier: argument.unresolvableType
 			count: 2
@@ -1359,14 +1443,50 @@ parameters:
 		-
 			message: '#^Using nullsafe property access "\?\-\>arm" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
-			count: 1
+			count: 2
 			path: app/Http/Controllers/Api/V1/StudentController.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
-			count: 2
+			count: 3
 			path: app/Http/Controllers/Api/V1/StudentController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$document_type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Api/V1/StudentDocumentController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$public_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Api/V1/StudentDocumentController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$storage_key\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Api/V1/StudentDocumentController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\<string, mixed\>, Closure\(App\\Models\\StudentDocument\)\: array\<string, mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Api/V1/StudentDocumentController.php
+
+		-
+			message: '#^Parameter \#1 \$doc of method App\\Http\\Controllers\\Api\\V1\\StudentDocumentController\:\:present\(\) expects App\\Models\\StudentDocument, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Api/V1/StudentDocumentController.php
+
+		-
+			message: '#^Parameter \#1 \$medical of method App\\Http\\Controllers\\Api\\V1\\StudentMedicalController\:\:present\(\) expects App\\Models\\StudentMedicalInformation, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Api/V1/StudentMedicalController.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
@@ -1435,6 +1555,54 @@ parameters:
 			path: app/Http/Controllers/Api/V1/SyncController.php
 
 		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Api/V1/TenantMembershipController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$label\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Api/V1/TenantMembershipController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Http/Controllers/Api/V1/TenantMembershipController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$privileged\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Api/V1/TenantMembershipController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$public_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Api/V1/TenantMembershipController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Api/V1/TenantMembershipController.php
+
+		-
+			message: '#^Offset ''status'' on array\{status\: ''degraded'', message\: ''Cache read/write…''\}\|array\{status\: ''healthy''\}\|array\{status\: ''unhealthy'', error\: ''Cache operations…''\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Http/Controllers/HealthController.php
+
+		-
+			message: '#^Offset ''status'' on array\{status\: ''healthy''\}\|array\{status\: ''unhealthy'', error\: ''Cannot connect to…''\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Http/Controllers/HealthController.php
+
+		-
 			message: '#^Call to function is_numeric\(\) with null will always evaluate to false\.$#'
 			identifier: function.impossibleType
 			count: 1
@@ -1457,6 +1625,12 @@ parameters:
 			identifier: deadCode.unreachable
 			count: 1
 			path: app/Http/Middleware/EnforceTenantQuota.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Middleware/EnsureAccountModuleAccess.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$privileged\.$#'
@@ -1561,6 +1735,12 @@ parameters:
 			path: app/Models/TenantMembership.php
 
 		-
+			message: '#^Method App\\Notifications\\VerifyEmailNotification\:\:toMail\(\) should return Illuminate\\Notifications\\Messages\\MailMessage but returns App\\Mail\\SkuggleBrandedMail\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Notifications/VerifyEmailNotification.php
+
+		-
 			message: '#^Anonymous function never returns null so it can be removed from the return type\.$#'
 			identifier: return.unusedType
 			count: 1
@@ -1573,16 +1753,118 @@ parameters:
 			path: app/Providers/FortifyServiceProvider.php
 
 		-
-			message: '#^Call to function is_array\(\) with array\<string, mixed\> will always evaluate to true\.$#'
-			identifier: function.alreadyNarrowedType
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$schoolClass\.$#'
+			identifier: property.notFound
 			count: 1
-			path: app/Services/CustomFieldRegistry.php
+			path: app/Services/DuplicateStudentDetector.php
 
 		-
-			message: '#^Parameter \#1 \$array \(list\<array\{key\: non\-falsy\-string, label\: non\-empty\-string, type\: ''boolean''\|''date''\|''number''\|''select''\|''text'', required\: bool, section\: non\-falsy\-string, placeholder\: string, helpText\: string, showOnRegistration\: bool, \.\.\.\}\>\) of array_values is already a list, call has no effect\.$#'
+			message: '#^Cannot call method toDateString\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/DuplicateStudentDetector.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: string, Closure\(App\\Models\\Student\)\: string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/DuplicateStudentDetector.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$answer_type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/FormEngineService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$field_key\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/FormEngineService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Services/FormEngineService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$label\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/FormEngineService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$lock_level\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/FormEngineService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/FormEngineService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$section_key\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Services/FormEngineService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$source\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/FormEngineService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$template_key\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/FormEngineService.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<string, mixed\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 2
+			path: app/Services/FormEngineService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<array\{key\: mixed, label\: mixed, type\: string, required\: bool, section\: mixed, placeholder\: string, helpText\: string, showOnRegistration\: bool, \.\.\.\}\>\) of array_values is already a list, call has no effect\.$#'
 			identifier: arrayValues.list
 			count: 1
-			path: app/Services/CustomFieldRegistry.php
+			path: app/Services/FormEngineService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array, Closure\(App\\Models\\FormFieldPlacement\)\: array given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/FormEngineService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{id\: int, key\: string\|null, name\: string, sortOrder\: int\<0, max\>, isCustomizable\: bool, fields\: array\<int, array\>\}, Closure\(App\\Models\\FormSection\)\: array\{id\: int, key\: string\|null, name\: string, sortOrder\: int\<0, max\>, isCustomizable\: bool, fields\: array\<int, array\>\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/FormEngineService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/FormEngineService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>section_key" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/FormEngineService.php
+
+		-
+			message: '#^Using nullsafe property access on non\-nullable type Illuminate\\Http\\Request\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/FormEngineService.php
 
 		-
 			message: '#^Offset ''code'' on array\{code\: string, name\: string\} on left side of \?\? always exists and is not nullable\.$#'
@@ -1613,6 +1895,54 @@ parameters:
 			identifier: method.nonObject
 			count: 1
 			path: app/Services/LibraryResourcePresenter.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\AssessmentScore\:\:\$assessments\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/PerformanceService.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\AssessmentScore\:\:\$average_score\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Services/PerformanceService.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\AssessmentScore\:\:\$day\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/PerformanceService.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\AssessmentScore\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Services/PerformanceService.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\AssessmentScore\:\:\$scores\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/PerformanceService.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Student\:\:\$avg_score\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/PerformanceService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/PerformanceService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\AssessmentScore\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 3
+			path: app/Services/PerformanceService.php
 
 		-
 			message: '#^Method App\\Services\\PersonalWorkspaceProvisioner\:\:ensureFor\(\) should return App\\Models\\TenantMembership but returns Illuminate\\Database\\Eloquent\\Model\.$#'
@@ -1679,6 +2009,150 @@ parameters:
 			identifier: nullsafe.neverNull
 			count: 2
 			path: app/Services/ResultReportService.php
+
+		-
+			message: '#^Method App\\Services\\StudentImportService\:\:parseAndValidate\(\) should return array\{validRows\: list\<array\<string, string\>\>, errors\: list\<array\{row\: int, field\: string, message\: string\}\>\} but returns array\{validRows\: list\<array\{first_name\?\: string, last_name\?\: string, gender\?\: string, date_of_birth\?\: string, admission_date\?\: string, class_name\?\: string, guardian_name\?\: string, guardian_phone\?\: string, \.\.\.\}\>, errors\: list\}\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/StudentImportService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$academicSession\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/StudentProfileSheetService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$admission_type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/StudentProfileSheetService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/StudentProfileSheetService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/StudentProfileSheetService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$phone\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/StudentProfileSheetService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$pivot\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/StudentProfileSheetService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$schoolClass\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/StudentProfileSheetService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$student_category\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/StudentProfileSheetService.php
+
+		-
+			message: '#^Call to function is_array\(\) with string\|null will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: app/Services/StudentProfileSheetService.php
+
+		-
+			message: '#^Cannot call method format\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: app/Services/StudentProfileSheetService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>admission_type" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/StudentProfileSheetService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>arm" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/StudentProfileSheetService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>email" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/StudentProfileSheetService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 4
+			path: app/Services/StudentProfileSheetService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>phone" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/StudentProfileSheetService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>relationship" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/StudentProfileSheetService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>student_category" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/StudentProfileSheetService.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\AssessmentScore\:\:\$arm\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/SuperAdminDashboardService.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\AssessmentScore\:\:\$average_score\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/SuperAdminDashboardService.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\AssessmentScore\:\:\$class_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/SuperAdminDashboardService.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\AssessmentScore\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/SuperAdminDashboardService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/SuperAdminDashboardService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\AssessmentScore\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/SuperAdminDashboardService.php
 
 		-
 			message: '#^Call to function method_exists\(\) with Illuminate\\Filesystem\\FilesystemAdapter and ''temporaryUrl'' will always evaluate to true\.$#'

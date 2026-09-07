@@ -76,6 +76,7 @@ class LookupCacheServiceTest extends TestCase
         // Switch to tenant 99
         $tenant99 = new Tenant;
         $tenant99->forceFill(['id' => 99]);
+        $this->context->clear();
         $this->context->setPublicTenant($tenant99);
         $service99 = new LookupCacheService($this->context);
 

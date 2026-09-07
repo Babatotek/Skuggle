@@ -40,7 +40,7 @@ interface LoginResponse {
 
 function toUserRole(role: string): UserRole {
   const roles: Record<string, UserRole> = {
-    school_admin: 'School Admin', principal: 'Principal', teacher: 'Teacher',
+    school_super_admin: 'Super Admin', school_admin: 'School Admin', principal: 'Principal', teacher: 'Teacher',
     parent: 'Parent', student: 'Student', platform_owner: 'Platform Owner',
   };
   return roles[role.trim().toLowerCase().replace(/[ -]+/g, '_')] || 'Student';
@@ -128,7 +128,6 @@ export const TenantWelcome: React.FC<TenantWelcomeProps> = ({
       }
       const role = toUserRole(response.data.user.role);
       localStorage.setItem('skuggle_authenticated', '1');
-      window.dispatchEvent(new Event('skuggle:authenticated'));
       showToast('Authentication successful', `Welcome to ${displaySchoolName}!`);
       onAuthenticated?.(role);
     } catch (error) {

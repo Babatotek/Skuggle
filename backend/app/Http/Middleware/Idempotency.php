@@ -7,6 +7,7 @@ use App\Models\IdempotencyKey;
 use App\Support\ApiResponse;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -29,7 +30,7 @@ final class Idempotency
 
         $tenantId = $this->context->hasTenant() ? $this->context->tenantId() : null;
         $userId = $request->user()?->getKey();
-        $hash = hash('sha256', $request->method().'|'.$request->path().'|'.json_encode($request->all(), JSON_THROW_ON_ERROR));
+        $hash = hash('sha256', $request->method().'|'.$request->path().'|'.json_encode($this->hashableInput($request->all()), JSON_THROW_ON_ERROR));
         $lockKey = sprintf('skuggle:v1:idempotency:%s:%s:%s', $tenantId ?? 'global', $userId ?? hash('sha256', $request->ip()), $key);
 
         $process = function () use ($request, $next, $key, $hash, $tenantId, $userId): Response {
@@ -91,5 +92,22 @@ final class Idempotency
         } catch (\Throwable) {
             return $process();
         }
+    }
+
+    private function hashableInput(mixed $value): mixed
+    {
+        if ($value instanceof UploadedFile) {
+            return [
+                'name' => $value->getClientOriginalName(),
+                'size' => $value->getSize(),
+                'mime' => $value->getMimeType(),
+                'sha256' => hash_file('sha256', $value->getRealPath()),
+            ];
+        }
+        if (is_array($value)) {
+            return array_map(fn (mixed $item): mixed => $this->hashableInput($item), $value);
+        }
+
+        return $value;
     }
 }

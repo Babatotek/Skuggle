@@ -28,6 +28,6 @@ class Guardian extends Model
 
     public function students(): BelongsToMany
     {
-        return $this->belongsToMany(Student::class, 'student_guardians')->withPivot(['relationship', 'preferred_contact', 'billing_responsible', 'authorized_pickup'])->withTimestamps();
+        return $this->belongsToMany(Student::class, 'student_guardians')->withPivot(['relationship', 'preferred_contact', 'billing_responsible', 'authorized_pickup', 'lives_with_student'])->withTimestamps();
     }
 }

@@ -46,7 +46,7 @@ interface MfaConfirmResponse {
 
 function toUserRole(role: string): UserRole {
   const roles: Record<string, UserRole> = {
-    school_admin: 'School Admin', principal: 'Principal', teacher: 'Teacher',
+    school_super_admin: 'Super Admin', school_admin: 'School Admin', principal: 'Principal', teacher: 'Teacher',
     parent: 'Parent', student: 'Student', platform_owner: 'Platform Owner',
   };
   return roles[role.trim().toLowerCase().replace(/[ -]+/g, '_')] || 'Student';
@@ -106,7 +106,6 @@ export const TenantLogin: React.FC<TenantLoginProps> = ({
         setMfaSetupKey(setup.data.setupKey);
         return;
       }
-      window.dispatchEvent(new Event('skuggle:authenticated'));
       onSuccess(authenticatedRole);
     } catch (error) {
       setLoginError(error instanceof ApiError ? error.message : 'Sign in could not be completed. Please try again.');
@@ -135,7 +134,6 @@ export const TenantLogin: React.FC<TenantLoginProps> = ({
   };
 
   const finishMfaEnrollment = () => {
-    window.dispatchEvent(new Event('skuggle:authenticated'));
     onSuccess(pendingRole);
   };
 
@@ -334,6 +332,8 @@ export const TenantLogin: React.FC<TenantLoginProps> = ({
                   <div className="relative">
                     <input
                       type="password"
+                      name="school-password"
+                      autoComplete="current-password"
                       value={schoolPassword}
                       onChange={(e) => setSchoolPassword(e.target.value)}
                       className="w-full text-xs sm:text-sm px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-slate-50"
@@ -463,6 +463,8 @@ export const TenantLogin: React.FC<TenantLoginProps> = ({
                   <div className="relative">
                     <input
                       type="password"
+                      name="personal-password"
+                      autoComplete="current-password"
                       value={personalPassword}
                       onChange={(e) => setPersonalPassword(e.target.value)}
                       className="w-full text-xs sm:text-sm px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-purple-500 focus:outline-none bg-slate-50"

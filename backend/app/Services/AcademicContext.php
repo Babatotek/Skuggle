@@ -11,8 +11,8 @@ final class AcademicContext
 {
     public function resolve(Request $request): array
     {
-        $sessionPublicId = $request->session()->get('academic_session_public_id');
-        $termPublicId = $request->session()->get('term_public_id');
+        $sessionPublicId = $request->hasSession() ? $request->session()->get('academic_session_public_id') : null;
+        $termPublicId = $request->hasSession() ? $request->session()->get('term_public_id') : null;
         $session = AcademicSession::query()->when($sessionPublicId, fn ($query) => $query->where('public_id', $sessionPublicId), fn ($query) => $query->where('is_current', true))->first();
         $term = Term::query()->when($termPublicId, fn ($query) => $query->where('public_id', $termPublicId), fn ($query) => $query->where('is_current', true))->first();
         if (! $session || ! $term || $term->academic_session_id !== $session->getKey()) {

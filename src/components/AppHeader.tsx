@@ -35,6 +35,7 @@ import { SchoolGuidedSetupModal } from '../features/onboarding/SchoolGuidedSetup
 import { notificationSoundEnabled, setNotificationSoundEnabled } from '../lib/notificationAudio';
 import { SecuritySettingsModal } from '../features/security/SecuritySettingsModal';
 import { apiRequest } from '../lib/apiClient';
+import { tabMeta } from '../lib/navigation';
 
 interface HeaderNotification {
   id: string;
@@ -58,6 +59,7 @@ interface AppHeaderProps {
   isSidebarCollapsed?: boolean;
   onToggleSidebarCollapse?: () => void;
   onLogout?: () => void;
+  onOpenCommandPalette?: () => void;
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
@@ -70,6 +72,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   isSidebarCollapsed,
   onToggleSidebarCollapse,
   onLogout,
+  onOpenCommandPalette,
 }) => {
   const {
     currentUser,
@@ -123,52 +126,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const unreadCount = notifications.filter((item) => !item.read).length;
 
   // Tab Title & Breadcrumbs Helper
-  const getTabInfo = (tabId: string) => {
-    switch (tabId) {
-      case 'home':
-        return { title: 'Dashboard Overview', category: 'Overview' };
-      case 'students':
-        return { title: 'Students Registry', category: 'Academics' };
-      case 'academics':
-        return { title: 'Curriculum & Classes', category: 'Academics' };
-      case 'report-cards':
-        return { title: 'Report Card Generator', category: 'Reports' };
-      case 'attendance':
-        return { title: 'Attendance Register', category: 'Daily Operations' };
-      case 'timetable':
-        return { title: 'Timetable & Schedules', category: 'Academics' };
-      case 'cbt':
-        return { title: 'CBT Quiz Engine', category: 'Evaluation' };
-      case 'broadcasts':
-        return { title: 'Broadcast Center', category: 'Communications' };
-      case 'finance':
-        return { title: 'Fee Structure & Billing', category: 'Finance' };
-      case 'people':
-      case 'staff':
-        return { title: 'Staff & Invitations', category: 'Administration' };
-      case 'assessments':
-        return { title: 'Assessment Studio', category: 'Continuous Assessment' };
-      case 'results':
-        return { title: 'Results & PIN Management', category: 'Examination' };
-      case 'branding':
-        return { title: 'School Branding Studio', category: 'Customization' };
-      case 'smartmark':
-        return { title: 'SmartMark OCR Scanner', category: 'Teacher AI' };
-      case 'teacher-ai':
-      case 'lessons':
-        return { title: 'AI Lesson Planner', category: 'Teacher AI' };
-      case 'schools':
-        return { title: 'Tenant Schools Portfolio', category: 'Platform' };
-      case 'health':
-        return { title: 'System Diagnostics & Health', category: 'Platform' };
-      case 'governance':
-        return { title: 'Audit Logs & Governance', category: 'Security' };
-      default:
-        return { title: 'Workspace', category: 'School' };
-    }
-  };
-
-  const tabInfo = getTabInfo(activeTab);
+  const tabInfo = tabMeta(activeTab);
 
   return (
     <>
@@ -203,7 +161,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           </div>
         )}
 
-        <div className="px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 gap-4">
             {/* Left: Mobile Toggle / Desktop Collapse Toggle & Page Breadcrumbs */}
             <div className="flex items-center gap-3">
@@ -215,6 +173,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 title="Open Sidebar Menu"
               >
                 <Menu className="w-5 h-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onOpenCommandPalette?.()}
+                className="md:hidden p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl"
+                title="Jump to a section"
+              >
+                <Search className="w-5 h-5" />
               </button>
 
               {/* Desktop Sidebar Collapse / Expand Toggle */}
@@ -234,9 +200,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               )}
 
               {/* Breadcrumbs & Active Title */}
-              <div className="flex flex-col">
+              <nav className="flex flex-col min-w-0" aria-label="Breadcrumb">
                 <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
-                  <span className="hidden sm:inline">
+                  <span className="hidden sm:inline truncate max-w-[140px]">
                     {currentWorkspace.type === 'school'
                       ? branding.schoolName
                       : currentRole === 'Teacher'
@@ -246,12 +212,18 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                           : 'Personal Learning Space'}
                   </span>
                   <span className="hidden sm:inline">/</span>
-                  <span className="text-slate-600 font-semibold">{tabInfo.category}</span>
+                  <span className="text-slate-500">{tabInfo.category}</span>
+                  {tabInfo.module !== tabInfo.title && (
+                    <>
+                      <span>/</span>
+                      <span className="text-slate-600">{tabInfo.module}</span>
+                    </>
+                  )}
                 </div>
-                <h1 className="font-display font-bold text-slate-900 text-base sm:text-lg leading-tight tracking-tight">
+                <p className="font-display font-semibold text-slate-900 text-sm leading-tight tracking-tight truncate">
                   {tabInfo.title}
-                </h1>
-              </div>
+                </p>
+              </nav>
             </div>
 
             {/* Middle: Quick Search Input Placeholder */}
@@ -260,8 +232,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
+                  readOnly
                   placeholder="Search students, subjects, reports..."
-                  className="w-full pl-9 pr-8 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
+                  onFocus={() => onOpenCommandPalette?.()}
+                  onClick={() => onOpenCommandPalette?.()}
+                  className="w-full pl-9 pr-8 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer"
                 />
                 <kbd className="hidden sm:inline-block absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200 shadow-2xs">
                   ⌘K
@@ -349,7 +324,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                     </div>
 
                     <div className="p-1.5 space-y-0.5">
-                      {currentRole === 'School Admin' && <button type="button" onClick={() => { setIsProfileMenuOpen(false); setIsSecurityModalOpen(true); }} className="w-full px-3 py-2 text-xs text-left text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2"><Shield className="w-4 h-4 text-indigo-600" /><span>Security & MFA policy</span></button>}
+                      {(currentRole === 'School Admin' || currentRole === 'Super Admin') && <button type="button" onClick={() => { setIsProfileMenuOpen(false); setIsSecurityModalOpen(true); }} className="w-full px-3 py-2 text-xs text-left text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2"><Shield className="w-4 h-4 text-indigo-600" /><span>Security & MFA policy</span></button>}
                       {moduleAccess.launchBlueprint && <button
                         type="button"
                         onClick={() => {

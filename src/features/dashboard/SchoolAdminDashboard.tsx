@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import {
   Building2,
   Users,
@@ -11,13 +10,7 @@ import {
   Calendar,
   Sparkles,
   ArrowRight,
-  ArrowUpRight,
-  ShieldCheck,
   ChevronRight,
-  ChevronDown,
-  ChevronUp,
-  Clock,
-  PlusCircle,
   UserPlus,
   BookOpen,
   BarChart3,
@@ -32,15 +25,24 @@ import { useApp } from '../../context/AppContext';
 import { SkuggleAIBuddy } from '../../components/SkuggleAIBuddy';
 import { CollapsibleCard } from '../../components/CollapsibleCard';
 import { AcademicAndTeacherAnalytics } from './AcademicAndTeacherAnalytics';
+import { Button, StatusBadge, MetricCard, Modal } from '../../components/ui';
 
 interface SchoolAdminDashboardProps {
   onNavigateTab: (tab: string) => void;
 }
 
 export const SchoolAdminDashboard: React.FC<SchoolAdminDashboardProps> = ({ onNavigateTab }) => {
-  const { branding, students = [], staff = [], checklistItems = [], toggleChecklistItem, assessments = [], feeTransactions = [], showToast } = useApp();
+  const {
+    branding,
+    students = [],
+    staff = [],
+    checklistItems = [],
+    toggleChecklistItem,
+    assessments = [],
+    feeTransactions = [],
+    showToast,
+  } = useApp();
 
-  const [isLaunchpadOpen, setIsLaunchpadOpen] = useState(true);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
 
   const safeChecklist = checklistItems || [];
@@ -50,7 +52,7 @@ export const SchoolAdminDashboard: React.FC<SchoolAdminDashboardProps> = ({ onNa
   const totalStudents = (students || []).length;
   const totalStaff = (staff || []).length;
   const avgAttendance = Math.round(
-    (students || []).reduce((acc, s) => acc + (s.attendanceRate || 0), 0) / ((students || []).length || 1)
+    (students || []).reduce((acc, s) => acc + (s.attendanceRate || 0), 0) / ((students || []).length || 1),
   );
   const totalFeeCollected = (feeTransactions || []).reduce((sum, tx) => sum + (tx.amount || 0), 0);
 
@@ -62,7 +64,7 @@ export const SchoolAdminDashboard: React.FC<SchoolAdminDashboardProps> = ({ onNa
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/30 text-indigo-200 border border-indigo-400/30">
-                School Administrator Workspace
+                School Administrative Officer Workspace
               </span>
               <span className="text-xs text-slate-300 font-mono">
                 {branding.academicSession} · {branding.currentTerm}
@@ -77,19 +79,23 @@ export const SchoolAdminDashboard: React.FC<SchoolAdminDashboardProps> = ({ onNa
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => onNavigateTab('branding')}
-              className="px-3.5 py-2 text-xs font-bold text-indigo-900 bg-white hover:bg-slate-100 rounded-xl transition-colors shadow-xs"
+          <div className="flex flex-wrap gap-2.5">
+            <Button
+              variant="outline"
+              size="sm"
+              className="bg-white text-indigo-950 hover:bg-slate-100"
+              onClick={() => onNavigateTab('students')}
             >
-              School Branding
-            </button>
-            <button
-              onClick={() => onNavigateTab('results')}
-              className="px-3.5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors shadow-xs"
+              Student Registry
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              className="bg-indigo-600 hover:bg-indigo-700"
+              onClick={() => onNavigateTab('attendance')}
             >
-              Issue Result PINs
-            </button>
+              Daily Attendance
+            </Button>
           </div>
         </div>
       </div>
@@ -100,72 +106,47 @@ export const SchoolAdminDashboard: React.FC<SchoolAdminDashboardProps> = ({ onNa
         contextHint="Administrator assistance: I can draft new-term circulars, check unassigned subjects, or summarize your fee collections."
       />
 
-      {/* KPI Metric Cards — Placed immediately after Skuggle AI Buddy */}
+      {/* KPI Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-indigo-200 transition-colors">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Enrolled</span>
-            <div className="p-2 bg-indigo-50 text-indigo-700 rounded-xl">
-              <Users className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="font-display font-extrabold text-2xl text-slate-900">{totalStudents}</span>
-          </div>
-          <p className="text-[11px] text-slate-500 mt-1">Active enrolled students</p>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-emerald-200 transition-colors">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Avg Attendance</span>
-            <div className="p-2 bg-emerald-50 text-emerald-700 rounded-xl">
-              <TrendingUp className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="font-display font-extrabold text-2xl text-slate-900">{avgAttendance}%</span>
-            <span className={`text-xs font-semibold ${avgAttendance >= 75 ? 'text-emerald-700' : 'text-amber-600'}`}>
-              {avgAttendance >= 90 ? 'Excellent' : avgAttendance >= 75 ? 'Good' : 'Needs attention'}
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-500 mt-1">Average across all active students</p>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-purple-200 transition-colors">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Staff</span>
-            <div className="p-2 bg-purple-50 text-purple-700 rounded-xl">
-              <GraduationCap className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="font-display font-extrabold text-2xl text-slate-900">{totalStaff}</span>
-            <span className="text-xs font-semibold text-slate-600">All active</span>
-          </div>
-          <p className="text-[11px] text-slate-500 mt-1">Teachers & Form Masters</p>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-amber-200 transition-colors">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Fee Collection</span>
-            <div className="p-2 bg-amber-50 text-amber-700 rounded-xl">
-              <CreditCard className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="font-display font-extrabold text-2xl text-slate-900">
-              ₦{totalFeeCollected >= 1_000_000
-                ? `${(totalFeeCollected / 1_000_000).toFixed(2)}M`
-                : totalFeeCollected >= 1_000
-                ? `${(totalFeeCollected / 1_000).toFixed(0)}K`
-                : totalFeeCollected.toLocaleString()}
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-500 mt-1">Tuition, ICT & Lab levies collected</p>
-        </div>
+        <MetricCard
+          label="Total Enrolled"
+          value={totalStudents}
+          icon={<Users className="w-5 h-5" />}
+          variant="primary"
+          subtitle="Active enrolled students"
+          onClick={() => onNavigateTab('students')}
+        />
+        <MetricCard
+          label="Avg Attendance"
+          value={`${avgAttendance}%`}
+          icon={<TrendingUp className="w-5 h-5" />}
+          variant={avgAttendance >= 75 ? 'success' : 'warning'}
+          subtitle={avgAttendance >= 90 ? 'Excellent cohort rate' : 'Needs attention'}
+          onClick={() => onNavigateTab('attendance')}
+        />
+        <MetricCard
+          label="Active Faculty"
+          value={totalStaff}
+          icon={<GraduationCap className="w-5 h-5" />}
+          variant="default"
+          subtitle="Teachers & Form Masters"
+          onClick={() => onNavigateTab('staff')}
+        />
+        <MetricCard
+          label="Fee Collections"
+          value={
+            totalFeeCollected >= 1_000_000
+              ? `₦${(totalFeeCollected / 1_000_000).toFixed(2)}M`
+              : `₦${totalFeeCollected.toLocaleString()}`
+          }
+          icon={<CreditCard className="w-5 h-5" />}
+          variant="success"
+          subtitle="Cleared levies & tuition"
+          onClick={() => onNavigateTab('finance')}
+        />
       </div>
 
-      {/* Academic & Faculty Analytics Matrix — Bar Card */}
+      {/* Academic & Faculty Analytics Matrix Banner */}
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-5 sm:p-6 text-white border border-indigo-900/60 shadow-md transition-all hover:border-indigo-700/80">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
           <div className="flex items-start sm:items-center gap-3.5">
@@ -191,7 +172,6 @@ export const SchoolAdminDashboard: React.FC<SchoolAdminDashboardProps> = ({ onNa
             </div>
           </div>
 
-          {/* Quick Metrics Strip & View Details Trigger */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="hidden sm:flex items-center gap-4 bg-slate-800/80 px-4 py-2 rounded-2xl border border-slate-700/60 text-xs">
               <div>
@@ -210,19 +190,21 @@ export const SchoolAdminDashboard: React.FC<SchoolAdminDashboardProps> = ({ onNa
               </div>
             </div>
 
-            <button
+            <Button
+              variant="outline"
+              size="md"
+              leftIcon={<Maximize2 className="w-4 h-4 text-indigo-600" />}
+              rightIcon={<ArrowRight className="w-3.5 h-3.5 text-slate-400" />}
+              className="bg-white text-slate-900 hover:bg-slate-100"
               onClick={() => setShowAnalyticsModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-slate-900 bg-white hover:bg-slate-100 rounded-xl transition-all shadow-xs cursor-pointer select-none"
             >
-              <Maximize2 className="w-4 h-4 text-indigo-600" />
-              <span>View Full Analytics Matrix & Diagnostics</span>
-              <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
-            </button>
+              View Full Matrix
+            </Button>
           </div>
         </div>
       </div>
 
-      {/* School Operational Launch Checklist using CollapsibleCard */}
+      {/* School Operational Launch Checklist */}
       <CollapsibleCard
         id="school-launch-checklist-card"
         title="School Operational Launch Checklist"
@@ -252,7 +234,6 @@ export const SchoolAdminDashboard: React.FC<SchoolAdminDashboardProps> = ({ onNa
 
               return (
                 <div key={item.id} className="relative group">
-                  {/* Stepper Node Icon */}
                   <button
                     type="button"
                     onClick={() => toggleChecklistItem(item.id)}
@@ -266,7 +247,6 @@ export const SchoolAdminDashboard: React.FC<SchoolAdminDashboardProps> = ({ onNa
                     {isDone ? <Check className="w-4 h-4 stroke-[3]" /> : stepNum}
                   </button>
 
-                  {/* Step Card */}
                   <div
                     className={`p-4 sm:p-5 rounded-2xl border transition-all ${
                       isDone
@@ -285,15 +265,10 @@ export const SchoolAdminDashboard: React.FC<SchoolAdminDashboardProps> = ({ onNa
                               Required for Launch
                             </span>
                           )}
-                          <span
-                            className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                              isDone
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : 'bg-slate-200 text-slate-700'
-                            }`}
-                          >
-                            {isDone ? 'Completed' : 'Pending'}
-                          </span>
+                          <StatusBadge
+                            status={isDone ? 'Completed' : 'Pending'}
+                            variant={isDone ? 'success' : 'neutral'}
+                          />
                         </div>
 
                         <h4
@@ -308,48 +283,44 @@ export const SchoolAdminDashboard: React.FC<SchoolAdminDashboardProps> = ({ onNa
                         </p>
                       </div>
 
-                      {/* Action Buttons */}
                       <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0">
                         {item.id === 'step-branding' && (
-                          <button
-                            type="button"
+                          <Button
+                            variant="subtle"
+                            size="xs"
                             onClick={() => onNavigateTab('branding')}
-                            className="px-3 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors cursor-pointer"
                           >
                             Configure
-                          </button>
+                          </Button>
                         )}
                         {item.id === 'step-students' && (
-                          <button
-                            type="button"
+                          <Button
+                            variant="subtle"
+                            size="xs"
                             onClick={() => onNavigateTab('students')}
-                            className="px-3 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors cursor-pointer"
                           >
                             Enroll
-                          </button>
+                          </Button>
                         )}
                         {item.id === 'step-academics' && (
-                          <button
-                            type="button"
+                          <Button
+                            variant="subtle"
+                            size="xs"
                             onClick={() => onNavigateTab('academics')}
-                            className="px-3 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors cursor-pointer"
                           >
                             Curriculum
-                          </button>
+                          </Button>
                         )}
 
-                        <button
-                          type="button"
+                        <Button
+                          variant={isDone ? 'primary' : 'outline'}
+                          size="xs"
+                          leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
                           onClick={() => toggleChecklistItem(item.id)}
-                          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                            isDone
-                              ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-2xs'
-                              : 'bg-white border border-slate-300 text-slate-700 hover:border-indigo-500 hover:text-indigo-600'
-                          }`}
+                          className={isDone ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}
                         >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>{isDone ? 'Mark Done' : 'Mark as Done'}</span>
-                        </button>
+                          {isDone ? 'Done' : 'Mark Done'}
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -360,15 +331,14 @@ export const SchoolAdminDashboard: React.FC<SchoolAdminDashboardProps> = ({ onNa
         </div>
       </CollapsibleCard>
 
-      {/* Quick Access Grid: Frequent Actions & Active Assessment Status */}
+      {/* Quick Access & Active Assessments Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Quick Actions */}
-        <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-3">
-          <h3 className="font-display font-bold text-base text-slate-900 mb-2">Frequent Actions</h3>
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs space-y-3">
+          <h3 className="font-display font-bold text-base text-slate-900 mb-1">Frequent Shortcuts</h3>
 
-          <button
+          <div
             onClick={() => onNavigateTab('students')}
-            className="w-full p-3 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40 text-left transition-colors flex items-center justify-between cursor-pointer"
+            className="p-3.5 rounded-xl border border-slate-200/80 hover:border-indigo-300 hover:bg-indigo-50/40 text-left transition-colors flex items-center justify-between cursor-pointer"
           >
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-indigo-50 text-indigo-700">
@@ -380,60 +350,62 @@ export const SchoolAdminDashboard: React.FC<SchoolAdminDashboardProps> = ({ onNa
               </div>
             </div>
             <ChevronRight className="w-4 h-4 text-slate-400" />
-          </button>
+          </div>
 
-          <button
+          <div
             onClick={() => onNavigateTab('academics')}
-            className="w-full p-3 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40 text-left transition-colors flex items-center justify-between cursor-pointer"
+            className="p-3.5 rounded-xl border border-slate-200/80 hover:border-indigo-300 hover:bg-indigo-50/40 text-left transition-colors flex items-center justify-between cursor-pointer"
           >
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-purple-50 text-purple-700">
                 <BookOpen className="w-4 h-4" />
               </div>
               <div>
-                <span className="text-xs font-bold text-slate-900 block">Academic Curriculum & Subjects</span>
-                <span className="text-[11px] text-slate-500">NERDC Subject allocations & weightings</span>
+                <span className="text-xs font-bold text-slate-900 block">Academic Curriculum</span>
+                <span className="text-[11px] text-slate-500">NERDC Subject allocations & schemes</span>
               </div>
             </div>
             <ChevronRight className="w-4 h-4 text-slate-400" />
-          </button>
+          </div>
 
-          <button
+          <div
             onClick={() => onNavigateTab('attendance')}
-            className="w-full p-3 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40 text-left transition-colors flex items-center justify-between cursor-pointer"
+            className="p-3.5 rounded-xl border border-slate-200/80 hover:border-indigo-300 hover:bg-indigo-50/40 text-left transition-colors flex items-center justify-between cursor-pointer"
           >
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-emerald-50 text-emerald-700">
                 <Calendar className="w-4 h-4" />
               </div>
               <div>
-                <span className="text-xs font-bold text-slate-900 block">Attendance & Daily Roll</span>
-                <span className="text-[11px] text-slate-500">1-Tap roll call & daily trends tab</span>
+                <span className="text-xs font-bold text-slate-900 block">Daily Attendance Roll</span>
+                <span className="text-[11px] text-slate-500">1-Tap roll call & trend charts</span>
               </div>
             </div>
             <ChevronRight className="w-4 h-4 text-slate-400" />
-          </button>
+          </div>
         </div>
 
-        {/* Right: Academic Status Overview */}
-        <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-200 p-6 shadow-xs">
+        {/* Active Assessment Status */}
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display font-bold text-base text-slate-900">
               Active Assessment Status ({branding.currentTerm})
             </h3>
-            <button
+            <Button
+              variant="ghost"
+              size="xs"
+              rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
               onClick={() => onNavigateTab('assessments')}
-              className="text-xs font-bold text-indigo-700 hover:underline cursor-pointer"
             >
-              View All Score Sheets →
-            </button>
+              View Score Sheets
+            </Button>
           </div>
 
           <div className="space-y-3">
             {assessments.map((asm) => (
               <div
                 key={asm.id}
-                className="p-3.5 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50"
+                className="p-3.5 rounded-xl border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50 hover:bg-slate-50 transition-colors"
               >
                 <div>
                   <div className="flex items-center gap-2">
@@ -448,27 +420,23 @@ export const SchoolAdminDashboard: React.FC<SchoolAdminDashboardProps> = ({ onNa
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <span
-                    className={`px-2.5 py-1 text-xs font-bold rounded-full ${
+                  <StatusBadge
+                    status={
                       asm.status === 'Approved'
-                        ? 'bg-emerald-100 text-emerald-800'
+                        ? 'Approved & Locked'
                         : asm.status === 'Submitted'
-                        ? 'bg-indigo-100 text-indigo-800'
-                        : 'bg-amber-100 text-amber-800'
-                    }`}
-                  >
-                    {asm.status === 'Approved'
-                      ? 'Approved & Locked'
-                      : asm.status === 'Submitted'
-                      ? 'Submitted for Review'
-                      : 'Draft In Progress'}
-                  </span>
-                  <button
+                        ? 'Submitted for Review'
+                        : 'Draft In Progress'
+                    }
+                    variant={asm.status === 'Approved' ? 'success' : asm.status === 'Submitted' ? 'info' : 'warning'}
+                  />
+                  <Button
+                    variant="outline"
+                    size="xs"
                     onClick={() => onNavigateTab('assessments')}
-                    className="text-xs font-bold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 px-3 py-1 rounded-lg cursor-pointer"
                   >
                     Review
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -476,63 +444,34 @@ export const SchoolAdminDashboard: React.FC<SchoolAdminDashboardProps> = ({ onNa
         </div>
       </div>
 
-      {/* Wide Modal for Academic & Faculty Analytics Matrix */}
-      {showAnalyticsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/70 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-7xl w-full max-h-[92vh] flex flex-col overflow-hidden relative">
-            {/* Modal Header */}
-            <div className="p-4 sm:p-6 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-2xl bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
-                  <BarChart3 className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-display font-bold text-lg text-white">
-                      Academic & Faculty Analytics Matrix
-                    </h3>
-                    <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                      Live Diagnostics
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-400">
-                    Comprehensive cross-sectional examination of student cohorts, subject mastery, and educator pacing.
-                  </p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setShowAnalyticsModal(false)}
-                className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors cursor-pointer"
-                title="Close Modal"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-4 sm:p-6 overflow-y-auto space-y-6 bg-slate-50/50">
-              <AcademicAndTeacherAnalytics
-                onNavigateTab={(tab) => {
-                  setShowAnalyticsModal(false);
-                  onNavigateTab(tab);
-                }}
-              />
-            </div>
-
-            {/* Modal Footer */}
-            <div className="p-4 bg-white border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 shrink-0">
-              <span>Press ESC or click close to return to dashboard</span>
-              <button
-                onClick={() => setShowAnalyticsModal(false)}
-                className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors cursor-pointer"
-              >
-                Close Matrix
-              </button>
-            </div>
+      {/* Analytics Matrix Modal */}
+      <Modal
+        isOpen={showAnalyticsModal}
+        onClose={() => setShowAnalyticsModal(false)}
+        title={
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 text-indigo-600" />
+            <span>Academic & Faculty Analytics Matrix</span>
+            <StatusBadge status="Live Diagnostics" variant="success" />
           </div>
+        }
+        description="Comprehensive cross-sectional examination of student cohorts, subject mastery, and educator pacing."
+        size="full"
+        footer={
+          <Button variant="primary" size="sm" onClick={() => setShowAnalyticsModal(false)}>
+            Close Matrix
+          </Button>
+        }
+      >
+        <div className="space-y-6">
+          <AcademicAndTeacherAnalytics
+            onNavigateTab={(tab) => {
+              setShowAnalyticsModal(false);
+              onNavigateTab(tab);
+            }}
+          />
         </div>
-      )}
+      </Modal>
     </div>
   );
 };

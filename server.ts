@@ -515,7 +515,15 @@ Return a valid JSON object matching this exact schema:
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (req, res) => {
+    app.get("*", (req, res, next) => {
+      if (
+        req.path.startsWith('/api/') ||
+        req.path.startsWith('/sanctum/') ||
+        req.path.startsWith('/storage/') ||
+        req.path.startsWith('/email/')
+      ) {
+        return next();
+      }
       res.sendFile(path.join(distPath, "index.html"));
     });
   }

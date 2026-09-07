@@ -3,10 +3,13 @@
 namespace Tests\Feature\PersonalWorkspace;
 
 use App\Domain\Tenancy\TenantContext;
+use App\Http\Controllers\Api\V1\GoogleAuthController;
 use App\Models\Role;
+use App\Models\RoleAssignment;
 use App\Models\TenantInvitation;
 use App\Models\TenantMembership;
 use App\Models\User;
+use App\Services\AuditLogger;
 use App\Services\PersonalWorkspaceProvisioner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -32,6 +35,7 @@ class PersonalWorkspaceProvisionerTest extends TestCase
         $this->assertTrue($first->is($second));
         $this->assertSame('individual', $first->tenant->type);
         $this->assertSame(1, TenantMembership::query()->where('user_id', $user->getKey())->count());
+        $this->assertSame(1, RoleAssignment::query()->where('tenant_membership_id', $first->id)->where('role_id', $first->role_id)->where('source', RoleAssignment::LEGACY_PRIMARY)->count());
     }
 
     public function test_invite_accept_also_provisions_my_skuggle(): void
@@ -76,5 +80,20 @@ class PersonalWorkspaceProvisionerTest extends TestCase
         $user = User::query()->where('email', 'invitee@example.com')->firstOrFail();
         $types = $user->memberships()->with('tenant')->get()->pluck('tenant.type')->sort()->values()->all();
         $this->assertSame(['individual', 'school'], $types);
+        foreach ($user->memberships as $membership) {
+            $this->assertSame(1, RoleAssignment::query()->where('tenant_membership_id', $membership->id)->where('role_id', $membership->role_id)->where('source', RoleAssignment::LEGACY_PRIMARY)->count());
+        }
+    }
+
+    public function test_google_personal_signup_dual_writes_legacy_primary_assignment(): void
+    {
+        $this->seedAccessControl();
+        Role::query()->firstOrCreate(['name' => 'student'], ['label' => 'Student', 'privileged' => false]);
+        $method = new \ReflectionMethod(GoogleAuthController::class, 'createPersonalUser');
+        $method->invoke(app(GoogleAuthController::class), 'Google Learner', 'google-wave5@example.com', 'google-wave-five', null, true, 'student', app(AuditLogger::class));
+
+        $membership = TenantMembership::query()->whereHas('user', fn ($query) => $query->where('email', 'google-wave5@example.com'))->firstOrFail();
+        $this->assertNotNull($membership->role_id);
+        $this->assertSame(1, RoleAssignment::query()->where('tenant_membership_id', $membership->id)->where('role_id', $membership->role_id)->where('source', RoleAssignment::LEGACY_PRIMARY)->count());
     }
 }

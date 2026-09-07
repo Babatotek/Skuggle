@@ -7,16 +7,22 @@ use App\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Students\StoreStudentRequest;
 use App\Models\AcademicSession;
-use App\Models\Guardian;
+use App\Models\Campus;
 use App\Models\SchoolClass;
 use App\Models\Student;
+use App\Models\Term;
+use App\Services\AdmissionNumberGenerator;
 use App\Services\AuditLogger;
 use App\Services\CustomFieldRegistry;
-use App\Services\TenantSequence;
+use App\Services\DuplicateStudentDetector;
+use App\Services\FormEngineService;
+use App\Services\StudentEnrolmentService;
+use App\Services\StudentProfileCompletenessCalculator;
+use App\Services\StudentProfileSheetService;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Validator;
 
 class StudentController extends Controller
@@ -24,6 +30,7 @@ class StudentController extends Controller
     public function __construct(
         private readonly TenantContext $context,
         private readonly CustomFieldRegistry $customFields,
+        private readonly FormEngineService $forms,
     ) {}
 
     public function lookups(Request $request): JsonResponse
@@ -31,10 +38,105 @@ class StudentController extends Controller
         $sessionId = $request->hasSession() ? $request->session()->get('academic_session_public_id') : null;
         $tenant = $this->context->tenant();
 
+        $currentSession = AcademicSession::query()->when($sessionId, fn ($q) => $q->where('public_id', $sessionId), fn ($q) => $q->where('is_current', true))->first();
+
         return ApiResponse::success([
-            'classes' => SchoolClass::query()->where('status', 'active')->orderBy('name')->get()->map(fn ($item) => ['id' => $item->public_id, 'name' => trim($item->name.' '.$item->arm)]),
-            'academicSessions' => AcademicSession::query()->where('status', 'active')->orderByDesc('starts_at')->get()->map(fn ($item) => ['id' => $item->public_id, 'name' => $item->name, 'selected' => $item->public_id === $sessionId]),
+            'classes' => SchoolClass::query()->where('status', 'active')->with('campus:id,public_id,name,code')->orderBy('name')->get()->map(fn ($item) => [
+                'id' => $item->public_id,
+                'name' => trim($item->name.' '.$item->arm),
+                'className' => $item->name,
+                'arm' => $item->arm,
+                'campusId' => $item->campus?->public_id,
+                'campusName' => $item->campus?->name,
+                'educationalLevel' => $item->educational_level,
+            ]),
+            'academicSessions' => AcademicSession::query()->where('status', 'active')->orderByDesc('starts_at')->get()->map(fn ($item) => [
+                'id' => $item->public_id,
+                'name' => $item->name,
+                'isCurrent' => (bool) $item->is_current,
+                'selected' => $item->public_id === ($sessionId ?? $currentSession?->public_id),
+            ]),
+            'terms' => $currentSession
+                ? Term::query()->where('academic_session_id', $currentSession->getKey())->orderBy('sequence')->get()->map(fn ($item) => [
+                    'id' => $item->public_id,
+                    'name' => $item->name,
+                    'isCurrent' => (bool) $item->is_current,
+                ])
+                : [],
+            'campuses' => Campus::query()->orderBy('name')->get()->map(fn ($item) => [
+                'id' => $item->public_id,
+                'name' => $item->name,
+                'code' => $item->code,
+            ]),
+            'admissionTypes' => [
+                ['id' => 'new', 'label' => 'New Admission'],
+                ['id' => 'transfer', 'label' => 'Transfer'],
+                ['id' => 'returning', 'label' => 'Returning Student'],
+            ],
+            'studentCategories' => [
+                ['id' => 'regular', 'label' => 'Regular'],
+                ['id' => 'scholarship', 'label' => 'Scholarship'],
+                ['id' => 'staff_child', 'label' => 'Staff Child'],
+            ],
+            'boardingTypes' => [
+                ['id' => 'day', 'label' => 'Day Student'],
+                ['id' => 'boarding', 'label' => 'Boarding'],
+            ],
+            'documentTypes' => collect(StudentDocumentController::ALLOWED_TYPES)->map(fn ($type) => [
+                'id' => $type,
+                'label' => ucwords(str_replace('_', ' ', $type)),
+            ])->values(),
+            'lifecycleStatuses' => Student::lifecycleStatuses(),
+            'admissionNumberPattern' => app(AdmissionNumberGenerator::class)->pattern($tenant),
             'customFields' => $this->customFields->definitions($tenant, CustomFieldRegistry::ENTITY_STUDENT, true),
+        ]);
+    }
+
+    public function previewAdmissionNumber(Request $request, AdmissionNumberGenerator $generator): JsonResponse
+    {
+        $data = $request->validate([
+            'classId' => ['nullable', 'string'],
+            'admissionType' => ['nullable', 'string'],
+            'campusCode' => ['nullable', 'string'],
+        ]);
+
+        return ApiResponse::success([
+            'admissionNumber' => $generator->preview($data['classId'] ?? null, $data['admissionType'] ?? null, $data['campusCode'] ?? null),
+            'pattern' => $generator->pattern(),
+            'autoGenerated' => true,
+        ]);
+    }
+
+    public function checkDuplicates(Request $request, DuplicateStudentDetector $detector): JsonResponse
+    {
+        $data = $request->validate([
+            'firstName' => ['nullable', 'string'],
+            'lastName' => ['nullable', 'string'],
+            'dateOfBirth' => ['nullable', 'date'],
+            'admissionNumber' => ['nullable', 'string'],
+            'guardians' => ['nullable', 'array'],
+            'excludeStudentId' => ['nullable', 'string'],
+        ]);
+
+        $matches = $detector->findPossibleDuplicates($data, $data['excludeStudentId'] ?? null);
+
+        return ApiResponse::success([
+            'hasDuplicates' => count($matches) > 0,
+            'matches' => $matches,
+        ]);
+    }
+
+    public function searchGuardians(Request $request, DuplicateStudentDetector $detector): JsonResponse
+    {
+        $data = $request->validate([
+            'phone' => ['nullable', 'string'],
+            'email' => ['nullable', 'email'],
+        ]);
+
+        abort_if(empty($data['phone']) && empty($data['email']), 422, 'Phone or email is required.');
+
+        return ApiResponse::success([
+            'matches' => $detector->findMatchingGuardians($data),
         ]);
     }
 
@@ -61,120 +163,223 @@ class StudentController extends Controller
         return ApiResponse::success(['data' => collect($paginator->items())->map(fn (Student $student) => $this->summary($student)), 'meta' => ['currentPage' => $paginator->currentPage(), 'perPage' => $paginator->perPage(), 'total' => $paginator->total(), 'lastPage' => $paginator->lastPage()]]);
     }
 
-    public function show(string $student, Request $request): JsonResponse
+    public function show(string $student, StudentProfileCompletenessCalculator $completeness): JsonResponse
     {
-        $record = Student::query()->where('public_id', $student)->with(['enrollments.schoolClass', 'enrollments.academicSession', 'guardians'])->firstOrFail();
+        $record = Student::query()->where('public_id', $student)->with(['enrollments.schoolClass', 'enrollments.academicSession', 'enrollments.term', 'guardians'])->firstOrFail();
         $this->authorize('view', $record);
         $summary = $this->summary($record);
+        $canViewMedical = auth()->user() && auth()->user()->can('viewMedical', $record);
 
         return ApiResponse::success($summary + [
-            'dateOfBirth' => $record->date_of_birth?->toDateString(), 'nationality' => $record->nationality, 'stateOfOrigin' => $record->state_of_origin, 'admissionDate' => $record->admission_date?->toDateString(),
+            'preferredName' => $record->preferred_name,
+            'religion' => $record->religion,
+            'dateOfBirth' => $record->date_of_birth?->toDateString(),
+            'nationality' => $record->nationality,
+            'stateOfOrigin' => $record->state_of_origin,
+            'localGovernmentArea' => $record->local_government_area,
+            'countryCode' => $record->country_code,
+            'admissionDate' => $record->admission_date?->toDateString(),
+            'residential' => data_get($record->metadata, 'residential'),
+            'emergency' => data_get($record->metadata, 'emergency'),
+            'admission' => data_get($record->metadata, 'admission'),
+            'portal' => data_get($record->metadata, 'portal'),
+            'profileCompleteness' => $completeness->calculate($record),
+            'enrollment' => $record->enrollments->first() ? [
+                'classId' => $record->enrollments->first()->schoolClass?->public_id,
+                'className' => $record->enrollments->first()->schoolClass?->name,
+                'arm' => $record->enrollments->first()->schoolClass?->arm,
+                'sessionName' => $record->enrollments->first()->academicSession?->name,
+                'termName' => $record->enrollments->first()->term?->name,
+                'admissionType' => $record->enrollments->first()->admission_type,
+                'studentCategory' => $record->enrollments->first()->student_category,
+                'boardingType' => $record->enrollments->first()->boarding_type,
+            ] : null,
+            'hasMedicalRecord' => $canViewMedical && $record->medicalInformation()->exists(),
+            'documentCount' => $record->documents()->count(),
+            'profileForm' => $this->forms->getForm($this->context->tenant(), 'student.profile', true),
             'sections' => [
-                ['id' => 'overview', 'label' => 'Overview', 'items' => [['label' => 'Admission number', 'value' => $record->admission_number], ['label' => 'Status', 'value' => $record->status], ['label' => 'Gender', 'value' => $record->gender]]],
-                ['id' => 'academic', 'label' => 'Academic', 'items' => $record->enrollments->map(fn ($item) => ['label' => $item->academicSession?->name ?? 'Session', 'value' => $item->schoolClass?->name])->all()],
-                ['id' => 'guardians', 'label' => 'Guardians', 'items' => $record->guardians->map(fn ($item) => ['label' => $item->name, 'value' => $item->phone])->all()],
+                ['id' => 'overview', 'label' => 'Overview', 'items' => [
+                    ['label' => 'Admission number', 'value' => $record->admission_number],
+                    ['label' => 'Status', 'value' => $record->status],
+                    ['label' => 'Gender', 'value' => $record->gender],
+                    ['label' => 'Profile completeness', 'value' => $record->profile_completion_percent.'%'],
+                ]],
+                ['id' => 'academic', 'label' => 'Academic', 'items' => $record->enrollments->map(fn ($item) => [
+                    'label' => $item->academicSession?->name ?? 'Session',
+                    'value' => trim(($item->schoolClass?->name ?? '').' '.($item->schoolClass?->arm ?? '')),
+                ])->all()],
+                ['id' => 'guardians', 'label' => 'Guardians', 'items' => $record->guardians->map(fn ($item) => [
+                    'label' => $item->name,
+                    'value' => $item->phone,
+                ])->all()],
             ],
         ]);
     }
 
-    public function store(StoreStudentRequest $request, TenantSequence $sequence, AuditLogger $audit): JsonResponse
+    public function store(StoreStudentRequest $request, StudentEnrolmentService $enrolment, AuditLogger $audit): JsonResponse
     {
         $this->authorize('create', Student::class);
-        $guardians = json_decode($request->string('guardians')->toString(), true, flags: JSON_THROW_ON_ERROR);
-        $validator = Validator::make(['guardians' => $guardians], ['guardians' => ['required', 'array', 'min:1', 'max:5'], 'guardians.*.name' => ['required', 'string', 'max:180'], 'guardians.*.relationship' => ['required', 'string', 'max:64'], 'guardians.*.phone' => ['required', 'string', 'max:32'], 'guardians.*.email' => ['nullable', 'email:rfc', 'max:254']]);
-        if ($validator->fails()) {
-            throw new ApiException('VALIDATION_ERROR', 'Guardian information is invalid.', 422, $validator->errors()->toArray());
-        }
 
-        $customFieldValues = $this->resolveCustomFieldInput($request);
-        $validatedCustomFields = $this->customFields->validateValues(
-            $this->context->tenant(),
-            CustomFieldRegistry::ENTITY_STUDENT,
-            $customFieldValues,
-            true,
-        );
-
-        $student = DB::transaction(function () use ($request, $sequence, $guardians, $audit, $validatedCustomFields): Student {
-            $class = SchoolClass::query()->where('public_id', $request->string('classId')->toString())->firstOrFail();
-            $sessionPublicId = $request->hasSession() ? $request->session()->get('academic_session_public_id') : null;
-            $session = AcademicSession::query()->when($sessionPublicId, fn ($q) => $q->where('public_id', $sessionPublicId), fn ($q) => $q->where('is_current', true))->first();
-            if (! $session) {
-                throw new ApiException('ACADEMIC_CONTEXT_REQUIRED', 'Configure an academic session before registering students.', 409);
-            }
-            $admissionNumber = $request->filled('admissionNumber') ? $request->string('admissionNumber')->toString() : sprintf('SKU-%s-%06d', now()->format('Y'), $sequence->next('student_admission'));
-            $student = Student::query()->create([
-                'admission_number' => $admissionNumber,
-                'first_name' => $request->string('firstName'),
-                'middle_name' => $request->input('middleName'),
-                'last_name' => $request->string('lastName'),
-                'gender' => $request->string('gender'),
-                'date_of_birth' => $request->date('dateOfBirth'),
-                'nationality' => $request->input('nationality'),
-                'country_code' => $request->input('countryCode'),
-                'state_of_origin' => $request->input('stateOfOrigin'),
-                'local_government_area' => $request->input('localGovernmentArea'),
-                'admission_date' => $request->date('admissionDate'),
-                'status' => 'active',
-                'metadata' => $validatedCustomFields === [] ? null : ['custom_fields' => $validatedCustomFields],
-            ]);
-            $student->enrollments()->create(['class_id' => $class->getKey(), 'academic_session_id' => $session->getKey(), 'status' => 'active']);
-            foreach ($guardians as $index => $input) {
-                $guardian = Guardian::query()->create(['name' => $input['name'], 'phone' => $input['phone'], 'email' => $input['email'] ?? null, 'address' => isset($input['address']) ? ['text' => $input['address']] : null]);
-                $student->guardians()->attach($guardian->getKey(), ['tenant_id' => $student->tenant_id, 'relationship' => $input['relationship'], 'preferred_contact' => (bool) ($input['preferredContact'] ?? $index === 0), 'billing_responsible' => (bool) ($input['billingResponsible'] ?? false), 'authorized_pickup' => (bool) ($input['authorizedPickup'] ?? false)]);
-            }
-            if ($request->hasFile('photo')) {
-                $student->update(['photo_key' => $request->file('photo')->store("students/{$student->public_id}", (string) config('skuggle.library.disk'))]);
-            }
-            $audit->record('student.created', $student, [], ['admission_number' => $student->admission_number, 'class' => $class->public_id]);
-
-            return $student->load(['enrollments.schoolClass', 'guardians']);
-        });
+        $payload = $this->resolveEnrolmentPayload($request);
+        $student = $enrolment->enrol($payload, $request->file('photo'), $request->user());
 
         return ApiResponse::success($this->summary($student), [], 201);
     }
 
-    public function update(string $student, Request $request, AuditLogger $audit): JsonResponse
+    public function update(string $student, Request $request, AuditLogger $audit, StudentProfileCompletenessCalculator $completeness): JsonResponse
     {
         $record = Student::query()->where('public_id', $student)->with(['enrollments.schoolClass', 'guardians'])->firstOrFail();
         $this->authorize('update', $record);
         $data = $request->validate([
-            'firstName' => ['sometimes', 'string', 'max:100'], 'middleName' => ['nullable', 'string', 'max:100'],
-            'lastName' => ['sometimes', 'string', 'max:100'], 'gender' => ['sometimes', 'string', 'max:24'],
-            'dateOfBirth' => ['sometimes', 'date'], 'status' => ['sometimes', 'in:active,suspended,graduated,transferred'],
-            'nationality' => ['nullable', 'string', 'max:80'], 'stateOfOrigin' => ['nullable', 'string', 'max:120'],
+            'firstName' => ['sometimes', 'string', 'max:100'],
+            'middleName' => ['nullable', 'string', 'max:100'],
+            'preferredName' => ['nullable', 'string', 'max:100'],
+            'lastName' => ['sometimes', 'string', 'max:100'],
+            'gender' => ['sometimes', 'string', 'max:24'],
+            'dateOfBirth' => ['sometimes', 'date'],
+            'status' => ['sometimes', 'in:'.implode(',', Student::lifecycleStatuses())],
+            'nationality' => ['nullable', 'string', 'max:80'],
+            'stateOfOrigin' => ['nullable', 'string', 'max:120'],
+            'religion' => ['nullable', 'string', 'max:64'],
+            'residential' => ['nullable', 'array'],
+            'emergency' => ['nullable', 'array'],
+            'customFields' => ['nullable', 'array'],
         ]);
         $before = $record->only(['first_name', 'middle_name', 'last_name', 'gender', 'date_of_birth', 'status', 'nationality', 'state_of_origin']);
+        $metadata = is_array($record->metadata) ? $record->metadata : [];
+        if (array_key_exists('residential', $data)) {
+            $metadata['residential'] = $data['residential'];
+        }
+        if (array_key_exists('emergency', $data)) {
+            $metadata['emergency'] = $data['emergency'];
+        }
+        if (array_key_exists('customFields', $data)) {
+            $metadata['custom_fields'] = $this->forms->validateValues(
+                $this->context->tenant(),
+                'student.profile',
+                (array) $data['customFields'],
+            );
+        }
         $record->fill([
             'first_name' => $data['firstName'] ?? $record->first_name,
             'middle_name' => array_key_exists('middleName', $data) ? $data['middleName'] : $record->middle_name,
+            'preferred_name' => array_key_exists('preferredName', $data) ? $data['preferredName'] : $record->preferred_name,
             'last_name' => $data['lastName'] ?? $record->last_name,
             'gender' => $data['gender'] ?? $record->gender,
             'date_of_birth' => $data['dateOfBirth'] ?? $record->date_of_birth,
             'status' => $data['status'] ?? $record->status,
             'nationality' => array_key_exists('nationality', $data) ? $data['nationality'] : $record->nationality,
             'state_of_origin' => array_key_exists('stateOfOrigin', $data) ? $data['stateOfOrigin'] : $record->state_of_origin,
+            'religion' => array_key_exists('religion', $data) ? $data['religion'] : $record->religion,
+            'metadata' => $metadata,
         ])->save();
+
+        $completion = $completeness->calculate($record->fresh(['guardians', 'documents', 'medicalInformation', 'enrollments']));
+        $record->update(['profile_completion_percent' => $completion['percent']]);
+
         $audit->record('student.updated', $record, $before, $record->getChanges());
 
         return ApiResponse::success($this->summary($record->fresh(['enrollments.schoolClass', 'guardians'])));
+    }
+
+    public function downloadProfile(string $student, StudentProfileSheetService $sheet, AuditLogger $audit): Response
+    {
+        $record = Student::query()->where('public_id', $student)->firstOrFail();
+        $this->authorize('view', $record);
+
+        $audit->record('student.profile_downloaded', $record, [], ['format' => 'html']);
+
+        return response($sheet->generateHtml($record), 200, [
+            'Content-Type' => 'text/html; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="student-'.$record->admission_number.'.html"',
+        ]);
+    }
+
+    /** @return array<string, mixed> */
+    private function resolveEnrolmentPayload(StoreStudentRequest $request): array
+    {
+        if ($request->filled('enrolment')) {
+            $decoded = json_decode($request->string('enrolment')->toString(), true, flags: JSON_THROW_ON_ERROR);
+
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        $guardiansRaw = $request->input('guardians');
+        $guardians = [];
+        if (is_string($guardiansRaw) && $guardiansRaw !== '') {
+            $guardians = json_decode($guardiansRaw, true, flags: JSON_THROW_ON_ERROR);
+        } elseif (is_array($guardiansRaw)) {
+            $guardians = $guardiansRaw;
+        }
+
+        if ($guardians !== []) {
+            $validator = Validator::make(['guardians' => $guardians], [
+                'guardians' => ['required', 'array', 'min:1', 'max:5'],
+                'guardians.*.name' => ['required_without:guardians.*.guardianId', 'string', 'max:180'],
+                'guardians.*.guardianId' => ['nullable', 'string'],
+                'guardians.*.relationship' => ['required', 'string', 'max:64'],
+                'guardians.*.phone' => ['required_without:guardians.*.guardianId', 'string', 'max:32'],
+                'guardians.*.email' => ['nullable', 'email:rfc', 'max:254'],
+            ]);
+            if ($validator->fails()) {
+                throw new ApiException('VALIDATION_ERROR', 'Guardian information is invalid.', 422, $validator->errors()->toArray());
+            }
+        }
+
+        return [
+            'admissionNumber' => $request->filled('admissionNumber') ? $request->string('admissionNumber')->toString() : null,
+            'firstName' => $request->string('firstName')->toString(),
+            'middleName' => $request->input('middleName'),
+            'lastName' => $request->string('lastName')->toString(),
+            'preferredName' => $request->input('preferredName'),
+            'gender' => $request->string('gender')->toString(),
+            'dateOfBirth' => $request->date('dateOfBirth')?->toDateString(),
+            'nationality' => $request->input('nationality'),
+            'countryCode' => $request->input('countryCode'),
+            'stateOfOrigin' => $request->input('stateOfOrigin'),
+            'localGovernmentArea' => $request->input('localGovernmentArea'),
+            'religion' => $request->input('religion'),
+            'admissionDate' => $request->date('admissionDate')?->toDateString(),
+            'classId' => $request->string('classId')->toString(),
+            'academicSessionId' => $request->input('academicSessionId'),
+            'termId' => $request->input('termId'),
+            'admissionType' => $request->input('admissionType'),
+            'studentCategory' => $request->input('studentCategory'),
+            'boardingType' => $request->input('boardingType'),
+            'status' => $request->input('status'),
+            'saveAsDraft' => $request->boolean('saveAsDraft'),
+            'guardians' => $guardians,
+            'residential' => $request->input('residential'),
+            'emergency' => $request->input('emergency'),
+            'admission' => $request->input('admission'),
+            'medical' => $request->input('medical'),
+            'portal' => $request->input('portal'),
+            'customFields' => $this->resolveCustomFieldInput($request),
+        ];
     }
 
     private function summary(Student $student): array
     {
         $enrollment = $student->enrollments->first();
         $meta = is_array($student->metadata) ? $student->metadata : [];
+        $primaryGuardian = $student->relationLoaded('guardians') ? $student->guardians->first() : null;
 
         return [
             'id' => $student->public_id,
             'admissionNumber' => $student->admission_number,
             'fullName' => trim("{$student->first_name} {$student->middle_name} {$student->last_name}"),
             'firstName' => $student->first_name,
+            'middleName' => $student->middle_name,
             'lastName' => $student->last_name,
+            'preferredName' => $student->preferred_name,
             'className' => $enrollment?->schoolClass?->name,
             'classArm' => trim(($enrollment?->schoolClass?->name ?? '').' '.($enrollment?->schoolClass?->arm ?? '')),
+            'classLevel' => $enrollment?->schoolClass?->name,
+            'arm' => $enrollment?->schoolClass?->arm,
             'gender' => $student->gender,
             'status' => $student->status,
-            'photoUrl' => $meta['photo_url'] ?? null,
+            'photoUrl' => $student->photo_key ? '/storage/'.$student->photo_key : ($meta['photo_url'] ?? null),
+            'profileCompletionPercent' => $student->profile_completion_percent,
             'currentAverage' => $meta['current_average'] ?? null,
             'attendanceRate' => $meta['attendance_rate'] ?? null,
             'feesStatus' => $meta['fees_status'] ?? null,
@@ -186,7 +391,12 @@ class StudentController extends Controller
             'countryCode' => $student->country_code,
             'localGovernmentArea' => $student->local_government_area,
             'nationality' => $student->nationality,
+            'religion' => $student->religion,
             'admissionDate' => $student->admission_date?->toDateString(),
+            'guardianName' => $primaryGuardian?->name,
+            'guardianPhone' => $primaryGuardian?->phone,
+            'guardianEmail' => $primaryGuardian?->email,
+            'guardianRelationship' => $primaryGuardian?->pivot?->relationship,
             'guardians' => $student->relationLoaded('guardians') ? $student->guardians->map(fn ($item) => [
                 'id' => $item->public_id,
                 'name' => $item->name,
@@ -196,6 +406,7 @@ class StudentController extends Controller
                 'preferredContact' => (bool) $item->pivot->preferred_contact,
                 'billingResponsible' => (bool) $item->pivot->billing_responsible,
                 'authorizedPickup' => (bool) $item->pivot->authorized_pickup,
+                'livesWithStudent' => (bool) ($item->pivot->lives_with_student ?? false),
             ]) : [],
             'customFields' => is_array($meta['custom_fields'] ?? null) ? $meta['custom_fields'] : [],
         ];

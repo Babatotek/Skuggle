@@ -18,9 +18,28 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { CollapsibleCard, CollapsibleCardGroup } from '../../components/CollapsibleCard';
+import { AssessmentRecord } from '../../types';
 
-export const ResultsManagementView: React.FC = () => {
-  const { branding, resultPINs, generatePINs, showToast } = useApp();
+export type ResultsSection = 'results' | 'result-approval' | 'result-publishing' | 'result-pins';
+
+interface ResultsManagementViewProps {
+  section?: string;
+}
+
+function gradeFromAverage(average: number): string {
+  if (average >= 75) return 'A1';
+  if (average >= 70) return 'B2';
+  if (average >= 65) return 'B3';
+  if (average >= 60) return 'C4';
+  if (average >= 55) return 'C5';
+  if (average >= 50) return 'C6';
+  if (average >= 45) return 'D7';
+  if (average >= 40) return 'E8';
+  return 'F9';
+}
+
+export const ResultsManagementView: React.FC<ResultsManagementViewProps> = ({ section = 'results' }) => {
+  const { branding, resultPINs, generatePINs, showToast, students, assessments, updateAssessment } = useApp();
 
   const [pinCount, setPinCount] = useState(10);
   const [selectedTerm, setSelectedTerm] = useState('First Term');
@@ -55,28 +74,87 @@ export const ResultsManagementView: React.FC = () => {
     );
   });
 
+  const awaitingApproval = assessments.filter((item) => item.status === 'Submitted' || item.status === 'Validated');
+  const awaitingPublish = assessments.filter((item) => item.status === 'Approved');
+  const published = assessments.filter((item) => item.status === 'Published');
+
+  if (section === 'result-approval') {
+    return (
+      <ResultsQueue
+        title="Awaiting approval"
+        empty="No submitted scripts are waiting on academic approval."
+        rows={awaitingApproval}
+        actionLabel="Approve"
+        onAction={(item) => {
+          updateAssessment(item.id, { status: 'Approved', approvedAt: new Date().toISOString() });
+          showToast('Approved', `${item.title} is ready to publish.`);
+        }}
+      />
+    );
+  }
+
+  if (section === 'result-publishing') {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <article className="bg-white rounded-2xl border border-slate-200 p-4"><p className="text-[11px] font-bold uppercase text-slate-400">Approved, unpublished</p><p className="font-display font-extrabold text-2xl mt-1">{awaitingPublish.length}</p></article>
+          <article className="bg-white rounded-2xl border border-slate-200 p-4"><p className="text-[11px] font-bold uppercase text-slate-400">Live on portal</p><p className="font-display font-extrabold text-2xl mt-1 text-emerald-700">{published.length}</p></article>
+        </div>
+        <ResultsQueue
+          title="Ready to publish"
+          empty="Approve a result batch before it can go live on the parent portal."
+          rows={awaitingPublish}
+          actionLabel="Publish"
+          onAction={(item) => {
+            updateAssessment(item.id, { status: 'Published', publishedAt: new Date().toISOString() });
+            showToast('Published', `${item.title} is now visible with PIN access.`);
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (section === 'results') {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <article className="bg-white rounded-2xl border border-slate-200 p-4"><p className="text-[11px] font-bold uppercase text-slate-400">On register</p><p className="font-display font-extrabold text-2xl">{students.length}</p></article>
+          <article className="bg-white rounded-2xl border border-slate-200 p-4"><p className="text-[11px] font-bold uppercase text-slate-400">Published batches</p><p className="font-display font-extrabold text-2xl text-emerald-700">{published.length}</p></article>
+          <article className="bg-white rounded-2xl border border-slate-200 p-4"><p className="text-[11px] font-bold uppercase text-slate-400">Pending approval</p><p className="font-display font-extrabold text-2xl text-amber-700">{awaitingApproval.length}</p></article>
+          <article className="bg-white rounded-2xl border border-slate-200 p-4"><p className="text-[11px] font-bold uppercase text-slate-400">Class average</p><p className="font-display font-extrabold text-2xl text-indigo-800">{students.length ? Math.round(students.reduce((sum, item) => sum + item.termAverage, 0) / students.length) : 0}%</p></article>
+        </div>
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left text-slate-500 bg-slate-50 border-b border-slate-100">
+                <th className="px-4 py-3 font-bold">Student</th>
+                <th className="p-3 font-bold">Class</th>
+                <th className="p-3 font-bold">Term average</th>
+                <th className="p-3 font-bold">Grade</th>
+                <th className="p-3 font-bold">Attendance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {students.length === 0 && <tr><td colSpan={5} className="px-4 py-12 text-center text-slate-500">No scored students yet.</td></tr>}
+              {students.map((student) => (
+                <tr key={student.id} className="border-t border-slate-100 hover:bg-slate-50/80">
+                  <td className="px-4 py-3 font-semibold text-slate-900">{student.firstName} {student.lastName}<span className="block text-[11px] font-mono text-slate-400">{student.admissionNo}</span></td>
+                  <td className="p-3">{student.classLevel} {student.arm}</td>
+                  <td className="p-3 font-bold text-indigo-900">{student.termAverage}%</td>
+                  <td className="p-3 font-bold">{gradeFromAverage(student.termAverage)}</td>
+                  <td className="p-3 text-emerald-700 font-semibold">{student.attendanceRate}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="p-2 rounded-xl bg-amber-100 text-amber-800">
-              <KeyRound className="w-5 h-5" />
-            </span>
-            <h1 className="font-display font-bold text-xl sm:text-2xl text-slate-900">
-              Result Checking PINs & Scratch Cards
-            </h1>
-            <span className="px-2.5 py-0.5 text-xs font-bold bg-amber-100 text-amber-900 rounded-full">
-              {resultPINs.length} Active PINs
-            </span>
-          </div>
-          <p className="text-xs sm:text-sm text-slate-500">
-            Generate and manage scratch-card PIN batches for student report card access on the public portal.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-2 no-print">
           <button
             type="button"
             onClick={handlePrintPINs}
@@ -85,7 +163,6 @@ export const ResultsManagementView: React.FC = () => {
             <Printer className="w-3.5 h-3.5" />
             <span>Print PIN Batch Cards</span>
           </button>
-        </div>
       </div>
 
       {/* Multi-Card Collapsible Group across Results Management */}
@@ -291,3 +368,41 @@ export const ResultsManagementView: React.FC = () => {
   );
 };
 
+const ResultsQueue: React.FC<{
+  title: string;
+  empty: string;
+  rows: AssessmentRecord[];
+  actionLabel: string;
+  onAction: (item: AssessmentRecord) => void;
+}> = ({ title, empty, rows, actionLabel, onAction }) => (
+  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+    <div className="px-4 py-3 border-b border-slate-100">
+      <h2 className="font-display font-bold text-sm text-slate-900">{title}</h2>
+    </div>
+    <table className="w-full text-xs">
+      <thead>
+        <tr className="text-left text-slate-500 bg-slate-50">
+          <th className="px-4 py-3 font-bold">Assessment</th>
+          <th className="p-3 font-bold">Class</th>
+          <th className="p-3 font-bold">Subject</th>
+          <th className="p-3 font-bold">Status</th>
+          <th className="p-3 font-bold text-right"> </th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-12 text-center text-slate-500">{empty}</td></tr>}
+        {rows.map((item) => (
+          <tr key={item.id} className="border-t border-slate-100">
+            <td className="px-4 py-3 font-semibold text-slate-900">{item.title}</td>
+            <td className="p-3">{item.classLevel} {item.arm}</td>
+            <td className="p-3">{item.subject}</td>
+            <td className="p-3"><span className="px-2 py-0.5 rounded-md bg-slate-100 font-semibold">{item.status}</span></td>
+            <td className="p-3 text-right">
+              <button type="button" onClick={() => onAction(item)} className="px-3 py-1.5 rounded-lg bg-indigo-950 text-white font-bold">{actionLabel}</button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+);

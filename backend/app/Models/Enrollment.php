@@ -29,4 +29,9 @@ class Enrollment extends Model
     {
         return $this->belongsTo(AcademicSession::class);
     }
+
+    public function term(): BelongsTo
+    {
+        return $this->belongsTo(Term::class);
+    }
 }

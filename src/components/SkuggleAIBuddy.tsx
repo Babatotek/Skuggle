@@ -49,6 +49,11 @@ export const SkuggleAIBuddy: React.FC<SkuggleAIBuddyProps> = ({
       'Draft a welcoming parent broadcast for the new term resumption',
       'How do I configure continuous assessment grading weights?',
     ],
+    'Super Admin': [
+      'Summarise attendance exceptions and unpaid invoices for this school',
+      'Which classes need Super Admin result-approval attention?',
+      'How do I create a School Admin officer without granting Super Admin?',
+    ],
     'Principal': [
       'Suggest academic intervention strategies for at-risk JSS 2 students',
       'Generate guidance for teacher lesson note submission deadlines',
@@ -163,7 +168,7 @@ export const SkuggleAIBuddy: React.FC<SkuggleAIBuddyProps> = ({
           <RobotGraphic size="md" />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="font-display font-bold text-indigo-950 text-sm sm:text-base">Skuggle AI Buddy</span>
+              <span className="font-display font-bold text-indigo-950 text-sm sm:text-base">Executive insight</span>
               <span className="px-2 py-0.5 text-[10px] font-semibold bg-violet-100 text-violet-800 rounded-full flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-violet-600" />
                 Contextual Assistant
@@ -173,6 +178,16 @@ export const SkuggleAIBuddy: React.FC<SkuggleAIBuddyProps> = ({
               {contextHint || `Ready to assist your ${currentRole} workspace with smart recommendations, Nigerian curriculum planning, and instant diagnostics.`}
             </p>
             <div className="flex flex-wrap gap-2">
+              {onActionClick && (
+                <button
+                  type="button"
+                  onClick={() => onActionClick('view-insights')}
+                  className="text-xs px-3 py-1.5 bg-white hover:bg-violet-50 text-indigo-900 font-semibold rounded-lg border border-violet-200 shadow-2xs transition-colors flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-violet-600" />
+                  View insights
+                </button>
+              )}
               {currentPrompts.slice(0, 2).map((prompt, idx) => (
                 <button
                   key={idx}

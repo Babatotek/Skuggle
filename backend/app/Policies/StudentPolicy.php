@@ -36,6 +36,26 @@ class StudentPolicy
         return $this->sameTenant($student) && $this->allows($user, 'students.edit');
     }
 
+    public function viewMedical(User $user, Student $student): bool
+    {
+        if (! $this->sameTenant($student)) {
+            return false;
+        }
+
+        return $this->allows($user, 'students.medical.view')
+            || $this->allows($user, 'students.edit');
+    }
+
+    public function updateMedical(User $user, Student $student): bool
+    {
+        if (! $this->sameTenant($student)) {
+            return false;
+        }
+
+        return $this->allows($user, 'students.medical.edit')
+            || $this->allows($user, 'students.edit');
+    }
+
     private function allows(User $user, string $permission): bool
     {
         $context = app(TenantContext::class);

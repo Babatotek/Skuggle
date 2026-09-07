@@ -14,7 +14,7 @@ class CustomFieldTest extends TestCase
     public function test_school_admin_can_save_student_custom_fields(): void
     {
         ['tenant' => $tenant, 'user' => $user] = $this->makeTenantUser(
-            'school_admin',
+            'school_super_admin',
             userOverrides: ['two_factor_confirmed_at' => now()],
         );
 
@@ -42,14 +42,16 @@ class CustomFieldTest extends TestCase
         $response->assertJsonPath('data.fields.0.key', 'lga');
         $response->assertJsonPath('data.fields.1.key', 'blood_group');
 
-        $tenant->refresh();
-        $this->assertSame('lga', data_get($tenant->settings, 'registration.custom_fields.students.0.key'));
+        $this->assertDatabaseHas('field_definitions', [
+            'tenant_id' => $tenant->id,
+            'field_key' => 'lga',
+        ]);
     }
 
     public function test_student_registration_requires_configured_custom_fields(): void
     {
         ['tenant' => $tenant, 'user' => $user] = $this->makeTenantUser(
-            'school_admin',
+            'school_super_admin',
             userOverrides: ['two_factor_confirmed_at' => now()],
         );
 

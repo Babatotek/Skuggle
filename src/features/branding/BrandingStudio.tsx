@@ -14,19 +14,21 @@ import {
   Check,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { apiMutation, describeApiError } from '../../lib/apiClient';
 
 interface BrandingStudioProps {
   onPreviewWelcome?: () => void;
 }
 
 export const BrandingStudio: React.FC<BrandingStudioProps> = ({ onPreviewWelcome }) => {
-  const { branding, updateBranding, showToast } = useApp();
+  const { branding, updateBranding, showToast, demoMode } = useApp();
 
   const [schoolName, setSchoolName] = useState(branding.schoolName);
   const [motto, setMotto] = useState(branding.motto || '');
   const [primaryColor, setPrimaryColor] = useState(branding.primaryColor);
   const [secondaryColor, setSecondaryColor] = useState(branding.secondaryColor);
   const [logoUrl, setLogoUrl] = useState(branding.logoUrl);
+  const [isLogoUploading, setIsLogoUploading] = useState(false);
   const [previewMode, setPreviewMode] = useState<'welcome' | 'login'>('welcome');
 
   // Palette suggestions
@@ -62,6 +64,37 @@ export const BrandingStudio: React.FC<BrandingStudioProps> = ({ onPreviewWelcome
       isPublished: true,
     });
     showToast('Branding published', 'School tenant identity updated across welcome & report cards.');
+  };
+
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024) {
+      showToast('Logo not uploaded', 'Choose a PNG, JPG or WebP image up to 2 MB.', 'failed');
+      return;
+    }
+    setIsLogoUploading(true);
+    try {
+      if (demoMode) {
+        const previewUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsDataURL(file);
+        });
+        setLogoUrl(previewUrl);
+        updateBranding({ logoUrl: previewUrl });
+      } else {
+        const body = new FormData(); body.append('logo', file);
+        const response = await apiMutation<{ data: { logoUrl: string } }>('/settings/branding/logo', 'POST', body);
+        setLogoUrl(response.data.logoUrl);
+        updateBranding({ logoUrl: response.data.logoUrl });
+      }
+      showToast('Logo uploaded', 'The school logo is ready in the workspace preview.', 'success');
+    } catch (error) {
+      showToast('Logo not uploaded', describeApiError(error), 'failed');
+    } finally {
+      setIsLogoUploading(false);
+    }
   };
 
   return (
@@ -138,22 +171,20 @@ export const BrandingStudio: React.FC<BrandingStudioProps> = ({ onPreviewWelcome
 
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                School Logo / Crest Image URL
+                School logo / crest
               </label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="text"
-                  value={logoUrl}
-                  onChange={(e) => setLogoUrl(e.target.value)}
-                  className="flex-1 text-xs px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 font-mono"
-                />
-                <button
-                  type="button"
-                  onClick={() => setLogoUrl('https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=150&auto=format&fit=crop&q=80')}
-                  className="text-xs px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium"
-                >
-                  Reset Logo
-                </button>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                  {logoUrl ? <img src={logoUrl} alt="Current school logo" className="h-full w-full object-contain" /> : <Building2 aria-hidden="true" className="h-7 w-7 text-slate-400" />}
+                </div>
+                <div>
+                  <label className="ds-control ds-focus-ring inline-flex cursor-pointer items-center gap-2 border border-transparent bg-[var(--color-action-primary)] px-4 text-sm font-medium text-white hover:bg-[var(--color-action-primary-hover)]">
+                    <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(event) => void handleLogoUpload(event)} disabled={isLogoUploading} />
+                    <Upload aria-hidden="true" className="h-4 w-4" />
+                    <span>{isLogoUploading ? 'Uploading…' : logoUrl ? 'Replace school logo' : 'Upload school logo'}</span>
+                  </label>
+                  <p className="mt-1.5 text-xs text-slate-500">PNG, JPG or WebP. Maximum 2 MB and 2048 × 2048 px.</p>
+                </div>
               </div>
             </div>
           </div>

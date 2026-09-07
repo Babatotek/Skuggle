@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Domain\Library\AI\AIManager;
+use App\Domain\Tenancy\TenantContext;
+use App\Domain\Tenancy\TenantJobEnvelope;
 use App\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Library\CreateExportRequest;
@@ -147,7 +149,7 @@ class LibraryToolController extends Controller
             throw new ApiException('INVALID_RESOURCES', 'One or more selected resources are unavailable.', 422);
         }
         $job = ExportJob::query()->create(['requested_by' => $request->user()->getKey(), 'title' => $request->string('title')->toString(), 'resource_ids' => $ids, 'include_cover_page' => $request->boolean('includeCoverPage'), 'state' => 'queued', 'progress_percent' => 0, 'message' => 'Queued for generation']);
-        GenerateLibraryExportJob::dispatch($job->getKey());
+        GenerateLibraryExportJob::dispatch($job->getKey(), TenantJobEnvelope::fromContext(app(TenantContext::class))->toArray());
         $audit->record('library.export_requested', $job, [], ['resource_count' => count($ids)]);
 
         return ApiResponse::success($this->export($job), [], 202);

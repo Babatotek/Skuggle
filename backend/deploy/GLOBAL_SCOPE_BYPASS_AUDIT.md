@@ -1,8 +1,8 @@
 # withoutGlobalScopes() Audit Register
 
-**Last audited:** 2026-08-28  
-**Total call sites:** 27  
-**Risk classification:** ✅ SAFE (19) · ⚠️ REVIEW (8) · 🚨 UNSAFE (0)
+**Last audited:** 2026-09-05  
+**Total call sites:** 29  
+**Risk classification:** ✅ SAFE (21) · ⚠️ REVIEW (8) · 🚨 UNSAFE (0)
 
 All `withoutGlobalScopes()` calls in the codebase must be listed here.
 Any new usage must be reviewed, classified, and added before merging.
@@ -35,6 +35,8 @@ Any new usage must be reviewed, classified, and added before merging.
 | 16 | `app/Http/Controllers/Api/V1/PublicResultController.php` | 114 | `ResultPublication` | Public result view — scoped by PK from signed cache token + `status=published`, then `setPublicTenant()` before nested queries. |
 | 17 | `app/Http/Controllers/Api/V1/PlatformOpsController.php` | 260 | `Subscription` | Platform invoice generation — cross-tenant subscription iteration. Route protected by platform ops middleware; creates invoices with explicit `tenant_id`. |
 | 26 | `app/Http/Controllers/Api/V1/PlatformOpsController.php` | 233 | `Subscription` | Platform invoice approval — loads only the subscription referenced by the platform invoice's internal foreign key. Route requires platform permission; activates that tenant's entitlement and notifies its active school administrators. |
+| 28 | `app/Services/Admissions/LegacyAdmissionsMigrationService.php` | 39 | `SchoolModuleRecord` | Offline migration command must enumerate reviewed legacy Admissions rows across tenants. It immediately restricts to the six closed Admissions module keys, optionally restricts by resolved tenant ID, and establishes `TenantContext` before every typed write. |
+| 29 | `app/Services/Admissions/LegacyAdmissionsMigrationService.php` | 296 | `SchoolModuleRecord` | Migration reconciliation lookup explicitly restricts by source `tenant_id` and `admissions-applications`; it is never exposed through an HTTP route. |
 
 ---
 
@@ -89,7 +91,7 @@ Before adding a new bypass:
 ## Static analysis enforcement
 
 `scripts/check-global-scope-bypass.php` counts `withoutGlobalScopes()` calls
-at CI time. If the count exceeds the registered total (27), the build fails.
+at CI time. If the count exceeds the registered total (29), the build fails.
 
 Run manually:
 ```bash

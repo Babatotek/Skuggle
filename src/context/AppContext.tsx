@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   UserRole,
   Persona,
@@ -31,11 +31,12 @@ import {
   CBTQuiz,
 } from '../types';
 import { apiMutation, apiRequest, describeApiError } from '../lib/apiClient';
+import { backendRoleToUi } from '../lib/roles';
+import { ApplicationStateProviders, useAccess, useAcademicContext, useAuth, useWorkspace } from '../state/ApplicationStateProviders';
 
-// Demonstration data lives only in the database-owned DemoTenant. The client never fabricates a session.
 const demoMode = false;
 
-const backendRole = (value: unknown): UserRole => ({ school_admin: 'School Admin', principal: 'Principal', teacher: 'Teacher', parent: 'Parent', student: 'Student', platform_owner: 'Platform Owner', platform_super_admin: 'Platform Owner', bursar: 'Bursar', examination_officer: 'School Admin', admission_officer: 'School Admin' } as Record<string, UserRole>)[String(value)] ?? 'Student';
+const backendRole = (value: unknown): UserRole => backendRoleToUi(value);
 
 // Default initial School Tenant Branding
 const defaultBranding: TenantBranding = {
@@ -876,6 +877,7 @@ interface AppContextType {
   loginAsPreset: (spaceType: 'school' | 'personal', role: UserRole) => void;
   students: StudentRecord[];
   addStudent: (student: StudentRecord) => void;
+  refreshStudents: () => Promise<void>;
   updateStudent: (id: string, updates: Partial<StudentRecord>) => void;
   staff: StaffMember[];
   addStaff: (member: StaffMember) => void;
@@ -969,33 +971,42 @@ const readStored = <T,>(key: string, fallback: T): T => {
   }
 };
 
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const LegacyAppContextAdapter: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const auth = useAuth();
+  const workspace = useWorkspace();
+  const accessState = useAccess();
+  const academic = useAcademicContext();
   const [branding, setBranding] = useState<TenantBranding>(() => {
     if (!demoMode) return platformBranding;
     const saved = localStorage.getItem('skuggle_branding');
     return saved ? JSON.parse(saved) : defaultBranding;
   });
 
-  const [currentWorkspace, setCurrentWorkspace] = useState<WorkspaceItem>(() => {
-    if (!demoMode) return { id: '', name: 'Skuggle', type: 'personal', role: 'Student' };
-    const saved = localStorage.getItem('skuggle_active_workspace');
-    return saved ? JSON.parse(saved) : initialWorkspaces[0];
-  });
+  const currentWorkspace = workspace.activeWorkspace;
+  const setCurrentWorkspace = workspace.setActiveWorkspace;
   const currentWorkspaceRef = useRef(currentWorkspace);
   currentWorkspaceRef.current = currentWorkspace;
+  const workspaceGenerationRef = useRef(workspace.generation);
+  workspaceGenerationRef.current = workspace.generation;
 
-  const [currentUser, setCurrentUser] = useState<CurrentUser>({
-    id: demoMode ? 'usr-001' : '',
-    fullName: demoMode ? 'Oluwatosin Fanimo' : '',
-    email: demoMode ? 'analytictosin@gmail.com' : '',
-    phone: demoMode ? '+234 802 888 7766' : '',
-    verified: Boolean(demoMode),
-    avatarUrl: demoMode ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80' : '',
-    currentWorkspace: demoMode ? initialWorkspaces[0] : { id: '', name: 'Skuggle', type: 'personal', role: 'Student' },
-    availableWorkspaces: demoMode ? initialWorkspaces : [],
-    teachingGrowthStreak: demoMode ? 14 : 0,
-    timeSavedMinutes: demoMode ? 380 : 0,
-  });
+  const currentUser = useMemo<CurrentUser>(() => ({
+    ...auth.identity,
+    currentWorkspace,
+    availableWorkspaces: workspace.availableWorkspaces,
+    permissions: [...accessState.legacyPermissions],
+    capabilities: [...accessState.capabilities],
+    permissionRegistryVersion: accessState.registryVersion,
+  }), [auth.identity, currentWorkspace, workspace.availableWorkspaces, accessState.legacyPermissions, accessState.capabilities, accessState.registryVersion]);
+  const currentUserRef = useRef(currentUser);
+  currentUserRef.current = currentUser;
+  const setCurrentUser = useCallback<React.Dispatch<React.SetStateAction<CurrentUser>>>((update) => {
+    const next = typeof update === 'function' ? update(currentUserRef.current) : update;
+    const { currentWorkspace: nextWorkspace, availableWorkspaces, permissions = [], capabilities = [], permissionRegistryVersion = 0, ...identity } = next;
+    auth.setIdentity(identity);
+    workspace.setAvailableWorkspaces(availableWorkspaces);
+    workspace.setActiveWorkspace(nextWorkspace);
+    accessState.replaceAccess({ capabilities, legacyPermissions: permissions, registryVersion: permissionRegistryVersion, assignments: accessState.assignments, personaHint: accessState.personaHint });
+  }, [auth.setIdentity, workspace.setAvailableWorkspaces, workspace.setActiveWorkspace, accessState.replaceAccess, accessState.assignments, accessState.personaHint]);
 
   const [students, setStudents] = useState<StudentRecord[]>(() => {
     return readStored(tenantStorageKey(currentWorkspace, 'students'), demoMode ? initialStudents : []);
@@ -1100,22 +1111,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (demoMode) return;
     let active = true;
-    let hydrating = false;
     const list = async (path: string) => {
       const response = await apiRequest<{ success: true; data: { data?: Array<Record<string, unknown>> } | Array<Record<string, unknown>> }>(path, { suppressErrorNotification: true });
       const payload = response.data;
       return Array.isArray(payload) ? payload : (payload.data ?? []);
     };
     const hydrate = async () => {
-      if (hydrating) return;
-      hydrating = true;
+      const requestGeneration = workspaceGenerationRef.current;
+      let hydrationGeneration = requestGeneration;
+      auth.setAuthStatus('LOADING');
       try {
         // Establish the active membership before loading module data. Personal
         // accounts and limited school roles must never probe admin-only routes.
         const me = await apiRequest<{ success: true; data: { user: Record<string, unknown> } }>('/auth/me', { suppressErrorNotification: true });
-        if (!active) return;
+        if (!active || requestGeneration !== workspaceGenerationRef.current) return;
         const user = me.data.user;
         const tenant = user.tenant as Record<string, unknown>;
+        const memberships = Array.isArray(user.memberships) ? user.memberships as Array<Record<string, unknown>> : [];
+        const canonicalAccess = user.access && typeof user.access === 'object' ? user.access as Record<string, unknown> : {};
+        const availableWorkspaces: WorkspaceItem[] = memberships.map((membership) => ({ id: String(membership.tenantId), name: String(membership.tenantName), type: String(membership.tenantType) === 'individual' ? 'personal' : 'school', role: backendRole(membership.role), logoUrl: String(membership.logoUrl ?? ''), schoolCode: String(membership.tenantCode ?? '') }));
+        const activeWorkspace = availableWorkspaces.find((candidate) => candidate.id === String(tenant.id)) ?? availableWorkspaces[0];
+        const assignments = Array.isArray(user.assignments) ? user.assignments as Array<Record<string, unknown>> : [];
+
+        // Commit the session boundary before slower page-data requests. The
+        // shell and route guard must observe workspace + capabilities as one
+        // authenticated transition, never the previous Personal workspace.
+        auth.setIdentity({
+          id: String(user.id),
+          fullName: String(user.name),
+          email: String(user.email),
+          phone: String(user.phone ?? ''),
+          avatarUrl: String(user.avatarUrl ?? ''),
+          verified: Boolean(user.emailVerified),
+          teachingGrowthStreak: 0,
+          timeSavedMinutes: 0,
+        });
+        accessState.replaceAccess({
+          capabilities: Array.isArray(canonicalAccess.capabilities) ? canonicalAccess.capabilities.map(String) : [],
+          legacyPermissions: Array.isArray(canonicalAccess.legacyPermissions) ? canonicalAccess.legacyPermissions.map(String) : [],
+          registryVersion: Number(canonicalAccess.registryVersion || 0),
+          assignments: assignments.map((assignment) => ({ id: String(assignment.id), role: assignment.role ? String(assignment.role) : undefined, scopeType: assignment.scopeType ? String(assignment.scopeType) : undefined, primary: Boolean(assignment.primary) })),
+          personaHint: ['teacher', 'parent', 'student', 'platform', 'school'].includes(String(user.personaHint).toLowerCase()) ? String(user.personaHint).toLowerCase() as Persona : undefined,
+        });
+        if (activeWorkspace) hydrationGeneration = workspace.completeWorkspaceTransition(activeWorkspace, availableWorkspaces);
+        auth.setAuthStatus('READY');
+
         const permissions = new Set(Array.isArray(user.permissions) ? user.permissions.map(String) : []);
         const isSchoolWorkspace = String(tenant.type) !== 'individual';
         const permittedList = (permission: string, path: string) => permissions.has(permission) ? list(path) : Promise.resolve([]);
@@ -1125,7 +1165,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           permittedList('students.view', '/classes?perPage=100'),
           permittedList('students.view', '/subjects?perPage=100'),
           permittedList('users.manage', '/employees?perPage=100'),
-          permittedList('assessments.view', '/assessments?perPage=100'),
+          // V2 Assessment owns its paginated server state. Avoid eagerly fetching
+          // the legacy collection on an Assessment entry/deep link.
+          window.location.pathname.startsWith('/school/assessment') || window.location.pathname.startsWith('/personal/assessment')
+            ? Promise.resolve([]) : permittedList('assessments.view', '/assessments?perPage=100'),
           permittedList('finance.view', '/payments?perPage=100'),
           isSchoolWorkspace && permissions.has('users.manage') ? list('/invites') : Promise.resolve([]),
           permissions.has('students.view')
@@ -1135,7 +1178,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           permittedList('ai.generate', '/lesson-plans'),
           permittedList('students.view', '/students?perPage=100'),
         ] as const);
-        if (!active) return;
+        if (!active || hydrationGeneration !== workspaceGenerationRef.current) return;
         if (sessionRows.status === 'fulfilled') {
         setSessions(sessionRows.value.map((row) => ({ id: String(row.id), name: String(row.name), isCurrent: Boolean(row.isCurrent), startDate: String(row.startsAt ?? ''), endDate: String(row.endsAt ?? '') })));
         setTerms(sessionRows.value.flatMap((row) => (Array.isArray(row.terms) ? row.terms : []).map((term: Record<string, unknown>) => ({ id: String(term.id), sessionId: String(row.id), name: String(term.name), isCurrent: Boolean(term.isCurrent), startDate: String(term.startsAt ?? ''), endDate: String(term.endsAt ?? '') }))));
@@ -1143,7 +1186,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (classRows.status === 'fulfilled') setClasses(classRows.value.map((row) => ({ id: String(row.id), name: String(row.name), category: (String(row.educationalLevel || 'Junior Secondary') as ClassLevel['category']), arms: row.arm ? [String(row.arm)] : [], subjects: [] })));
       if (subjectRows.status === 'fulfilled') setSubjects(subjectRows.value.map((row) => ({ id: String(row.id), code: String(row.code), name: String(row.name), category: 'General', applicableLevels: [] })));
       if (staffRows.status === 'fulfilled') setStaff(staffRows.value.map((row) => ({ id: String(row.id), staffNo: String(row.employeeNumber), fullName: String(row.name), email: String(row.email ?? ''), phone: String(row.phone ?? ''), role: 'Teacher', campus: String((row.department as Record<string, unknown> | null)?.name ?? ''), assignedClasses: [], assignedSubjects: [], status: String(row.status).toLowerCase() === 'active' ? 'Active' : 'Suspended' })));
-      if (assessmentRows.status === 'fulfilled') setAssessments(assessmentRows.value.map((row) => ({ id: String(row.id), title: String(row.title), subject: String(row.subject ?? ''), classLevel: String(row.className ?? ''), arm: '', term: '', session: '', teacherId: '', teacherName: '', weights: { ca1Weight: 0, ca2Weight: 0, midTermWeight: 0, terminalExamWeight: Number(row.maxScore ?? 100), total: Number(row.maxScore ?? 100) }, scores: [], status: ({ draft: 'Draft', submitted: 'Submitted', validated: 'Validated', approved: 'Approved', published: 'Published' } as Record<string, AssessmentRecord['status']>)[String(row.status)] ?? 'Draft' })));
+      if (assessmentRows.status === 'fulfilled') setAssessments(assessmentRows.value.map((row) => ({ id: String(row.id), title: String(row.title), assessmentType: String(row.type ?? 'test'), scheduledDate: String(row.date ?? ''), subject: String(row.subject ?? ''), classLevel: String(row.className ?? ''), arm: '', term: '', session: '', teacherId: '', teacherName: '', weights: { ca1Weight: 0, ca2Weight: 0, midTermWeight: 0, terminalExamWeight: Number(row.maxScore ?? 100), total: Number(row.maxScore ?? 100) }, scores: [], status: ({ draft: 'Draft', submitted: 'Submitted', validated: 'Validated', approved: 'Approved', published: 'Published' } as Record<string, AssessmentRecord['status']>)[String(row.status)] ?? 'Draft' })));
       if (paymentRows.status === 'fulfilled') setFeeTransactions(paymentRows.value.map((row) => ({ id: String(row.id), studentId: String((row.metadata as Record<string, unknown> | null)?.studentId ?? ''), studentName: String((row.metadata as Record<string, unknown> | null)?.studentName ?? 'Account payment'), admissionNo: String((row.metadata as Record<string, unknown> | null)?.admissionNo ?? ''), amount: Number(row.amountMinor ?? 0) / 100, currency: String(row.currency ?? 'NGN'), title: String((row.metadata as Record<string, unknown> | null)?.title ?? 'School fee payment'), status: String(row.status) === 'succeeded' ? 'paid' : 'pending', paymentMethod: String(row.provider ?? 'Card'), receiptNumber: String(row.providerReference ?? ''), date: String(row.paidAt ?? row.createdAt ?? '').slice(0, 10) })));
       if (inviteRows.status === 'fulfilled') setInvitations(inviteRows.value.map((row) => ({ id: String(row.id), schoolId: branding.schoolId, schoolName: branding.schoolName, recipientName: String(row.name ?? row.email ?? ''), recipientEmail: String(row.email ?? ''), targetRole: String(row.roleLabel ?? row.role ?? 'Teacher') as UserRole, token: String(row.tokenHint ?? ''), inviteLink: '', expiresAt: String(row.expiresAt ?? ''), isUsed: String(row.status) === 'accepted', isRevoked: String(row.status) === 'revoked', createdAt: String(row.createdAt ?? '') })));
       if (onboarding.status === 'fulfilled') {
@@ -1162,11 +1205,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return { id: String(row.id), admissionNo: String(row.admissionNumber || ''), firstName: String(row.firstName || ''), lastName: String(row.lastName || ''), gender: rawGender.toLowerCase() === 'female' ? 'Female' : 'Male', dateOfBirth: String(row.dateOfBirth || ''), classLevel: String(row.className || ''), arm: String(row.classArm || '').replace(String(row.className || ''), '').trim(), status: ({ active: 'Active', suspended: 'Suspended', graduated: 'Graduated', transferred: 'Transferred' } as const)[rawStatus.toLowerCase() as 'active'] || 'Active', photoUrl: String(row.photoUrl || ''), guardianId: String(guardian.id || ''), guardianName: String(guardian.name || ''), guardianRelationship: ['Father', 'Mother'].includes(String(guardian.relationship)) ? guardian.relationship as 'Father' | 'Mother' : 'Guardian', guardianPhone: String(guardian.phone || ''), guardianEmail: String(guardian.email || ''), attendanceRate: Number(row.attendanceRate || 0), termAverage: Number(row.currentAverage || 0), feesStatus: rawFees === 'Paid' || rawFees === 'Partial' ? rawFees : 'Pending', balanceDue: Number(row.outstandingFees || 0) };
       }));
 
-        const memberships = Array.isArray(user.memberships) ? user.memberships as Array<Record<string, unknown>> : [];
-        const availableWorkspaces: WorkspaceItem[] = memberships.map((membership) => ({ id: String(membership.tenantId), name: String(membership.tenantName), type: String(membership.tenantType) === 'individual' ? 'personal' : 'school', role: backendRole(membership.role), logoUrl: String(membership.logoUrl ?? ''), schoolCode: String(membership.tenantCode ?? '') }));
-        const activeWorkspace = availableWorkspaces.find((workspace) => workspace.id === String(tenant.id)) ?? availableWorkspaces[0];
-        setCurrentUser((current) => ({ ...current, id: String(user.id), fullName: String(user.name), email: String(user.email), verified: Boolean(user.emailVerified), avatarUrl: String(user.avatarUrl ?? ''), availableWorkspaces, currentWorkspace: activeWorkspace ?? current.currentWorkspace }));
-        if (activeWorkspace) setCurrentWorkspace(activeWorkspace);
+        const canonicalContext = user.context && typeof user.context === 'object' ? user.context as Record<string, unknown> : {};
+        const campus = canonicalContext.campus && typeof canonicalContext.campus === 'object' ? canonicalContext.campus as Record<string, unknown> : null;
+        const session = canonicalContext.session && typeof canonicalContext.session === 'object' ? canonicalContext.session as Record<string, unknown> : null;
+        const term = canonicalContext.term && typeof canonicalContext.term === 'object' ? canonicalContext.term as Record<string, unknown> : null;
+        academic.replaceAcademicContext({
+          campus: campus ? { id: String(campus.id), name: String(campus.name) } : null,
+          session: session ? { id: String(session.id), name: String(session.name), isCurrent: true, startDate: '', endDate: '' } : null,
+          term: term ? { id: String(term.id), sessionId: String(session?.id ?? ''), name: String(term.name), isCurrent: true, startDate: '', endDate: '' } : null,
+        }, hydrationGeneration);
         if (activeWorkspace?.type === 'personal') {
           setBranding(platformBranding);
           setStudents([]);
@@ -1180,9 +1227,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else {
           setBranding((current) => ({ ...current, schoolId: String(tenant.id), schoolName: String(tenant.name), schoolCode: String(tenant.code), logoUrl: String(tenant.logoUrl ?? current.logoUrl) }));
         }
-      } finally {
-        hydrating = false;
-      }
+      } catch {
+        if (active && hydrationGeneration === workspaceGenerationRef.current) auth.setAuthStatus('ERROR', 'AUTH_FAILURE');
+      } finally { /* each generation is independently stale-checked */ }
     };
     window.addEventListener('skuggle:authenticated', hydrate);
     window.addEventListener('skuggle:workspace-changed', hydrate);
@@ -1499,6 +1546,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .catch((error) => { setBranding(previous); showToast('Branding update failed', describeApiError(error), 'failed'); });
   };
 
+  const clearTenantBoundState = useCallback(() => {
+    setStudents([]);
+    setStaff([]);
+    setSessions([]);
+    setTerms([]);
+    setClasses([]);
+    setSubjects([]);
+    setAssessments([]);
+    setInvoices([]);
+    setFeeTransactions([]);
+    setResultPINs([]);
+    setCbtQuizzes([]);
+  }, []);
+
+  useEffect(() => {
+    const clearSession = () => {
+      clearTenantBoundState();
+      auth.clearAuth();
+      workspace.clearWorkspace();
+      accessState.clearAccess();
+      academic.clearAcademicContext(workspace.generation + 1);
+      setBranding(platformBranding);
+    };
+    window.addEventListener('skuggle:logged-out', clearSession);
+    return () => window.removeEventListener('skuggle:logged-out', clearSession);
+  }, [clearTenantBoundState, auth.clearAuth, workspace.clearWorkspace, workspace.generation, accessState.clearAccess, academic.clearAcademicContext]);
+
   const activateWorkspace = (target: WorkspaceItem) => {
     // Hydrate tenant-owned collections before changing scope so one school's
     // cached records can never bleed into another workspace.
@@ -1508,7 +1582,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setInvoices(readStored(tenantStorageKey(target, 'invoices'), demoMode ? initialInvoices : []));
     setFeeTransactions(readStored(tenantStorageKey(target, 'fee-transactions'), demoMode ? initialFeeTransactions : []));
     setResultPINs(readStored(tenantStorageKey(target, 'pins'), demoMode ? initialPINs : []));
-    setCurrentWorkspace(target);
+    const nextGeneration = workspace.completeWorkspaceTransition(target);
+    academic.clearAcademicContext(nextGeneration);
     if (demoMode) localStorage.setItem('skuggle_active_workspace', JSON.stringify(target));
   };
 
@@ -1516,9 +1591,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const target = currentUser.availableWorkspaces.find((w) => w.id === workspaceId) || (demoMode ? initialWorkspaces.find((w) => w.id === workspaceId) : undefined);
     if (target) {
       if (demoMode) { activateWorkspace(target); showToast(`Switched workspace`, `Now working in ${target.name} as ${target.role}.`); return; }
+      const transitionGeneration = workspace.beginWorkspaceTransition();
+      academic.clearAcademicContext(transitionGeneration);
+      accessState.clearAccess();
+      clearTenantBoundState();
       void apiMutation('/auth/switch-workspace', 'POST', { tenantId: target.id })
         .then(() => { activateWorkspace(target); window.dispatchEvent(new Event('skuggle:workspace-changed')); showToast('Switched workspace', `Now working in ${target.name} as ${target.role}.`); })
-        .catch((error) => showToast('Workspace switch failed', describeApiError(error), 'failed'));
+        .catch((error) => { workspace.failWorkspaceTransition(); showToast('Workspace switch failed', describeApiError(error), 'failed'); });
     }
   };
 
@@ -1591,6 +1670,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentWorkspace(matchingWs);
     localStorage.setItem('skuggle_active_workspace', JSON.stringify(matchingWs));
   }, []);
+
+  const refreshStudents = async () => {
+    if (demoMode) return;
+    try {
+      const response = await apiRequest<{ success: true; data: { data: Array<Record<string, unknown>> } }>('/students?perPage=100');
+      setStudents((response.data.data ?? []).map((row) => {
+        const guardians = Array.isArray(row.guardians) ? row.guardians as Array<Record<string, unknown>> : [];
+        const guardian = guardians[0] || {};
+        const rawStatus = String(row.status || 'active');
+        const rawGender = String(row.gender || 'male');
+        const rawFees = String(row.feesStatus || 'Pending');
+        return { id: String(row.id), admissionNo: String(row.admissionNumber || ''), firstName: String(row.firstName || ''), lastName: String(row.lastName || ''), gender: rawGender.toLowerCase() === 'female' ? 'Female' : 'Male', dateOfBirth: String(row.dateOfBirth || ''), classLevel: String(row.className || row.classLevel || ''), arm: String(row.arm || row.classArm || '').replace(String(row.className || ''), '').trim(), status: ({ active: 'Active', suspended: 'Suspended', graduated: 'Graduated', transferred: 'Transferred', draft: 'Active', enrolled: 'Active' } as const)[rawStatus.toLowerCase() as 'active'] || 'Active', photoUrl: String(row.photoUrl || ''), guardianId: String(guardian.id || ''), guardianName: String(guardian.name || row.guardianName || ''), guardianRelationship: ['Father', 'Mother'].includes(String(guardian.relationship)) ? guardian.relationship as 'Father' | 'Mother' : 'Guardian', guardianPhone: String(guardian.phone || row.guardianPhone || ''), guardianEmail: String(guardian.email || row.guardianEmail || ''), attendanceRate: Number(row.attendanceRate || 0), termAverage: Number(row.currentAverage || 0), feesStatus: rawFees === 'Paid' || rawFees === 'Partial' ? rawFees : 'Pending', balanceDue: Number(row.outstandingFees || 0), positionInClass: 0, totalStudentsInClass: 0 };
+      }));
+    } catch { /* best effort */ }
+  };
 
   const addStudent = (student: StudentRecord) => {
     setStudents((prev) => [student, ...prev]);
@@ -1940,6 +2034,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         loginAsPreset,
         students,
         addStudent,
+        refreshStudents,
         updateStudent,
         staff,
         addStaff,
@@ -2001,6 +2096,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     </AppContext.Provider>
   );
 };
+
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <ApplicationStateProviders><LegacyAppContextAdapter>{children}</LegacyAppContextAdapter></ApplicationStateProviders>
+);
 
 export const useApp = () => {
   const context = useContext(AppContext);

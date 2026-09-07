@@ -1,0 +1,1809 @@
+# SKUGGLE SCHOOL TENANT SUPER ADMIN & SCHOOL ADMIN ROLE RE-ARCHITECTURE
+
+## ROLE
+
+Act as a **Senior SaaS Architect, Laravel Engineer, React Engineer, Database Architect, RBAC/ABAC Security Engineer, DevOps Engineer and QA Lead**.
+
+You are working on **Skuggle**, a multi-tenant School Operating and Learning Platform.
+
+Your responsibility is to perform a forensic audit of the existing codebase and then implement a production-grade separation between:
+
+1. **Platform Owner / Platform Super Admin**
+2. **School Tenant Super Admin**
+3. **School Admin Officer**
+4. Other school roles such as Principal, Vice Principal, Teacher, Bursar, Examination Officer, Parent and Student.
+
+Do not merely modify labels in the UI.
+
+This is an **authorization architecture refactor**.
+
+---
+
+# 1. PRIMARY OBJECTIVE
+
+The system currently has an `admin` role that represents the administrator of a school tenant.
+
+This architecture must be changed.
+
+The existing school-level:
+
+```text
+admin
+```
+
+must become:
+
+```text
+superadmin
+```
+
+or an equivalent clearly defined canonical role such as:
+
+```text
+school_super_admin
+```
+
+Use one canonical internal identifier consistently throughout the entire system.
+
+The **School Super Admin** becomes the highest authority within ONE school tenant.
+
+A new separate role must then be created:
+
+```text
+school_admin
+```
+
+representing an ordinary **School Administrative Officer** responsible for the school's day-to-day administrative operations.
+
+The School Admin receives only permissions delegated by the School Super Admin.
+
+---
+
+# 2. CRITICAL TENANCY BOUNDARY
+
+Never confuse:
+
+```text
+Platform Super Admin
+```
+
+with:
+
+```text
+School Super Admin
+```
+
+The hierarchy must be:
+
+```text
+SKUGGLE PLATFORM
+│
+├── Platform Owner / Platform Super Admin
+│     ├── manages SaaS platform
+│     ├── manages tenants
+│     ├── manages global plans
+│     ├── platform-wide configuration
+│     └── platform observability
+│
+└── School Tenant
+      │
+      ├── School Super Admin
+      │
+      ├── School Admin
+      │
+      ├── Principal / Head Teacher
+      │
+      ├── Vice Principal
+      │
+      ├── Bursar / Accountant
+      │
+      ├── Examination Officer
+      │
+      ├── Admissions Officer
+      │
+      ├── Teacher
+      │
+      ├── Parent
+      │
+      └── Student
+```
+
+A School Super Admin MUST NOT:
+
+* access another school's data;
+* access SaaS platform administration;
+* manipulate another tenant;
+* manage platform-wide subscriptions;
+* modify global infrastructure;
+* become a Platform Super Admin.
+
+Tenant isolation is mandatory.
+
+---
+
+# 3. REFERENCE UI
+
+Use the supplied **School Super Admin dashboard reference image** as the functional and information-architecture target.
+
+Do NOT treat the reference as merely a visual mockup.
+
+Analyse its:
+
+* module hierarchy;
+* sidebar grouping;
+* information density;
+* dashboard KPIs;
+* alerts;
+* quick actions;
+* leadership insights;
+* data relationships;
+* administrative capabilities.
+
+Compare each area against the actual codebase.
+
+Do not assume a feature exists simply because it appears in the reference image.
+
+---
+
+# 4. REFERENCE SUPER ADMIN SIDEBAR
+
+The intended School Super Admin sidebar is:
+
+```text
+Dashboard
+
+School
+    School Profile
+    Branding
+    Campuses / Branches
+    Academic Sessions
+    Terms
+    Classes
+    Arms / Streams
+    Departments
+    Subjects
+    Houses
+    Facilities
+    Academic Calendar
+
+People
+    Students
+    Teachers
+    Staff
+    Parents / Guardians
+    Administrators
+    User Accounts
+    Invitations
+    Bulk Import
+
+Admissions
+    Applications
+    Screening
+    Admission Decisions
+    Admission Letters
+    Enrolment
+    Waiting List
+    Admission Settings
+
+Academics
+    Curriculum
+    Subjects
+    Class Allocation
+    Teacher Allocation
+    Timetable
+    Lesson Plans
+    Scheme of Work
+    Learning Resources
+
+Assessment
+    Continuous Assessment
+    Tests
+    Examinations
+    Question Bank
+    Exam Scheduling
+    Marks Entry
+    Manual Assessment
+    Scan & Auto-Mark
+    Grade Configuration
+    Results
+    Report Cards
+    Result Approval
+    Result Publishing
+    Result PIN Management
+
+Performance
+    Student Progress
+    Subject Performance
+    Class Performance
+    Performance Trends
+    At-Risk Students
+    Intervention Tracking
+    AI Performance Insights
+
+Attendance
+    Student Attendance
+    Staff Attendance
+    Daily Register
+    Absence Management
+    Late Arrivals
+    Attendance Analytics
+    Biometrics
+    Attendance Notifications
+
+Finance
+    Fee Structure
+    Student Billing
+    Invoices
+    Payments
+    Outstanding Fees
+    Discounts
+    Scholarships
+    Payment Plans
+    Receipts
+    Expenses
+    Financial Reports
+    Reconciliation
+
+Communication
+    Announcements
+    Notices
+    Parent Messages
+    Teacher Messages
+    Student Messages
+    Email
+    SMS
+    Push Notifications
+    Broadcasts
+
+Online Learning
+    Virtual Classes
+    Live Lessons
+    Recorded Lessons
+    Learning Materials
+    Assignments
+    Discussions
+    Online Assessments
+
+Student Services
+    Behaviour
+    Discipline
+    Welfare
+    Counselling
+    Library
+    Transport
+    Student Support
+
+Operations
+    Assets
+    Inventory
+    Facilities
+    Approvals
+    Documents
+    Operational Reports
+
+Administration
+    Roles & Permissions
+    User Access
+    Workflow Rules
+    Automation
+    Integrations
+    Audit Logs
+    Security
+    Authentication Policies
+    System Configuration
+    School Settings
+
+Subscription
+    Current Plan
+    Usage
+    Billing
+    Invoices
+    Feature Entitlements
+    Upgrade
+
+Reports
+    Academic Reports
+    Attendance Reports
+    Student Reports
+    Staff Reports
+    Finance Reports
+    Admission Reports
+    Performance Reports
+    Custom Reports
+    Export Centre
+
+Help & Support
+```
+
+Do not blindly create duplicate modules if equivalent functionality already exists.
+
+First map existing implementation to this target structure.
+
+---
+
+# 5. SUPER ADMIN DASHBOARD
+
+The School Super Admin dashboard must operate as an **executive command centre**, not a collection of decorative statistics.
+
+Required headline indicators should include where supported by actual data:
+
+```text
+Total Students
+Total Staff
+Attendance Today
+Fee Collection
+Average Academic Performance
+```
+
+---
+
+# 6. ALERTS & PENDING ACTIONS
+
+Create an exception-driven area for matters requiring management attention.
+
+Examples:
+
+```text
+Students Absent Today
+
+Overdue Invoices
+
+Results Awaiting Approval
+
+Students At Risk
+
+Admission Applications Awaiting Review
+
+Security Alerts
+
+Teachers With Missing Lesson Plans
+
+Pending Administrative Approvals
+```
+
+Each card must drill into real filtered data.
+
+No fake counters.
+
+---
+
+# 7. ANALYTICS
+
+Where real backend data exists, support widgets such as:
+
+```text
+Student Attendance Overview
+
+Fee Collection Overview
+
+Top Performing Classes
+
+Students At Risk
+
+Academic Calendar
+
+Recent Announcements
+
+Recent Activity
+```
+
+Charts must query real APIs.
+
+Do not hardcode sample data.
+
+---
+
+# 8. QUICK ACTIONS
+
+The Super Admin dashboard may expose permission-aware quick actions such as:
+
+```text
+Add Student
+Add Staff
+Create Notice
+Take Attendance
+Record Payment
+Create Exam
+Publish Results
+Send Message
+Generate Report
+```
+
+Only display actions that actually exist and that the authenticated user is authorized to execute.
+
+---
+
+# 9. SCHOOL SUPER ADMIN RESPONSIBILITIES
+
+The School Super Admin has comprehensive control of THEIR TENANT including:
+
+* school configuration;
+* branding;
+* academic structure;
+* students;
+* staff;
+* parents;
+* administrators;
+* roles;
+* permissions;
+* admissions;
+* academics;
+* assessment;
+* examinations;
+* results;
+* attendance;
+* fees;
+* reports;
+* workflows;
+* communication;
+* integrations;
+* security settings;
+* audit logs;
+* subscription visibility;
+* system configuration;
+* delegated administration.
+
+The Super Admin must be able to create and administer ordinary School Admin accounts.
+
+---
+
+# 10. SCHOOL ADMIN ROLE
+
+Create a separate:
+
+```text
+school_admin
+```
+
+role.
+
+This role represents an **administrative officer**, NOT the owner/controller of the school's system.
+
+Typical responsibilities include:
+
+```text
+Student Administration
+
+Admissions Processing
+
+Staff Records
+
+Parent Records
+
+Class Administration
+
+Attendance Administration
+
+Routine Fee Administration
+
+Announcements
+
+Exam Scheduling
+
+Result Administration
+
+Document Processing
+
+Reports
+
+Operational Requests
+```
+
+---
+
+# 11. SCHOOL ADMIN MUST NOT AUTOMATICALLY HAVE ACCESS TO
+
+Unless explicitly delegated:
+
+```text
+Roles & Permissions
+
+Super Admin Management
+
+Authentication Policies
+
+Security Configuration
+
+API Credentials
+
+Integration Secrets
+
+Payment Gateway Credentials
+
+Audit Log Deletion
+
+Tenant Ownership
+
+Subscription Ownership
+
+Critical School Configuration
+
+Permanent Data Deletion
+
+Sensitive Data Export
+
+System-Level Settings
+```
+
+Most importantly:
+
+```text
+school_admin
+```
+
+MUST NOT be capable of granting itself:
+
+```text
+school_super_admin
+```
+
+permissions.
+
+---
+
+# 12. PERMISSION MODEL
+
+Do not rely only on role names.
+
+Use permission-based authorization.
+
+Recommended conceptual structure:
+
+```text
+ROLE
+   ↓
+PERMISSIONS
+   ↓
+RESOURCE
+   ↓
+ACTION
+   ↓
+SCOPE
+```
+
+Examples:
+
+```text
+students.view
+
+students.create
+
+students.update
+
+students.archive
+
+students.export
+
+staff.view
+
+staff.create
+
+results.enter
+
+results.review
+
+results.approve
+
+results.publish
+
+finance.view
+
+finance.record_payment
+
+finance.configure
+
+users.manage
+
+roles.manage
+
+permissions.manage
+
+settings.manage
+
+security.manage
+
+audit.view
+```
+
+---
+
+# 13. PERMISSION SCOPE
+
+Where necessary, permissions must support scope:
+
+```text
+self
+
+assigned_class
+
+assigned_department
+
+campus
+
+school
+
+tenant
+```
+
+Example:
+
+A teacher may have:
+
+```text
+students.view
+scope = assigned_class
+```
+
+while Super Admin has:
+
+```text
+students.view
+scope = school
+```
+
+---
+
+# 14. DENY BY DEFAULT
+
+Authorization must follow:
+
+```text
+DENY BY DEFAULT
+```
+
+A permission that has not been explicitly granted must not be assumed.
+
+Do not implement logic such as:
+
+```php
+if ($user->role === 'admin') {
+    return true;
+}
+```
+
+scattered across the application.
+
+Centralize authorization.
+
+---
+
+# 15. PHASE 1 — FORENSIC CODEBASE AUDIT
+
+BEFORE changing any code, inspect the entire application.
+
+Search for every occurrence and variation of:
+
+```text
+admin
+administrator
+superadmin
+super_admin
+school_admin
+school_super_admin
+principal
+role
+roles
+permission
+permissions
+isAdmin
+isSuperAdmin
+```
+
+Inspect:
+
+### Backend
+
+* models;
+* migrations;
+* seeders;
+* factories;
+* middleware;
+* policies;
+* gates;
+* controllers;
+* FormRequests;
+* services;
+* repositories;
+* jobs;
+* events;
+* listeners;
+* routes;
+* API resources;
+* authentication;
+* tenant middleware.
+
+### Frontend
+
+* route guards;
+* layouts;
+* sidebar;
+* navigation;
+* menus;
+* dashboard;
+* components;
+* stores;
+* hooks;
+* context;
+* API clients;
+* conditional rendering.
+
+### Database
+
+Inspect:
+
+```text
+users
+
+roles
+
+permissions
+
+role_user
+
+model_has_roles
+
+model_has_permissions
+
+role_has_permissions
+
+tenant_users
+
+school_users
+```
+
+or their actual equivalents.
+
+Do not assume Spatie Permission or another package exists.
+
+Determine the actual architecture.
+
+---
+
+# 16. PRODUCE AN AUDIT MATRIX BEFORE IMPLEMENTATION
+
+Create:
+
+```text
+CURRENT IMPLEMENTATION
+vs
+TARGET IMPLEMENTATION
+```
+
+For every major module.
+
+Example:
+
+| Target Module | Existing Module | Backend | Frontend | Permission | Status  | Action    |
+| ------------- | --------------- | ------- | -------- | ---------- | ------- | --------- |
+| Students      | Student Manager | Yes     | Yes      | Weak       | Partial | Refactor  |
+| Admissions    | None            | No      | No       | No         | Missing | Implement |
+| Attendance    | Attendance      | Yes     | Yes      | Existing   | Exists  | Integrate |
+| Roles         | User Management | Partial | Yes      | Weak       | Partial | Rebuild   |
+
+Use actual repository evidence.
+
+Never invent implementation status.
+
+---
+
+# 17. IDENTIFY THE CURRENT ADMIN ARCHITECTURE
+
+Explicitly document:
+
+```text
+How is admin currently stored?
+
+Database role?
+
+Boolean field?
+
+Enum?
+
+Permission package?
+
+Hardcoded frontend logic?
+
+Middleware?
+
+Policies?
+
+JWT/Sanctum claims?
+
+Session?
+
+Tenant membership?
+```
+
+Trace the entire request path:
+
+```text
+LOGIN
+  ↓
+AUTHENTICATION
+  ↓
+TENANT RESOLUTION
+  ↓
+USER MEMBERSHIP
+  ↓
+ROLE
+  ↓
+PERMISSION
+  ↓
+API AUTHORIZATION
+  ↓
+FRONTEND VISIBILITY
+```
+
+Find inconsistencies.
+
+---
+
+# 18. ROLE MIGRATION PLAN
+
+Existing school-level users currently identified as:
+
+```text
+admin
+```
+
+must be migrated safely to:
+
+```text
+school_super_admin
+```
+
+Do not simply rename database values without checking dependencies.
+
+Inspect:
+
+* foreign keys;
+* enums;
+* validations;
+* policies;
+* middleware;
+* cached permissions;
+* frontend role comparisons;
+* API responses;
+* tests;
+* seeders;
+* factories.
+
+Migration must preserve existing legitimate administrative access.
+
+---
+
+# 19. BACKWARDS COMPATIBILITY
+
+During migration, identify APIs or records that depend on:
+
+```text
+admin
+```
+
+If necessary provide temporary compatibility mapping:
+
+```text
+admin → school_super_admin
+```
+
+but remove it after migration is proven stable.
+
+Do not leave two permanent aliases representing the same authority.
+
+---
+
+# 20. SCHOOL REGISTRATION
+
+When a new school tenant is created, the founding administrator should become:
+
+```text
+school_super_admin
+```
+
+NOT:
+
+```text
+school_admin
+```
+
+unless the business workflow explicitly assigns another person.
+
+This account becomes the school's initial tenant authority.
+
+---
+
+# 21. SUPER ADMIN USER MANAGEMENT
+
+Implement a management interface allowing School Super Admin to:
+
+Create Roles
+
+Invite Admin
+
+Assign Role
+
+Assign Permissions
+
+Restrict Module Access
+
+Suspend Account
+
+Reactivate Account
+
+View Login History
+
+View Administrative Activity
+
+Reset Access
+
+Revoke Sessions
+
+All high-risk actions must be audited.
+
+---
+
+# 22. FRONTEND ROLE-AWARE SIDEBAR
+
+Never maintain completely duplicated sidebars for every role unless technically justified.
+
+Build navigation using:
+
+```text
+permissions
++
+feature entitlements
++
+tenant configuration
+```
+
+Conceptually:
+
+```typescript
+{
+  label: "Finance",
+  permission: "finance.view"
+}
+```
+
+rather than:
+
+```typescript
+if (role === "admin")
+```
+
+whenever possible.
+
+---
+
+# 23. ROUTE SECURITY
+
+Hiding a menu does NOT protect a route.
+
+Every protected frontend action must also be protected on Laravel backend.
+
+The following must all align:
+
+```text
+Sidebar Visibility
+
+Frontend Router Guard
+
+API Permission
+
+Laravel Policy/Gate
+
+Tenant Scope
+
+Database Query Scope
+```
+
+---
+
+# 24. TENANT ISOLATION
+
+Every school-owned resource must belong to a tenant.
+
+Validate queries for leakage such as:
+
+```php
+Student::find($id)
+```
+
+without tenant scoping.
+
+Prefer architecture equivalent to:
+
+```php
+Student::where('tenant_id', $tenant->id)
+       ->findOrFail($id);
+```
+
+or centralized tenant global scopes where appropriate.
+
+A School Super Admin must have comprehensive access only inside their own tenant.
+
+---
+
+# 25. PRIVILEGE ESCALATION TESTING
+
+Explicitly attempt attacks such as:
+
+```text
+School Admin → School Super Admin
+
+Teacher → Admin
+
+Parent → Teacher
+
+Student → Staff
+
+Tenant A → Tenant B
+
+School Super Admin → Platform Super Admin
+```
+
+Test both UI and direct API calls.
+
+Changing:
+
+```text
+role
+tenant_id
+user_id
+permission
+```
+
+inside a request must never bypass authorization.
+
+---
+
+# 26. CRITICAL ACTION PROTECTION
+
+Require stronger controls for actions such as:
+
+```text
+Assign Super Admin
+
+Delete Administrator
+
+Change School Ownership
+
+Change Payment Credentials
+
+Change Authentication Settings
+
+Export Entire School Data
+
+Delete Critical Academic Records
+
+Delete Financial Records
+
+Disable Security Controls
+```
+
+Consider:
+
+* password reconfirmation;
+* MFA;
+* explicit confirmation;
+* audit logging.
+
+---
+
+# 27. AUDIT LOGGING
+
+Record:
+
+```text
+actor_user_id
+
+actor_role
+
+tenant_id
+
+action
+
+resource_type
+
+resource_id
+
+previous_state
+
+new_state
+
+ip_address
+
+device
+
+timestamp
+```
+
+At minimum, log:
+
+* role changes;
+* permission changes;
+* user creation;
+* user suspension;
+* financial configuration;
+* result publishing;
+* critical settings;
+* exports;
+* security configuration.
+
+---
+
+# 28. DATABASE CONSTRAINTS
+
+Audit and improve:
+
+* indexes;
+* unique constraints;
+* tenant foreign keys;
+* role relationships;
+* permission relationships;
+* soft delete strategy;
+* cascading rules.
+
+Do not allow malformed relationships such as a tenant role referencing another tenant.
+
+---
+
+# 29. PERFORMANCE
+
+The Super Admin dashboard must not generate dozens of sequential requests.
+
+Audit:
+
+```text
+N+1 queries
+
+duplicate API calls
+
+dashboard waterfall requests
+
+unindexed aggregates
+
+large result sets
+
+frontend rerenders
+
+duplicate React effects
+
+unnecessary polling
+```
+
+Use aggregation endpoints where appropriate.
+
+Example:
+
+```text
+GET /api/v1/dashboard/superadmin
+```
+
+may return consolidated summary data rather than triggering twenty independent calls.
+
+Do not create a monolithic endpoint that returns entire database tables either.
+
+Balance the design.
+
+---
+
+# 30. DASHBOARD DATA CONTRACT
+
+Define clear APIs for:
+
+```text
+summary
+
+alerts
+
+attendance
+
+finance
+
+performance
+
+admissions
+
+calendar
+
+activity
+```
+
+Return only data required by the dashboard.
+
+---
+
+# 31. LOADING EXPERIENCE
+
+Implement:
+
+* skeleton states;
+* independent card failure boundaries;
+* retries where appropriate;
+* query cancellation;
+* timeout handling;
+* useful error messages.
+
+One failed analytics API must NOT freeze the entire application.
+
+---
+
+# 32. UI REQUIREMENTS
+
+Use the reference image as visual direction:
+
+* dark branded left sidebar;
+* clean white workspace;
+* compact navigation;
+* expandable menu groups;
+* executive KPI cards;
+* pastel status indicators;
+* exception-based alerts;
+* clean charts;
+* responsive tables;
+* right-side contextual widgets where screen size permits;
+* consistent iconography;
+* subtle animations;
+* responsive desktop/tablet/mobile behaviour.
+
+Do not copy fake values from the image.
+
+Use real application data.
+
+---
+
+# 33. SCHOOL ADMIN INTERFACE
+
+After Super Admin is established, create a **School Admin Officer dashboard**.
+
+It should focus on operations rather than governance.
+
+Possible sidebar:
+
+```text
+Dashboard
+
+Students
+
+Staff
+
+Admissions
+
+Academics
+
+Attendance
+
+Assessment
+
+Examinations
+
+Fees & Payments
+
+Communication
+
+Parent Services
+
+Library
+
+Transport
+
+Documents
+
+Reports
+```
+
+The exact menu must be permission-driven.
+
+Do not expose Super Admin governance modules by default.
+
+---
+
+# 34. SCHOOL ADMIN DASHBOARD
+
+Prioritize:
+
+```text
+Students
+
+Staff
+
+Attendance Today
+
+Fees Received
+
+Pending Invoices
+
+Pending Admissions
+
+Upcoming Examinations
+
+Administrative Tasks
+
+Announcements
+
+Recent Activities
+```
+
+Avoid exposing sensitive platform controls.
+
+---
+
+# 35. PRINCIPAL REMAINS DISTINCT
+
+Do NOT make:
+
+```text
+Principal = School Admin
+```
+
+The Principal is an academic/leadership role.
+
+Principal responsibilities should focus on:
+
+* academic oversight;
+* staff oversight;
+* student performance;
+* results approval;
+* discipline;
+* attendance;
+* school leadership;
+* reports;
+* approvals.
+
+Administrative Officer and Principal are different functions.
+
+---
+
+# 36. DO NOT BREAK EXISTING ROLES
+
+Audit:
+
+```text
+Teacher
+
+Student
+
+Parent
+
+Principal
+
+Bursar
+
+Exam Officer
+
+Admissions Officer
+```
+
+Ensure the migration from admin to Super Admin does not accidentally expose or remove their permissions.
+
+---
+
+# 37. TESTING
+
+Create automated tests covering at least:
+
+## Authentication
+
+* Super Admin login
+* School Admin login
+* cross-tenant login behaviour
+
+## Authorization
+
+* Super Admin access
+* School Admin permitted access
+* School Admin denied access
+* privilege escalation
+
+## Tenant Isolation
+
+* Tenant A cannot read Tenant B
+* Tenant A cannot modify Tenant B
+* tenant IDs in request body cannot bypass isolation
+
+## Roles
+
+* Super Admin creates School Admin
+* Super Admin assigns permissions
+* School Admin cannot promote itself
+* School Admin cannot modify Super Admin
+* unauthorized user cannot change roles
+
+## Dashboard
+
+* real data returned
+* correct tenant aggregates
+* empty state
+* partial API failures
+
+---
+
+# 38. ACCEPTANCE TEST MATRIX
+
+Generate a matrix similar to:
+
+| Action                     |     Platform Admin | School Super Admin | School Admin |    Principal | Teacher |
+| -------------------------- | -----------------: | -----------------: | -----------: | -----------: | ------: |
+| Manage SaaS tenants        |                  ✅ |                  ❌ |            ❌ |            ❌ |       ❌ |
+| Manage school settings     |                 ❌* |                  ✅ |      Limited |            ❌ |       ❌ |
+| Manage school admins       |                 ❌* |                  ✅ |            ❌ |            ❌ |       ❌ |
+| Assign school permissions  |                 ❌* |                  ✅ |            ❌ |            ❌ |       ❌ |
+| Register student           |                 ❌* |                  ✅ |            ✅ | Configurable |       ❌ |
+| Approve results            |                 ❌* |                  ✅ | Configurable |            ✅ |       ❌ |
+| Enter results              |                 ❌* |                  ✅ | Configurable | Configurable |       ✅ |
+| View school reports        |                 ❌* |                  ✅ | Configurable |            ✅ | Limited |
+| Manage school subscription | Platform oversight |                  ✅ |            ❌ |            ❌ |       ❌ |
+
+`*` Platform personnel must not automatically operate inside tenant data merely because they administer the SaaS. Follow the application's support/impersonation policy if one exists.
+
+---
+
+# 39. DO NOT GUESS
+
+Throughout this work:
+
+DO NOT say:
+
+```text
+probably
+likely
+should already exist
+I assume
+```
+
+Inspect the repository.
+
+Every audit finding must include evidence such as:
+
+```text
+File:
+app/Models/User.php
+
+Method:
+hasRole()
+
+Finding:
+Current admin authorization is hardcoded.
+
+Risk:
+Privilege logic duplicated across controllers.
+
+Required change:
+Replace with centralized policy.
+```
+
+---
+
+# 40. DO NOT PERFORM A BLIND REWRITE
+
+Preserve working functionality.
+
+Reuse good existing implementations.
+
+Refactor only where necessary.
+
+Do NOT:
+
+* rewrite the application unnecessarily;
+* replace frameworks without justification;
+* create duplicate modules;
+* create duplicate APIs;
+* create duplicate database tables;
+* introduce demo data;
+* leave TODO placeholders;
+* leave dead routes;
+* leave obsolete admin conditions.
+
+---
+
+# 41. IMPLEMENTATION SEQUENCE
+
+Execute in this order:
+
+```text
+STEP 1
+Repository reconnaissance
+
+STEP 2
+Current RBAC architecture audit
+
+STEP 3
+Current tenant architecture audit
+
+STEP 4
+Reference UI → codebase gap analysis
+
+STEP 5
+Role/permission architecture design
+
+STEP 6
+Database migration design
+
+STEP 7
+Migrate admin → school_super_admin
+
+STEP 8
+Create school_admin
+
+STEP 9
+Implement permission architecture
+
+STEP 10
+Secure backend routes
+
+STEP 11
+Refactor frontend authorization
+
+STEP 12
+Implement Super Admin sidebar
+
+STEP 13
+Implement Super Admin dashboard
+
+STEP 14
+Implement School Admin sidebar/dashboard
+
+STEP 15
+Implement admin management
+
+STEP 16
+Implement audit logging
+
+STEP 17
+Run tenant-isolation security testing
+
+STEP 18
+Run regression testing
+
+STEP 19
+Run performance audit
+
+STEP 20
+Remove obsolete admin implementation
+```
+
+Do not start at Step 12 because the screenshot is pretty.
+
+The authorization architecture comes first.
+
+---
+
+# 42. REQUIRED OUTPUT BEFORE CODING
+
+First produce:
+
+## A. Existing Architecture Report
+
+Explain exactly how:
+
+* tenants;
+* users;
+* roles;
+* permissions;
+* admin;
+* routing;
+* authentication;
+* authorization
+
+currently work.
+
+## B. Gap Analysis
+
+Compare current implementation against the supplied reference.
+
+Classify each requirement:
+
+```text
+EXISTS
+
+PARTIAL
+
+MISSING
+
+BROKEN
+
+DUPLICATED
+
+INSECURE
+
+NEEDS REFACTORING
+```
+
+## C. Proposed Architecture
+
+Provide:
+
+```text
+Role hierarchy
+
+Permission hierarchy
+
+Tenant boundaries
+
+Frontend authorization
+
+Backend authorization
+
+Database changes
+```
+
+## D. Impact Analysis
+
+Identify files/tables/features affected.
+
+Then proceed with implementation.
+
+---
+
+# 43. REQUIRED OUTPUT AFTER IMPLEMENTATION
+
+Produce a final report containing:
+
+```text
+1. Executive Summary
+
+2. Root Architecture Problems Found
+
+3. Files Changed
+
+4. Database Migrations Added
+
+5. Existing Admin Migration Result
+
+6. School Super Admin Implementation
+
+7. School Admin Implementation
+
+8. Permission Model
+
+9. Tenant Isolation Controls
+
+10. Frontend Navigation Changes
+
+11. Backend Authorization Changes
+
+12. APIs Added/Modified
+
+13. Security Improvements
+
+14. Performance Improvements
+
+15. Automated Tests Added
+
+16. Tests Executed
+
+17. Test Results
+
+18. Remaining Risks
+
+19. Recommended Future Improvements
+```
+
+---
+
+# 44. DEFINITION OF DONE
+
+This task is NOT complete merely because:
+
+```text
+"Admin" now displays as "Super Admin"
+```
+
+It is complete only when:
+
+* existing school Admin has been safely migrated to School Super Admin;
+* School Super Admin is the highest tenant-level role;
+* a separate School Admin role exists;
+* School Super Admin can create School Admin accounts;
+* School Admin permissions can be delegated;
+* School Admin cannot elevate itself;
+* School Admin cannot modify Super Admin authority;
+* roles are enforced by backend authorization;
+* frontend navigation respects permissions;
+* all queries remain tenant scoped;
+* no cross-tenant access is possible;
+* the reference Super Admin information architecture is implemented or mapped;
+* dashboard metrics use real data;
+* existing roles continue functioning;
+* automated authorization tests pass;
+* tenant isolation tests pass;
+* no obsolete `admin` authorization logic remains;
+* production build passes.
+
+---
+
+# 45. FINAL ARCHITECTURAL RULE
+
+The application must ultimately enforce:
+
+```text
+Platform Owner
+      │
+      │ governs Skuggle SaaS
+      ▼
+
+School Tenant
+      │
+      ├── School Super Admin
+      │       │
+      │       ├── governs the tenant
+      │       ├── manages administrators
+      │       ├── assigns permissions
+      │       └── controls school configuration
+      │
+      ├── School Admin
+      │       │
+      │       └── performs delegated daily administration
+      │
+      ├── Principal
+      │       └── provides academic/leadership oversight
+      │
+      ├── Teachers
+      │
+      ├── Parents
+      │
+      └── Students
+```
+
+The fundamental distinction is:
+
+> **School Super Admin governs the School Space. School Admin operates the School Space.**
+
+Implement that distinction consistently across database, Laravel authorization, APIs, React routing, navigation, dashboards, tests and audit logs.
+
+Do not patch around the current architecture.
+
+Audit it, understand it, migrate it safely, secure it, test it, and leave the codebase in a demonstrably production-ready state.
+
+Additionaly, One adjustment I strongly recommend is using **`school_super_admin` internally rather than simply `superadmin`**.
+
+The user interface can display **“Super Admin”**, but the canonical identifier used across the database, API, Laravel authorization layer, frontend permission logic, seeders, migrations, tests, and audit logs should be:
+
+```text
+school_super_admin
+```
+
+This makes the distinction explicit between:
+
+```text
+platform_super_admin
+```
+
+and:
+
+```text
+school_super_admin
+```
+
+Recommended hierarchy:
+
+```text
+Platform
+└── platform_super_admin
+      └── Controls the entire Skuggle SaaS platform
+
+School Tenant
+└── school_super_admin
+      └── Highest authority within one school
+
+      └── school_admin
+            └── Handles delegated day-to-day school administration
+```
+
+This naming convention prevents developers from accidentally treating a tenant-level Super Admin as a platform-level administrator, particularly in authorization middleware, policies, API guards, database queries, and future platform-management functionality.
+
+Therefore, use:
+
+```text
+Display Name: Super Admin
+Internal Role: school_super_admin
+```
+
+and reserve:
+
+```text
+platform_super_admin
+```
+
+exclusively for Skuggle's SaaS/platform administration.

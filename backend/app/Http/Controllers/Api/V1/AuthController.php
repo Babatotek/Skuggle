@@ -203,7 +203,8 @@ class AuthController extends Controller
 
         $request->session()->put('tenant_public_id', $membership->tenant->public_id);
         $request->session()->forget(['campus_public_id', 'academic_session_public_id', 'term_public_id']);
-        $context->set($membership->tenant, $membership);
+        $context->clear();
+        $context->set($membership->tenant, $membership, (string) $request->attributes->get('request_id'));
         try {
             $this->setDefaultAcademicContext($request);
             $audit->record('authentication.workspace_switched', $request->user(), [], [

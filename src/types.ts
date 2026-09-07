@@ -1,4 +1,5 @@
 export type UserRole =
+  | 'Super Admin'
   | 'School Admin'
   | 'Principal'
   | 'Teacher'
@@ -183,6 +184,9 @@ export interface CurrentUser {
   verified: boolean;
   currentWorkspace: WorkspaceItem;
   availableWorkspaces: WorkspaceItem[];
+  permissions?: string[];
+  capabilities?: string[];
+  permissionRegistryVersion?: number;
   teachingGrowthStreak?: number;
   timeSavedMinutes?: number;
   teacherProfile?: TeacherProfileData;
@@ -322,6 +326,8 @@ export interface StudentScoreEntry {
 export interface AssessmentRecord {
   id: string;
   title: string;
+  assessmentType?: 'quiz' | 'assignment' | 'test' | 'exam' | string;
+  scheduledDate?: string;
   subject: string;
   classLevel: string;
   arm: string;

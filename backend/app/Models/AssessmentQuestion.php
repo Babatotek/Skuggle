@@ -16,6 +16,6 @@ class AssessmentQuestion extends Model
 
     protected function casts(): array
     {
-        return ['options' => 'array', 'correct_answer' => 'encrypted'];
+        return ['options' => 'array', 'correct_answer' => 'encrypted', 'rubric' => 'array'];
     }
 }

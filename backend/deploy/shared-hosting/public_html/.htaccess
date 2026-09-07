@@ -23,6 +23,10 @@
     RewriteCond %{REQUEST_URI} ^/version$
     RewriteRule ^ index.php [L]
 
+    # Public media must never fall through to the SPA shell.
+    RewriteCond %{REQUEST_URI} ^/storage/
+    RewriteRule ^ - [L]
+
     # Existing static files / directories
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d

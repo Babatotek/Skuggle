@@ -14,10 +14,10 @@ final class CbtController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $privileged = (bool) app(TenantContext::class)->membership()->role->privileged;
-        $items = CbtQuiz::query()->when(! $privileged, fn ($q) => $q->where('status', 'published'))->latest()->limit(100)->get();
-
-        return ApiResponse::success(['data' => $items->map(fn (CbtQuiz $q) => $this->present($q, $privileged))]);
+        $access = app(\App\Services\AssessmentAccess::class);
+        abort_unless($access->allows('assessment.assessment.view'), 403);
+        $paginator = CbtQuiz::query()->when(! $access->tenantWide(), fn ($q) => $q->where('created_by', $request->user()->getKey()))->latest()->paginate(min(max($request->integer('perPage', 10), 1), 100));
+        return ApiResponse::success(['data' => collect($paginator->items())->map(fn (CbtQuiz $q) => $this->present($q, false)), 'meta' => ['currentPage' => $paginator->currentPage(), 'perPage' => $paginator->perPage(), 'total' => $paginator->total(), 'lastPage' => $paginator->lastPage()]]);
     }
 
     public function store(Request $request): JsonResponse

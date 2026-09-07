@@ -76,8 +76,9 @@ class DemoUsersSeeder extends Seeder
 
         // Single demonstration school — one login per school role for full walkthrough.
         $schoolAccounts = [
-            [self::DEMO_TENANT_EMAIL, 'DemoTenant Administrator', 'school_admin'],
-            ['admin@royalgateway.edu.ng', 'Demo School Admin', 'school_admin'],
+            [self::DEMO_TENANT_EMAIL, 'DemoTenant Super Admin', 'school_super_admin'],
+            ['admin@royalgateway.edu.ng', 'Demo Super Admin', 'school_super_admin'],
+            ['officer@royalgateway.edu.ng', 'Demo School Admin Officer', 'school_admin'],
             ['principal@royalgateway.edu.ng', 'Mrs. Adeyemi', 'principal'],
             ['adewale.o@royalgateway.edu.ng', 'Mr. Adewale', 'teacher'],
             ['bursar@royalgateway.edu.ng', 'Mrs. Okonkwo', 'bursar'],
@@ -135,8 +136,9 @@ class DemoUsersSeeder extends Seeder
             [
                 ['platform_super_admin', self::OWNER_EMAIL, self::OWNER_PASSWORD],
                 ['platform_super_admin (alias)', 'owner@skuggle.com', self::OWNER_PASSWORD],
-                ['DemoTenant school_admin', self::DEMO_TENANT_EMAIL, self::DEMO_PASSWORD],
-                ['school_admin', 'admin@royalgateway.edu.ng', self::DEMO_PASSWORD],
+                ['school_super_admin', self::DEMO_TENANT_EMAIL, self::DEMO_PASSWORD],
+                ['school_super_admin', 'admin@royalgateway.edu.ng', self::DEMO_PASSWORD],
+                ['school_admin', 'officer@royalgateway.edu.ng', self::DEMO_PASSWORD],
                 ['principal', 'principal@royalgateway.edu.ng', self::DEMO_PASSWORD],
                 ['teacher', 'adewale.o@royalgateway.edu.ng', self::DEMO_PASSWORD],
                 ['bursar', 'bursar@royalgateway.edu.ng', self::DEMO_PASSWORD],

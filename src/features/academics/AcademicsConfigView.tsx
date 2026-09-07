@@ -1,248 +1,94 @@
-import React, { useState } from 'react';
-import { motion } from 'motion/react';
-import {
-  BookOpen,
-  Calendar,
-  Layers,
-  Percent,
-  PlusCircle,
-  CheckCircle2,
-  Save,
-  Sparkles,
-  ShieldCheck,
-} from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { BookOpen, ChartNoAxesCombined, CheckCircle2, ChevronDown, Clock3, FilePenLine, FolderOpen, ListChecks, MoreHorizontal, Percent, Plus, Settings2, Upload, UserRoundCheck, UsersRound, XCircle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { CollapsibleCard, CollapsibleCardGroup } from '../../components/CollapsibleCard';
-import { apiMutation, describeApiError } from '../../lib/apiClient';
+import { useAcademicContext } from '../../state/ApplicationStateProviders';
+import { Modal } from '../../components/ui/Modal';
+import { Drawer } from '../../components/ui/Drawer';
+import { apiMutation, apiRequest, describeApiError } from '../../lib/apiClient';
+import { ClassTimetableView } from './ClassTimetableView';
+import { AcademicPlanningManager } from './AcademicPlanningManager';
+import { LearningResourcesView } from '../library/LearningResourcesView';
 
-export const AcademicsConfigView: React.FC = () => {
-  const { branding, sessions, terms, subjects: backendSubjects, showToast } = useApp();
+export type AcademicsSection = 'overview' | 'curriculum' | 'planning' | 'allocation' | 'resources';
+type DialogKind = 'weights' | 'subject' | 'teacher' | 'scheme' | 'lesson' | 'resource' | 'settings' | null;
 
-  const [activeSession, setActiveSession] = useState(branding.academicSession);
-  const [activeTerm, setActiveTerm] = useState(branding.currentTerm);
+const Button = ({ children, onClick, secondary = false }: { children: React.ReactNode; onClick?: () => void; secondary?: boolean }) => <button type="button" onClick={onClick} className={`inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition-colors ${secondary ? 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50' : 'bg-indigo-700 text-white hover:bg-indigo-800'}`}>{children}</button>;
+const Card = ({ title, description, action, children }: { title: string; description?: string; action?: React.ReactNode; children: React.ReactNode }) => <section className="rounded-2xl border border-slate-200 bg-white shadow-xs"><div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4"><div><h2 className="text-sm font-bold text-slate-900">{title}</h2>{description && <p className="mt-1 text-xs text-slate-500">{description}</p>}</div>{action}</div><div className="p-5">{children}</div></section>;
+const EmptyState = ({ icon: Icon, title, body, action, onAction }: { icon: React.ElementType; title: string; body: string; action: string; onAction: () => void }) => <div className="flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-8 text-center"><span className="rounded-2xl bg-indigo-50 p-3 text-indigo-700"><Icon className="h-6 w-6" /></span><h3 className="mt-4 text-sm font-bold text-slate-900">{title}</h3><p className="mt-1 max-w-md text-xs leading-5 text-slate-500">{body}</p><div className="mt-4"><Button onClick={onAction}><Plus className="h-4 w-4" />{action}</Button></div></div>;
 
-  // Weights
-  const [ca1Weight, setCa1Weight] = useState(15);
-  const [ca2Weight, setCa2Weight] = useState(15);
-  const [midTermWeight, setMidTermWeight] = useState(10);
-  const [examWeight, setExamWeight] = useState(60);
-
-  const totalWeight = ca1Weight + ca2Weight + midTermWeight + examWeight;
-
-  const subjectFallback = [
-    { name: 'Mathematics', code: 'MTH', category: 'Core', classes: 'JSS 1 - SSS 3' },
-    { name: 'English Language', code: 'ENG', category: 'Core', classes: 'JSS 1 - SSS 3' },
-    { name: 'Basic Science', code: 'BSC', category: 'Junior Core', classes: 'JSS 1 - JSS 3' },
-    { name: 'Basic Technology', code: 'BTE', category: 'Junior Core', classes: 'JSS 1 - JSS 3' },
-    { name: 'Civic Education', code: 'CVE', category: 'National Core', classes: 'JSS 1 - SSS 3' },
-    { name: 'Physics', code: 'PHY', category: 'Senior Science', classes: 'SSS 1 - SSS 3' },
-    { name: 'Chemistry', code: 'CHM', category: 'Senior Science', classes: 'SSS 1 - SSS 3' },
-    { name: 'Biology', code: 'BIO', category: 'Senior Science', classes: 'SSS 1 - SSS 3' },
-  ];
-  const subjects = backendSubjects.length ? backendSubjects.map((item) => ({ name: item.name, code: item.code, category: item.category, classes: item.applicableLevels.join(', ') || 'Configured classes' })) : subjectFallback;
-
-  const handleSaveAcademics = async () => {
-    if (totalWeight !== 100) {
-      showToast('Weight Error', `Total assessment weighting must sum to 100% (currently ${totalWeight}%).`);
-      return;
-    }
-
-    const selectedSession = sessions.find((item) => item.name === activeSession);
-    const selectedTerm = terms.find((item) => item.name === activeTerm && (!selectedSession || item.sessionId === selectedSession.id));
-    try {
-      await Promise.all([
-        apiMutation('/onboarding/steps/assessment_structure', 'PATCH', { ca1Weight, ca2Weight, midTermWeight, examWeight }),
-        selectedSession && selectedTerm ? apiMutation('/auth/context', 'PUT', { sessionId: selectedSession.id, termId: selectedTerm.id, campusId: null }) : Promise.resolve(),
-      ]);
-      showToast('Curriculum saved', 'Academic context and assessment weights were saved to the database.');
-    } catch (error) { showToast('Academic configuration failed', describeApiError(error), 'failed'); }
+export const AcademicsConfigView: React.FC<{ initialSection?: AcademicsSection; onNavigateSection?: (tabId: string) => void }> = ({ initialSection = 'overview', onNavigateSection }) => {
+  const { branding, sessions, terms, classes, subjects, staff, showToast } = useApp();
+  const canonicalAcademic = useAcademicContext();
+  const [section, setSection] = useState<AcademicsSection>(initialSection);
+  const [curriculumTab, setCurriculumTab] = useState('structure'); const [planningTab, setPlanningTab] = useState('scheme'); const [allocationTab, setAllocationTab] = useState('teacher');
+  const [dialog, setDialog] = useState<DialogKind>(null); const [quickOpen, setQuickOpen] = useState(false); const [saving, setSaving] = useState(false);
+  const [schemeSignal, setSchemeSignal] = useState(0); const [lessonSignal, setLessonSignal] = useState(0);
+  const [subjectForm, setSubjectForm] = useState({name:'',code:''});
+  const [assignmentForm, setAssignmentForm] = useState({userId:'',classId:'',subjectId:'',sessionId:''});
+  const [allocationRows, setAllocationRows] = useState<{id:string;teacher?:string;subject?:string;class?:string;session?:string;type?:string}[]>([]);
+  const [resourceForm, setResourceForm] = useState({title:'',description:'',resourceType:'lesson',subjectId:'',className:'',term:'',status:'draft',accessTier:'school',sourceLabel:'School authored',licenceName:'School owned',content:''});
+  const [resourceFile, setResourceFile] = useState<File|null>(null);
+  const [weights, setWeights] = useState({ ca1Weight: 15, ca2Weight: 15, midTermWeight: 10, examWeight: 60 });
+  useEffect(() => setSection(initialSection), [initialSection]);
+  const currentSession = canonicalAcademic.session || sessions.find(x => x.isCurrent) || sessions.find(x => x.name === branding.academicSession);
+  const currentTerm = canonicalAcademic.term || terms.find(x => x.isCurrent) || terms.find(x => x.name === branding.currentTerm);
+  const teachers = staff.filter(x => x.role === 'Teacher' && x.status === 'Active');
+  const allocated = teachers.filter(x => x.assignedClasses.length || x.assignedSubjects.length);
+  const coveredClasses = classes.filter(c => c.subjects.length || subjects.some(s => s.applicableLevels.includes(c.name)));
+  const totalWeight = weights.ca1Weight + weights.ca2Weight + weights.midTermWeight + weights.examWeight;
+  const progress = useMemo(() => { if (!currentTerm) return 0; const a = +new Date(currentTerm.startDate), b = +new Date(currentTerm.endDate); return Math.max(0, Math.min(100, Math.round((Date.now() - a) / Math.max(1, b - a) * 100))); }, [currentTerm]);
+  const go = (next: AcademicsSection, nested?: string) => {
+    setSection(next);
+    if (next === 'curriculum' && nested) setCurriculumTab(nested);
+    if (next === 'planning' && nested) setPlanningTab(nested);
+    if (next === 'allocation' && nested) setAllocationTab(nested);
+    const tabIds: Record<AcademicsSection, string> = { overview: 'academics', curriculum: 'academic-curriculum', planning: 'academic-planning', allocation: 'academic-allocation', resources: 'academic-resources' };
+    onNavigateSection?.(tabIds[next]);
   };
+  const unavailable = (label: string) => showToast(label, 'This action becomes available when its backend workflow is configured.', 'info');
+  const saveWeights = async () => { if (totalWeight !== 100) return showToast('Weight error', `Weights must total 100% (currently ${totalWeight}%).`, 'error'); setSaving(true); try { await apiMutation('/onboarding/steps/assessment_structure', 'PATCH', weights); setDialog(null); showToast('Weights saved', 'Assessment weighting was updated.', 'success'); } catch (e) { showToast('Weights not saved', describeApiError(e), 'error'); } finally { setSaving(false); } };
+  const loadAllocations = async () => { try { const r=await apiRequest<{data:{data:typeof allocationRows}}>('/school-structure/teacher-allocations?perPage=100',{suppressErrorNotification:true}); setAllocationRows(r.data.data); } catch(e) { showToast('Teacher allocations',describeApiError(e),'error'); } };
+  useEffect(()=>{ if(section==='allocation') loadAllocations(); },[section]);
+  const saveSubject = async (e:React.FormEvent) => { e.preventDefault(); setSaving(true); try { await apiMutation('/school-structure/subjects','POST',subjectForm); setDialog(null); setSubjectForm({name:'',code:''}); showToast('Subject created','The subject is now available. Refreshing academic data…','success'); window.location.reload(); } catch(error){showToast('Could not create subject',describeApiError(error),'error');} finally{setSaving(false);} };
+  const saveAssignment = async (e:React.FormEvent) => { e.preventDefault(); setSaving(true); try { await apiMutation('/school-structure/teacher-allocations','POST',assignmentForm); setDialog(null); setAssignmentForm({userId:'',classId:'',subjectId:'',sessionId:''}); await loadAllocations(); showToast('Teacher assigned','The allocation was created.','success'); } catch(error){showToast('Could not assign teacher',describeApiError(error),'error');} finally{setSaving(false);} };
+  const saveResource = async (e:React.FormEvent) => { e.preventDefault(); setSaving(true); const body=new FormData(); Object.entries(resourceForm).forEach(([k,v])=>body.append(k,String(v))); body.append('sections',JSON.stringify([{id:crypto.randomUUID(),title:resourceForm.title,content:resourceForm.content||resourceForm.description||resourceForm.title}])); body.append('changeSummary','Created from Academics workspace'); if(resourceFile) body.append('file',resourceFile); try { await apiMutation('/library/resources','POST',body); setDialog(null); setResourceFile(null); showToast('Resource created','The resource was saved to the school library.','success'); } catch(error){showToast('Could not create resource',describeApiError(error),'error');} finally{setSaving(false);} };
+  const metrics = [
+    ['Subjects', subjects.length, `${new Set(subjects.map(x => x.category)).size} departments covered`, BookOpen, () => go('curriculum', 'subjects')],
+    ['Classes covered', coveredClasses.length, `${classes.length} classes configured`, UsersRound, () => go('allocation', 'class')],
+    ['Teachers assigned', allocated.length, `${teachers.length ? Math.round(allocated.length / teachers.length * 100) : 0}% allocation rate`, UserRoundCheck, () => go('allocation', 'teacher')],
+    ['Lesson plan progress', '—', 'No submitted plans', ChartNoAxesCombined, () => go('planning', 'lessons')],
+  ] as const;
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="p-2 rounded-xl bg-indigo-100 text-indigo-700">
-              <BookOpen className="w-5 h-5" />
-            </span>
-            <h1 className="font-display font-bold text-xl sm:text-2xl text-slate-900">
-              Academic Curriculum & Session Structure
-            </h1>
-            <span className="px-2.5 py-0.5 text-xs font-bold bg-indigo-100 text-indigo-800 rounded-full">
-              NERDC Compliant
-            </span>
-          </div>
-          <p className="text-xs sm:text-sm text-slate-500">
-            Configure academic sessions, terms, grading policy, and national curriculum subjects.
-          </p>
-        </div>
-
-        <button
-          onClick={handleSaveAcademics}
-          className="px-4 py-2 text-xs font-bold text-white bg-indigo-900 hover:bg-indigo-950 rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
-        >
-          <Save className="w-3.5 h-3.5" />
-          <span>Save Configurations</span>
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left: Term & Session Setup + Assessment Weights */}
-        <div className="lg:col-span-5 space-y-4">
-          {/* Active Session Card */}
-          <CollapsibleCard
-            id="academics-session-card"
-            title="Current Session & Term"
-            subtitle="Manage active term calendar and promotion cycles"
-            icon={<Calendar className="w-4 h-4 text-indigo-600" />}
-            badge={activeTerm}
-            badgeVariant="indigo"
-            defaultOpen={true}
-            variant="default"
-            padding="md"
-          >
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Active Academic Session
-                </label>
-                <select
-                  value={activeSession}
-                  onChange={(e) => setActiveSession(e.target.value)}
-                  className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-300 bg-slate-50"
-                >
-                  <option value="2025/2026">2025/2026 Academic Session</option>
-                  <option value="2026/2027">2026/2027 Academic Session</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Active Term Target
-                </label>
-                <div className="grid grid-cols-3 gap-2 text-xs font-semibold">
-                  {['First Term', 'Second Term', 'Third Term'].map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setActiveTerm(t)}
-                      className={`py-2 rounded-xl border transition-colors cursor-pointer ${
-                        activeTerm === t ? 'border-indigo-600 bg-indigo-50 text-indigo-900 font-bold' : 'border-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </CollapsibleCard>
-
-          {/* Assessment Grading Weights */}
-          <CollapsibleCard
-            id="academics-weights-card"
-            title="Continuous Assessment Weights"
-            subtitle="Standard NERDC 40% CA + 60% Exam grading model"
-            icon={<Percent className="w-4 h-4 text-purple-600" />}
-            badge={`Total: ${totalWeight}%`}
-            badgeVariant={totalWeight === 100 ? 'success' : 'danger'}
-            defaultOpen={true}
-            variant="default"
-            padding="md"
-          >
-            <div className="space-y-3 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-700">CA 1 (Continuous Test 1):</span>
-                <div className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    value={ca1Weight}
-                    onChange={(e) => setCa1Weight(parseInt(e.target.value) || 0)}
-                    className="w-14 text-center font-bold p-1 rounded-lg border border-slate-300"
-                  />
-                  <span className="font-bold text-slate-400">%</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-700">CA 2 (Continuous Test 2):</span>
-                <div className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    value={ca2Weight}
-                    onChange={(e) => setCa2Weight(parseInt(e.target.value) || 0)}
-                    className="w-14 text-center font-bold p-1 rounded-lg border border-slate-300"
-                  />
-                  <span className="font-bold text-slate-400">%</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-700">Mid-Term Assessment / Project:</span>
-                <div className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    value={midTermWeight}
-                    onChange={(e) => setMidTermWeight(parseInt(e.target.value) || 0)}
-                    className="w-14 text-center font-bold p-1 rounded-lg border border-slate-300"
-                  />
-                  <span className="font-bold text-slate-400">%</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-700">Terminal Examination:</span>
-                <div className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    value={examWeight}
-                    onChange={(e) => setExamWeight(parseInt(e.target.value) || 0)}
-                    className="w-14 text-center font-bold p-1 rounded-lg border border-slate-300"
-                  />
-                  <span className="font-bold text-slate-400">%</span>
-                </div>
-              </div>
-            </div>
-          </CollapsibleCard>
-        </div>
-
-        {/* Right: NERDC Subject Catalog */}
-        <div className="lg:col-span-7 space-y-4">
-          <CollapsibleCard
-            id="academics-subjects-card"
-            title="Registered NERDC Curriculum Subjects"
-            subtitle="Accredited subjects for Junior and Senior secondary schools"
-            icon={<BookOpen className="w-4 h-4 text-indigo-600" />}
-            badge={`${subjects.length} Active`}
-            badgeVariant="indigo"
-            defaultOpen={true}
-            variant="default"
-            padding="md"
-          >
-            <div className="divide-y divide-slate-100">
-              {subjects.map((sub, idx) => (
-                <div key={idx} className="py-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-100 text-indigo-900 font-bold font-mono flex items-center justify-center text-xs">
-                      {sub.code}
-                    </div>
-                    <div>
-                      <strong className="text-xs text-slate-900 block">{sub.name}</strong>
-                      <span className="text-[11px] text-slate-500">{sub.category} · {sub.classes}</span>
-                    </div>
-                  </div>
-
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700">
-                    Active Syllabus
-                  </span>
-                </div>
-              ))}
-            </div>
-          </CollapsibleCard>
-        </div>
-      </div>
+  return <div className="space-y-5">
+    <div className="flex min-h-9 items-center justify-end gap-2">
+      <Button secondary onClick={() => setDialog('settings')}><Settings2 className="h-4 w-4" />Academic Settings</Button>
+      <div className="relative"><Button onClick={() => setQuickOpen(!quickOpen)}><Plus className="h-4 w-4" />Quick Actions<ChevronDown className="h-4 w-4" /></Button>{quickOpen && <div className="absolute right-0 z-20 mt-2 w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">{[['Add Subject','subject'],['Assign Teacher','teacher'],['Create Timetable','timetable'],['Create Scheme of Work','scheme'],['Add Lesson Plan','lesson'],['Upload Resource','resource']].map(([label, kind]) => <button key={label} onClick={() => { setQuickOpen(false); if(kind==='timetable') go('allocation','timetable'); else if(kind==='scheme'){go('planning','scheme');setSchemeSignal(x=>x+1);} else if(kind==='lesson'){go('planning','lessons');setLessonSignal(x=>x+1);} else setDialog(kind as DialogKind); }} className="block w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50">{label}</button>)}</div>}</div>
     </div>
-  );
+
+    {section === 'overview' && <><div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{metrics.map(([label,value,context,Icon,click]) => <button key={label} onClick={click} className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:border-indigo-200"><div className="flex items-start justify-between"><span className="rounded-xl bg-indigo-50 p-2 text-indigo-700"><Icon className="h-5 w-5" /></span><span className="text-2xl font-bold text-slate-950">{value}</span></div><p className="mt-4 text-xs font-bold text-slate-800">{label}</p><p className="mt-1 text-[11px] text-slate-500">{context}</p></button>)}</div><div className="grid gap-4 xl:grid-cols-2">
+      <Card title="Current session & term" description="Read from School configuration" action={<Button secondary onClick={() => unavailable('Manage term in School')}>Manage Term</Button>}><div className="flex items-end justify-between"><div><p className="text-lg font-bold">{currentSession?.name || branding.academicSession || 'Not configured'}</p><p className="mt-1 text-xs text-slate-500">{currentTerm?.name || branding.currentTerm || 'No active term'} · {currentTerm?.startDate || '—'} to {currentTerm?.endDate || '—'}</p></div><Badge label={currentTerm ? 'Active' : 'Needs setup'} good={!!currentTerm} /></div><div className="mt-5 h-2 rounded-full bg-slate-100"><div className="h-full rounded-full bg-indigo-600" style={{width:`${progress}%`}} /></div><p className="mt-2 text-right text-[11px] text-slate-500">{progress}% through term</p></Card>
+      <Card title="Curriculum coverage" description="Configured by school level" action={<Button secondary onClick={() => go('curriculum')}>Manage Curriculum</Button>}><div className="space-y-4">{['Junior Secondary','Senior Secondary'].map(level => { const lc = classes.filter(c => c.category === level), n = lc.filter(c => coveredClasses.includes(c)).length, pct = lc.length ? Math.round(n/lc.length*100) : 0; return <div key={level}><div className="flex justify-between text-xs"><b>{level}</b><span>{n}/{lc.length} classes · {pct}%</span></div><div className="mt-2 h-2 rounded-full bg-slate-100"><div className="h-full rounded-full bg-indigo-500" style={{width:`${pct}%`}} /></div></div>})}</div></Card>
+      <Card title="Assessment weights" description="Academic weighting summary" action={<Button secondary onClick={() => setDialog('weights')}>Edit Weights</Button>}><div className="space-y-3">{Object.entries({'CA 1':weights.ca1Weight,'CA 2':weights.ca2Weight,'Mid-Term':weights.midTermWeight,'Terminal Exam':weights.examWeight}).map(([l,v]) => <div key={l}><div className="flex justify-between text-xs"><span>{l}</span><b>{v}%</b></div><div className="mt-1.5 h-1.5 rounded-full bg-slate-100"><div className="h-full rounded-full bg-violet-500" style={{width:`${v}%`}} /></div></div>)}</div><p className="mt-4 border-t pt-3 text-right text-xs font-bold text-emerald-700">Total: {totalWeight}%</p></Card>
+      <Card title="Teacher allocation" description="Assignments from People records" action={<Button secondary onClick={() => go('allocation','teacher')}>View Allocation</Button>}><div className="grid grid-cols-3 gap-3 text-center">{[['Allocated',allocated.length],['Unallocated',teachers.length-allocated.length],['Teachers',teachers.length]].map(([l,v]) => <div key={l} className="rounded-xl bg-slate-50 p-3"><p className="text-xl font-bold text-indigo-700">{v}</p><p className="text-[10px] text-slate-500">{l}</p></div>)}</div></Card>
+      <Card title="Planning progress" description="Scheme and lesson plan workflow" action={<Button secondary onClick={() => go('planning')}>Review Plans</Button>}><div className="flex gap-3 rounded-xl bg-amber-50 p-4 text-xs text-amber-800"><Clock3 className="h-5 w-5" />No planning submissions are available for this term.</div></Card>
+      <Card title="Learning resources" description="Shared academic materials" action={<Button secondary onClick={() => go('resources')}>Manage Resources</Button>}><div className="grid grid-cols-3 gap-3">{['Notes','Books','Digital'].map(x => <div key={x} className="rounded-xl border p-3"><b className="text-lg">0</b><p className="text-[10px] text-slate-500">{x}</p></div>)}</div></Card>
+    </div></>}
+
+    {section === 'curriculum' && <><Subtabs items={[['structure','Curriculum Structure'],['subjects','Subjects'],['coverage','Syllabus Coverage']]} active={curriculumTab} setActive={setCurriculumTab} />{curriculumTab === 'structure' && <Card title="Curriculum structure" description="Frameworks are configurable and not limited to one standard"><div className="grid gap-4 md:grid-cols-3"><Info label="Framework" value="School curriculum" /><Info label="School levels" value={`${new Set(classes.map(c => c.category)).size} configured`} /><Info label="Compliance" value={subjects.length ? 'Configured' : 'Needs setup'} /></div></Card>}{curriculumTab === 'subjects' && <Card title="Subjects" description={`${subjects.length} subjects from School`} action={<Button onClick={() => setDialog('subject')}><Plus className="h-4 w-4" />Add Subject</Button>}><Table headers={['Subject','Code','Department','Level','Classes','Assigned Teachers','Syllabus','Actions']} rows={subjects.map(s => [s.name,s.code,s.category,s.applicableLevels.join(', ') || '—',s.applicableLevels.length,teachers.filter(t => t.assignedSubjects.includes(s.name)).length,<Badge key="s" label="Not reported" />,<MoreHorizontal key="a" className="h-4 w-4" />])} empty="No subjects configured in School." /></Card>}{curriculumTab === 'coverage' && <EmptyState icon={ListChecks} title="No syllabus coverage reported" body="Coverage appears after teachers begin tracking curriculum topics." action="Manage syllabus" onAction={() => unavailable('Manage syllabus')} />}</>}
+    {section === 'planning' && <><Subtabs items={[['scheme','Scheme of Work'],['lessons','Lesson Plans']]} active={planningTab} setActive={setPlanningTab} />{planningTab === 'scheme' ? <AcademicPlanningManager kind="scheme" openSignal={schemeSignal} /> : <AcademicPlanningManager kind="lesson" openSignal={lessonSignal} />}</>}
+    {section === 'allocation' && <><Subtabs items={[['teacher','Teacher Allocation'],['class','Class Allocation'],['timetable','Timetable']]} active={allocationTab} setActive={setAllocationTab} />{allocationTab === 'teacher' && <Card title="Teacher allocation" description="People records assigned to academic work" action={<Button onClick={() => setDialog('teacher')}><Plus className="h-4 w-4" />Assign Teacher</Button>}><Table headers={['Teacher','Subject','Class','Stream','Weekly Periods','Load','Status','Actions']} rows={teachers.map(t => [t.fullName,t.assignedSubjects.join(', ') || '—',t.assignedClasses.join(', ') || '—','—','—',t.assignedClasses.length+t.assignedSubjects.length,<Badge key="s" label={t.assignedClasses.length || t.assignedSubjects.length ? 'Allocated':'Unallocated'} good={!!(t.assignedClasses.length || t.assignedSubjects.length)} />,<MoreHorizontal key="a" className="h-4 w-4" />])} empty="No active teachers are available in People." /></Card>}{allocationTab === 'class' && <Card title="Class allocation" description="Classes and streams are owned by School"><Table headers={['Class','Stream','Class Teacher','Subjects','Students','Room','Status','Actions']} rows={classes.flatMap(c => (c.arms.length ? c.arms : ['—']).map(arm => [c.name,arm,teachers.find(t => t.assignedClasses.includes(c.name))?.fullName || 'Unassigned',c.subjects.length || subjects.filter(s => s.applicableLevels.includes(c.name)).length,'—','—',<Badge key="s" label="Active" good />,<MoreHorizontal key="a" className="h-4 w-4" />]))} empty="No classes configured in School." /></Card>}{allocationTab === 'timetable' && <ClassTimetableView />}</>}
+    {section === 'resources' && <Card title="Academic resources" description="Resources from the school library" action={<Button onClick={() => setDialog('resource')}><Upload className="h-4 w-4" />Upload Resource</Button>}><LearningResourcesView title="Academic resources" /></Card>}
+
+    <Modal isOpen={dialog === 'weights'} onClose={() => setDialog(null)} title="Assessment weights" description="Assessment execution remains in Assessment." footer={<><Button secondary onClick={() => setDialog(null)}>Cancel</Button><Button onClick={saveWeights}>{saving ? 'Saving…':'Save weights'}</Button></>}><div className="space-y-4">{([['CA 1','ca1Weight'],['CA 2','ca2Weight'],['Mid-Term','midTermWeight'],['Terminal Exam','examWeight']] as const).map(([l,k]) => <label key={k} className="flex items-center justify-between text-sm font-semibold"><span>{l}</span><span className="flex items-center gap-2"><input type="number" min="0" max="100" value={weights[k]} onChange={e => setWeights({...weights,[k]:Number(e.target.value)})} className="w-20 rounded-xl border px-3 py-2 text-right" />%</span></label>)}<p className={`rounded-xl p-3 text-right text-xs font-bold ${totalWeight === 100 ? 'bg-emerald-50 text-emerald-700':'bg-rose-50 text-rose-700'}`}>Total: {totalWeight}%</p></div></Modal>
+    <Drawer isOpen={dialog === 'settings'} onClose={() => setDialog(null)} title="Academic Settings" description="Settings supported by the academic backend."><button onClick={() => setDialog('weights')} className="flex w-full items-center gap-3 rounded-xl border p-4 text-left"><Percent className="h-5 w-5 text-indigo-600" /><span><b className="block text-sm">Assessment weights</b><small className="text-slate-500">Configure CA and examination weighting</small></span></button><div className="mt-3 rounded-xl bg-slate-50 p-4 text-xs leading-5 text-slate-500">Session, term, classes and curriculum ownership remain in School. Teachers remain in People.</div></Drawer>
+    <Modal isOpen={dialog === 'subject'} onClose={() => setDialog(null)} title="Add Subject" description="Create a subject in the School curriculum." footer={<><Button secondary onClick={()=>setDialog(null)}>Cancel</Button><button form="subject-form" disabled={saving} className="rounded-xl bg-indigo-700 px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{saving?'Saving…':'Create Subject'}</button></>}><form id="subject-form" onSubmit={saveSubject} className="space-y-4"><FormField label="Subject name"><input required value={subjectForm.name} onChange={e=>setSubjectForm({...subjectForm,name:e.target.value})} className="field" placeholder="e.g. Mathematics"/></FormField><FormField label="Subject code"><input required value={subjectForm.code} onChange={e=>setSubjectForm({...subjectForm,code:e.target.value.toUpperCase()})} className="field" maxLength={32} placeholder="e.g. MTH"/></FormField></form></Modal>
+    <Modal isOpen={dialog === 'teacher'} onClose={() => setDialog(null)} title="Assign Teacher" description="Assign an existing People record to a School class and subject." footer={<><Button secondary onClick={()=>setDialog(null)}>Cancel</Button><button form="assignment-form" disabled={saving} className="rounded-xl bg-indigo-700 px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{saving?'Assigning…':'Assign Teacher'}</button></>}><form id="assignment-form" onSubmit={saveAssignment} className="grid gap-4 sm:grid-cols-2"><FormField label="Teacher"><select required value={assignmentForm.userId} onChange={e=>setAssignmentForm({...assignmentForm,userId:e.target.value})} className="field"><option value="">Select teacher</option>{teachers.map(x=><option key={x.id} value={x.id}>{x.fullName}</option>)}</select></FormField><FormField label="Class"><select required value={assignmentForm.classId} onChange={e=>setAssignmentForm({...assignmentForm,classId:e.target.value})} className="field"><option value="">Select class</option>{classes.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></FormField><FormField label="Subject"><select value={assignmentForm.subjectId} onChange={e=>setAssignmentForm({...assignmentForm,subjectId:e.target.value})} className="field"><option value="">Class teacher only</option>{subjects.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></FormField><FormField label="Academic session"><select required value={assignmentForm.sessionId} onChange={e=>setAssignmentForm({...assignmentForm,sessionId:e.target.value})} className="field"><option value="">Select session</option>{sessions.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></FormField></form></Modal>
+    <Modal isOpen={dialog === 'resource'} onClose={() => setDialog(null)} size="lg" title="Upload Resource" description="Create a structured library resource with an optional file." footer={<><Button secondary onClick={()=>setDialog(null)}>Cancel</Button><button form="resource-form" disabled={saving} className="rounded-xl bg-indigo-700 px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{saving?'Uploading…':'Save Resource'}</button></>}><form id="resource-form" onSubmit={saveResource} className="grid gap-4 sm:grid-cols-2"><FormField label="Title"><input required value={resourceForm.title} onChange={e=>setResourceForm({...resourceForm,title:e.target.value})} className="field"/></FormField><FormField label="Type"><select value={resourceForm.resourceType} onChange={e=>setResourceForm({...resourceForm,resourceType:e.target.value})} className="field">{[['lesson','Lesson'],['revision_note','Revision note'],['worksheet','Worksheet'],['book','Book'],['video','Video'],['teacher_material','Teacher material'],['other','Other']].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></FormField><FormField label="Subject"><select value={resourceForm.subjectId} onChange={e=>setResourceForm({...resourceForm,subjectId:e.target.value})} className="field"><option value="">General</option>{subjects.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></FormField><FormField label="Class"><select value={resourceForm.className} onChange={e=>setResourceForm({...resourceForm,className:e.target.value})} className="field"><option value="">All classes</option>{classes.map(x=><option key={x.id}>{x.name}</option>)}</select></FormField><FormField label="Term"><select value={resourceForm.term} onChange={e=>setResourceForm({...resourceForm,term:e.target.value})} className="field"><option value="">All terms</option>{terms.map(x=><option key={x.id}>{x.name}</option>)}</select></FormField><FormField label="Visibility"><select value={resourceForm.status} onChange={e=>setResourceForm({...resourceForm,status:e.target.value})} className="field"><option value="draft">Draft</option><option value="published">Published</option></select></FormField><label className="sm:col-span-2"><span className="mb-1.5 block text-xs font-bold">Description</span><textarea required value={resourceForm.description} onChange={e=>setResourceForm({...resourceForm,description:e.target.value})} className="field" rows={3}/></label><label className="sm:col-span-2"><span className="mb-1.5 block text-xs font-bold">Learning content</span><textarea value={resourceForm.content} onChange={e=>setResourceForm({...resourceForm,content:e.target.value})} className="field" rows={5}/></label><FormField label="File (optional)"><input type="file" accept=".pdf,.docx,.txt,.mp3,.mp4" onChange={e=>setResourceFile(e.target.files?.[0]||null)} className="field"/></FormField></form></Modal>
+  </div>;
 };
+
+const Subtabs = ({ items,active,setActive }: { items:string[][]; active:string; setActive:(v:string)=>void }) => <div className="flex overflow-x-auto rounded-xl border bg-white p-1">{items.map(([id,label]) => <button key={id} onClick={() => setActive(id)} className={`min-w-max rounded-lg px-4 py-2 text-xs font-bold ${active === id ? 'bg-indigo-50 text-indigo-700':'text-slate-500'}`}>{label}</button>)}</div>;
+const Info = ({label,value}:{label:string;value:string}) => <div className="rounded-xl bg-slate-50 p-4"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p><p className="mt-2 text-sm font-bold">{value}</p></div>;
+const FormField: React.FC<{label:string;children:React.ReactNode}> = ({label,children}) => <label><span className="mb-1.5 block text-xs font-bold text-slate-700">{label} <span className="text-rose-500">*</span></span>{children}</label>;
+const Badge: React.FC<{label:string;good?:boolean}> = ({label,good=false}) => <span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-bold ${good ? 'bg-emerald-50 text-emerald-700':'bg-amber-50 text-amber-700'}`}>{good && <CheckCircle2 className="mr-1 h-3 w-3" />}{label}</span>;
+const Table = ({headers,rows,empty}:{headers:string[];rows:React.ReactNode[][];empty:string}) => <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left text-xs"><thead><tr className="border-b text-[10px] uppercase tracking-wider text-slate-500">{headers.map(h => <th key={h} className="px-3 py-3">{h}</th>)}</tr></thead><tbody>{rows.map((row,i) => <tr key={i} className="border-b border-slate-100 hover:bg-slate-50">{row.map((cell,j) => <td key={j} className={`px-3 py-3 ${j===0?'font-bold text-slate-900':'text-slate-600'}`}>{cell}</td>)}</tr>)}</tbody></table>{!rows.length && <p className="py-12 text-center text-xs text-slate-500">{empty}</p>}</div>;

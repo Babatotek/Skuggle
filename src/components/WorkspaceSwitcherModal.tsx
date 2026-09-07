@@ -14,6 +14,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useAuth, useWorkspace } from '../state/ApplicationStateProviders';
 import { BrandMark } from './BrandMark';
 
 interface WorkspaceSwitcherModalProps {
@@ -27,7 +28,10 @@ export const WorkspaceSwitcherModal: React.FC<WorkspaceSwitcherModalProps> = ({
   onClose,
   onNavigateToNewSchool,
 }) => {
-  const { currentUser, currentWorkspace, switchWorkspace, branding } = useApp();
+  const { switchWorkspace } = useApp();
+  const { activeWorkspace: currentWorkspace, availableWorkspaces } = useWorkspace();
+  const { identity } = useAuth();
+  const currentUser = { ...identity, availableWorkspaces };
 
   if (!isOpen) return null;
 
@@ -38,6 +42,8 @@ export const WorkspaceSwitcherModal: React.FC<WorkspaceSwitcherModalProps> = ({
 
   const getRoleIcon = (role: string) => {
     switch (role) {
+      case 'Super Admin':
+        return <Building2 className="w-4 h-4 text-indigo-600" />;
       case 'School Admin':
         return <Building2 className="w-4 h-4 text-indigo-600" />;
       case 'Principal':
@@ -85,7 +91,7 @@ export const WorkspaceSwitcherModal: React.FC<WorkspaceSwitcherModalProps> = ({
             <div>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                  School Memberships ({schoolWorkspaces.length})
+                  Schools ({schoolWorkspaces.length})
                 </span>
                 <span className="text-[11px] text-indigo-600 font-medium">Tenant Isolated</span>
               </div>
@@ -107,7 +113,7 @@ export const WorkspaceSwitcherModal: React.FC<WorkspaceSwitcherModalProps> = ({
                     >
                       <div className="flex items-center gap-3.5">
                         <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-900 font-bold flex items-center justify-center text-sm border border-indigo-200 shadow-2xs">
-                          {branding.schoolName.slice(0, 2).toUpperCase()}
+                          {ws.name.slice(0, 2).toUpperCase()}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
@@ -150,7 +156,7 @@ export const WorkspaceSwitcherModal: React.FC<WorkspaceSwitcherModalProps> = ({
             <div>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Personal Spaces ({personalWorkspaces.length})
+                  Personal ({personalWorkspaces.length})
                 </span>
                 <span className="text-[11px] text-slate-500">Private & Cross-School</span>
               </div>
@@ -196,7 +202,7 @@ export const WorkspaceSwitcherModal: React.FC<WorkspaceSwitcherModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Platform Management
+                    Platform ({platformWorkspaces.length})
                   </span>
                 </div>
                 <div className="space-y-2.5">

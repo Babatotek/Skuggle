@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Domain\Identity\SchoolRoles;
 use App\Domain\Tenancy\TenantContext;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
@@ -39,12 +40,20 @@ class InviteController extends Controller
 
     public function store(Request $request, TenantContext $context, AuditLogger $audit): JsonResponse
     {
+        $actorRole = (string) $context->membership()->role?->name;
+        $allowedRoles = SchoolRoles::invitableRolesFor($actorRole);
+        abort_if($allowedRoles === [], 403);
+
         $data = $request->validate([
             'email' => ['required', 'email:rfc', 'max:254'],
-            'role' => ['required', 'string', Rule::in(['teacher', 'parent', 'student', 'bursar', 'principal', 'school_admin', 'examination_officer', 'admission_officer'])],
+            'role' => ['required', 'string', Rule::in($allowedRoles)],
             'name' => ['nullable', 'string', 'max:180'],
             'expiresInDays' => ['nullable', 'integer', 'min:1', 'max:30'],
         ]);
+
+        if (in_array($data['role'], [SchoolRoles::SCHOOL_SUPER_ADMIN, SchoolRoles::LEGACY_ADMIN], true)) {
+            return ApiResponse::error('FORBIDDEN', 'Super Admin authority cannot be granted by invitation.', 403);
+        }
 
         $role = Role::query()->where('name', $data['role'])->firstOrFail();
         $token = TenantInvitation::issueToken();
@@ -217,7 +226,7 @@ class InviteController extends Controller
         $role = $invite->role->name;
         $tenantId = $invite->tenant_id;
 
-        if (in_array($role, ['teacher', 'bursar', 'principal', 'school_admin', 'examination_officer', 'admission_officer'], true)) {
+        if (in_array($role, ['teacher', 'bursar', 'principal', SchoolRoles::SCHOOL_ADMIN, SchoolRoles::SCHOOL_SUPER_ADMIN, 'examination_officer', 'admission_officer'], true)) {
             Employee::query()->firstOrCreate(
                 [
                     'tenant_id' => $tenantId,

@@ -1,0 +1,31 @@
+.student-cbt { color: var(--color-text-primary); }
+.student-cbt-list { list-style: none; padding: 0; margin: 0; border: 1px solid var(--color-border-default); border-radius: var(--radius-card); background: var(--color-surface); }
+.student-cbt-list li { display: flex; justify-content: space-between; gap: 16px; padding: 16px; border-bottom: 1px solid var(--color-border-default); align-items: center; }
+.student-cbt-list li:last-child { border-bottom: 0; }
+.student-cbt-list strong { display: block; font-size: 15px; }
+.student-cbt-list small, .student-cbt-muted { display: block; color: var(--color-text-secondary); font-size: 12px; margin-top: 4px; }
+.student-cbt-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.student-cbt-link { color: var(--color-action-primary); font-weight: 600; min-height: 44px; display: inline-flex; align-items: center; }
+.student-cbt-error { padding: 16px; border-radius: var(--radius-card); background: var(--color-status-negative-bg); color: var(--color-status-negative-text); }
+.student-cbt-skeleton { display: grid; gap: 12px; }
+.student-cbt-skeleton div { height: 88px; border-radius: var(--radius-card); background: var(--color-surface-muted); }
+.student-cbt-player { min-height: 100vh; background: linear-gradient(180deg, #f4f7fb 0%, #eef2f7 100%); color: #122033; padding: 24px; max-width: 920px; margin: 0 auto; }
+.student-cbt-player-header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 20px; }
+.student-cbt-brand { margin: 0; text-transform: uppercase; letter-spacing: 0.06em; font-size: 12px; color: #5b6b7c; }
+.student-cbt-player h1 { margin: 4px 0 8px; font-size: 1.6rem; }
+.student-cbt-timer { font-variant-numeric: tabular-nums; font-size: 1.4rem; font-weight: 700; padding: 10px 14px; border-radius: 8px; background: #122033; color: #fff; }
+.student-cbt-instructions { padding: 12px 14px; background: #fff; border-left: 3px solid #122033; margin-bottom: 16px; }
+.student-cbt-question { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 8px 24px rgba(18, 32, 51, 0.06); }
+.student-cbt-options { display: grid; gap: 10px; margin-top: 16px; }
+.student-cbt-options label { display: flex; gap: 12px; align-items: center; border: 1px solid #d5dde7; border-radius: 10px; padding: 12px 14px; cursor: pointer; min-height: 48px; background: #fff; }
+.student-cbt-options label.selected { border-color: #1d4ed8; background: #eff6ff; }
+.student-cbt-options input { width: auto; }
+.student-cbt-free-text { display: block; margin-top: 16px; }
+.student-cbt-free-text textarea { width: 100%; min-height: 140px; border: 1px solid #d5dde7; border-radius: 10px; padding: 12px 14px; font-size: 16px; }
+.student-cbt-player-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 20px; }
+.student-cbt-result { background: #fff; border-radius: 12px; padding: 24px; text-align: center; }
+@media (max-width: 767px) {
+  .student-cbt-list li, .student-cbt-player-header, .student-cbt-player-footer { flex-direction: column; align-items: stretch; }
+  .student-cbt-actions { align-items: stretch; }
+  .student-cbt-player { padding: 16px; }
+}

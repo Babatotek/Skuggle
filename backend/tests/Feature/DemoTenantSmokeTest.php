@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\RoleAssignment;
+use App\Models\TenantMembership;
 use Database\Seeders\DemoUsersSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -14,6 +16,10 @@ class DemoTenantSmokeTest extends TestCase
     {
         $this->seed(DemoUsersSeeder::class);
         $this->seed(DemoUsersSeeder::class);
+        $this->assertSame(TenantMembership::query()->count(), RoleAssignment::query()->where('source', RoleAssignment::LEGACY_PRIMARY)->count());
+        foreach (TenantMembership::query()->get() as $membership) {
+            $this->assertSame(1, RoleAssignment::query()->where('tenant_membership_id', $membership->id)->where('role_id', $membership->role_id)->where('source', RoleAssignment::LEGACY_PRIMARY)->count());
+        }
 
         $headers = [
             'Origin' => 'http://localhost:3000',
@@ -28,7 +34,7 @@ class DemoTenantSmokeTest extends TestCase
         $login->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.user.tenant.name', 'DemoTenant')
-            ->assertJsonPath('data.user.role', 'school_admin');
+            ->assertJsonPath('data.user.role', 'school_super_admin');
 
         $this->withHeaders($headers)
             ->getJson('/api/v1/students?perPage=100')

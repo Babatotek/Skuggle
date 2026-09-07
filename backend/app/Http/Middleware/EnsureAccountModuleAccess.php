@@ -18,9 +18,10 @@ final class EnsureAccountModuleAccess
         $role = (string) $this->context->membership()->role?->name;
 
         $allowed = match ($module) {
-            'launch', 'invitations' => $tenantType === 'school' && $role === 'school_admin',
+            'launch' => $tenantType === 'school' && $role === 'school_super_admin',
+            'invitations' => $tenantType === 'school' && in_array($role, ['school_super_admin', 'school_admin'], true),
             'subscription' => $tenantType === 'personal'
-                || ($tenantType === 'school' && in_array($role, ['school_admin', 'bursar'], true)),
+                || ($tenantType === 'school' && in_array($role, ['school_super_admin', 'school_admin', 'bursar'], true)),
             'platform-configuration' => $tenantType === 'platform'
                 && in_array($role, ['platform_owner', 'platform_super_admin'], true),
             default => false,
