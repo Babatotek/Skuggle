@@ -21,6 +21,7 @@ use App\Services\PermissionRegistrySynchronizer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\Support\CreatesTenantUsers;
 use Tests\TestCase;
@@ -28,6 +29,14 @@ use Tests\TestCase;
 final class SmartmarkPipelineTest extends TestCase
 {
     use CreatesTenantUsers, RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config()->set('skuggle.library.disk', 'local');
+        Storage::fake('local');
+    }
 
     /** @return array{actor: array, assessment: Assessment, student: Student} */
     private function fixture(): array

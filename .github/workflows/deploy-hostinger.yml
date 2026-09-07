@@ -344,9 +344,9 @@ jobs:
           set -euo pipefail
           check_payload() {
             python3 -c 'import json,sys; body=json.load(open(sys.argv[1],encoding="utf-8")); expected=sys.argv[2];
-status=body.get("status"); release=body.get("release")
-assert status=="ready", "status %r is not ready" % (status,)
-assert release==expected, "release %r != %r" % (release, expected)' "$1" "$RELEASE_ID"
+          status=body.get("status"); release=body.get("release")
+          assert status=="ready", "status %r is not ready" % (status,)
+          assert release==expected, "release %r != %r" % (release, expected)' "$1" "$RELEASE_ID"
           }
           for i in 1 2 3 4 5 6; do
             code=$(curl --connect-timeout 10 --max-time 20 -sS -o /tmp/health.json -w "%{http_code}" "https://skuggle.royalgatewayadmin.com/ready" || true)
