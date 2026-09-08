@@ -92,3 +92,11 @@ Paste the OpenSSH private key into `HOSTINGER_SSH_KEY`. Never commit the key or 
 - Queue work is handled by the short-lived cron worker above.
 - Production `migrate` refuses `dropColumn` / `dropIfExists` / `renameColumn` in `up()` unless `ALLOW_DESTRUCTIVE_MIGRATIONS=true`. Prefer expand → deploy → contract.
 - When you move to a VPS, see `deploy/vps/README.md` for the Redis/Horizon upgrade path.
+
+## Deployment verification and recovery
+
+A push is deployed only when **Deploy Hostinger** completes successfully; a green CI job alone does not activate production. Compare `/version` and the `skuggle-release` meta tag in `/` with the workflow release ID. The live `application/release-manifest.json` records the full Git commit.
+
+Hostinger CageFS does not expose `/dev/fd`. Release scripts must use ordinary pipelines and temporary files, never Bash process substitution. The orchestrator preserves the child exit status while recording logs, releases its lock on failure, and restores backed-up directories if activation fails. It rebuilds path-dependent caches at the live path and exits maintenance before checking HTTP readiness. Frontend verification rejects an old shell even when it returns HTTP 200.
+
+Production secrets and uploads persist under `deployments/skuggle/shared`; they must not be replaced with development data. Release logs and deployment state are under `logs/` and `shared/release-data/`. Keep a database snapshot before migrations; filesystem rollback does not reverse database migrations. Automated releases do not send smoke-test emails.

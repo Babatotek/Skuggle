@@ -259,7 +259,6 @@ jobs:
           MAIL_USERNAME: ${{ secrets.HOSTINGER_MAIL_USERNAME }}
           MAIL_PASSWORD: ${{ secrets.HOSTINGER_MAIL_PASSWORD }}
           MAIL_FROM_ADDRESS: ${{ secrets.HOSTINGER_MAIL_FROM }}
-          MAIL_SMOKE_TO: ${{ secrets.HOSTINGER_MAIL_SMOKE_TO }}
         run: |
           set -euo pipefail
           USER="${SSH_USER:-u237094395}"
@@ -276,27 +275,26 @@ jobs:
           RELEASE_ENV="${RUNNER_TEMP}/skuggle.release.env"
           umask 077
           {
-            printf 'RELEASE_ID=%s\n' "$RELEASE_ID"
-            printf 'APP_RELEASE_ID=%s\n' "$RELEASE_ID"
-            printf 'APP_GIT_SHA=%s\n' "$APP_GIT_SHA"
-            printf 'DOMAIN_ROOT=%s\n' "$DOMAIN_ROOT"
-            printf 'PHP_BIN=%s\n' '/opt/alt/php83/usr/bin/php'
-            printf 'PUBLIC_HEALTH_URL=%s\n' 'https://skuggle.royalgatewayadmin.com'
-            printf 'APP_URL=%s\n' 'https://skuggle.royalgatewayadmin.com'
-            printf 'FRONTEND_URL=%s\n' 'https://skuggle.royalgatewayadmin.com'
-            printf 'MAIL_LINK_URL=%s\n' 'https://skuggle.royalgatewayadmin.com'
-            printf 'MAIL_MAILER=%s\n' 'smtp'
-            printf 'MAIL_HOST=%s\n' 'smtp.hostinger.com'
-            printf 'MAIL_PORT=%s\n' '465'
-            printf 'MAIL_SCHEME=%s\n' 'smtps'
-            printf 'MAIL_ENCRYPTION=%s\n' 'ssl'
-            printf 'MAIL_USERNAME=%s\n' "$MAIL_USERNAME"
-            printf 'MAIL_PASSWORD=%s\n' "$MAIL_PASSWORD"
-            printf 'MAIL_FROM_ADDRESS=%s\n' "${MAIL_FROM_ADDRESS:-info@skuggle.royalgatewayadmin.com}"
-            printf 'MAIL_FROM_NAME=%s\n' 'Skuggle'
-            printf 'MAIL_CONTACT_TO=%s\n' "${MAIL_FROM_ADDRESS:-info@skuggle.royalgatewayadmin.com}"
-            printf 'MAIL_SMOKE_TO=%s\n' "${MAIL_SMOKE_TO:-}"
-            printf 'SEED_DEMO_TENANT=%s\n' 'true'
+            printf 'RELEASE_ID=%q\n' "$RELEASE_ID"
+            printf 'APP_RELEASE_ID=%q\n' "$RELEASE_ID"
+            printf 'APP_GIT_SHA=%q\n' "$APP_GIT_SHA"
+            printf 'DOMAIN_ROOT=%q\n' "$DOMAIN_ROOT"
+            printf 'PHP_BIN=%q\n' '/opt/alt/php83/usr/bin/php'
+            printf 'PUBLIC_HEALTH_URL=%q\n' 'https://skuggle.royalgatewayadmin.com'
+            printf 'APP_URL=%q\n' 'https://skuggle.royalgatewayadmin.com'
+            printf 'FRONTEND_URL=%q\n' 'https://skuggle.royalgatewayadmin.com'
+            printf 'MAIL_LINK_URL=%q\n' 'https://skuggle.royalgatewayadmin.com'
+            printf 'MAIL_MAILER=%q\n' 'smtp'
+            printf 'MAIL_HOST=%q\n' 'smtp.hostinger.com'
+            printf 'MAIL_PORT=%q\n' '465'
+            printf 'MAIL_SCHEME=%q\n' 'smtps'
+            printf 'MAIL_ENCRYPTION=%q\n' 'ssl'
+            printf 'MAIL_USERNAME=%q\n' "$MAIL_USERNAME"
+            printf 'MAIL_PASSWORD=%q\n' "$MAIL_PASSWORD"
+            printf 'MAIL_FROM_ADDRESS=%q\n' "${MAIL_FROM_ADDRESS:-info@skuggle.royalgatewayadmin.com}"
+            printf 'MAIL_FROM_NAME=%q\n' 'Skuggle'
+            printf 'MAIL_CONTACT_TO=%q\n' "${MAIL_FROM_ADDRESS:-info@skuggle.royalgatewayadmin.com}"
+            printf 'SEED_DEMO_TENANT=%q\n' 'true'
           } > "$RELEASE_ENV"
 
           "${SSH[@]}" "mkdir -p '$ARTIFACT_DIR'"

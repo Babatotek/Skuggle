@@ -47,12 +47,10 @@ DirectoryIndex index.html index.php
     AddType application/manifest+json .webmanifest
 </IfModule>
 
-# Let Hostinger's CDN absorb brief shared-host load spikes while browsers still
-# revalidate the SPA shell. Deployments preserve prior content-hashed assets,
-# so a shell held at the edge for up to 60 seconds remains safe.
+# Always fetch the current shell; only content-hashed assets are immutable.
 <IfModule mod_headers.c>
     <Files "index.html">
-        Header always set Cache-Control "public, max-age=0, s-maxage=60, stale-while-revalidate=300"
+        Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
         Header always set Pragma ""
         Header always unset Expires
     </Files>

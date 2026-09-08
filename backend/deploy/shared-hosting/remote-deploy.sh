@@ -10,6 +10,7 @@
 set -euo pipefail
 
 RELEASE_ID="${RELEASE_ID:?RELEASE_ID is required}"
+[[ "$RELEASE_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._-]+$ ]] || { echo "Invalid release ID"; exit 1; }
 DOMAIN_ROOT="${DOMAIN_ROOT:-$HOME/domains/skuggle.royalgatewayadmin.com}"
 PHP_BIN="${PHP_BIN:-/opt/alt/php83/usr/bin/php}"
 COMPOSER_BIN="${COMPOSER_BIN:-/usr/local/bin/composer}"
@@ -41,6 +42,8 @@ OLD_RELEASE=""
 BACKUP=""
 LOCK_METHOD=""
 ACTIVATED=0
+APP_BACKED_UP=0
+PUBLIC_BACKED_UP=0
 SUCCESS=0
 
 mkdir -p "$SHARED/release-data" "$SHARED/storage/app/public" \
@@ -48,8 +51,13 @@ mkdir -p "$SHARED/release-data" "$SHARED/storage/app/public" \
   "$SHARED/storage/framework/views" "$SHARED/storage/logs" \
   "$RELEASES" "$ARTIFACTS" "$LOGS" "$LOCKS" "$BACKUPS"
 
-touch "$LOG"
-exec > >(tee -a "$LOG") 2>&1
+# CageFS has no /dev/fd: use an ordinary pipeline, preserving the child status.
+if [[ "${SKUGGLE_DEPLOY_LOGGED:-}" != "$RELEASE_ID" ]]; then
+  export SKUGGLE_DEPLOY_LOGGED="$RELEASE_ID"
+  set +e
+  bash "$0" "$@" 2>&1 | tee -a "$LOG"
+  exit "${PIPESTATUS[0]}"
+fi
 
 export RELEASE_ID APP_RELEASE_ID="${APP_RELEASE_ID:-$RELEASE_ID}" APP_GIT_SHA="${APP_GIT_SHA:-}"
 
@@ -169,6 +177,7 @@ extract_release() {
   test -f "$RELEASE_DIR/application/composer.lock"
   test -f "$RELEASE_DIR/public_html/index.html"
   test -f "$RELEASE_DIR/release-manifest.json"
+  cp "$RELEASE_DIR/release-manifest.json" "$RELEASE_DIR/application/release-manifest.json"
 }
 
 attach_release() {
@@ -268,6 +277,11 @@ verify_frontend() {
     rm -f "$tmp"
     return 1
   fi
+  if ! grep -Fq "content=\"$RELEASE_ID\"" "$tmp"; then
+    echo "ERROR: served frontend does not match release $RELEASE_ID"
+    rm -f "$tmp"
+    return 1
+  fi
   js="$(grep -oE '/assets/[^"[:space:]]+\.js' "$tmp" | head -n 1 || true)"
   rm -f "$tmp"
   if [[ -z "$js" ]]; then
@@ -284,11 +298,12 @@ rollback_live() {
   if [[ -x "$PHP_BIN" && -f "$LIVE_APP/artisan" ]]; then
     "$PHP_BIN" "$LIVE_APP/artisan" down --retry=10 --refresh=5 >/dev/null 2>&1 || true
   fi
-  rm -rf "$LIVE_APP" "$LIVE_PUBLIC"
-  if [[ -d "$BACKUP/application" ]]; then
+  if [[ "$APP_BACKED_UP" -eq 1 ]]; then
+    rm -rf "$LIVE_APP"
     mv "$BACKUP/application" "$LIVE_APP"
   fi
-  if [[ -d "$BACKUP/public_html" ]]; then
+  if [[ "$PUBLIC_BACKED_UP" -eq 1 ]]; then
+    rm -rf "$LIVE_PUBLIC"
     mv "$BACKUP/public_html" "$LIVE_PUBLIC"
   fi
   if [[ -f "$LIVE_APP/artisan" ]]; then
@@ -327,15 +342,15 @@ prune() {
   fi
   if [[ -s "$allowed" && -d "$LIVE_PUBLIC/assets" ]]; then
     sort -u "$allowed" -o "$allowed"
-    comm -23 \
-      <(find "$LIVE_PUBLIC/assets" -type f -printf '%P\n' 2>/dev/null | sort) \
-      "$allowed" \
+    find "$LIVE_PUBLIC/assets" -type f -printf '%P\n' | sort > "${allowed}.live"
+    comm -23 "${allowed}.live" "$allowed" \
       | while IFS= read -r rel; do
           [[ -n "$rel" ]] && rm -f "$LIVE_PUBLIC/assets/$rel"
         done
     find "$LIVE_PUBLIC/assets" -type d -empty -delete 2>/dev/null || true
   fi
   rm -f "$allowed"
+  rm -f "${allowed}.live"
   ls -1t "$SHARED/release-data"/assets-*.txt 2>/dev/null | tail -n +3 | xargs -r rm -f
   ls -1t "$LOGS"/*.log 2>/dev/null | tail -n "+$((KEEP_LOGS + 1))" | xargs -r rm -f
 }
@@ -382,17 +397,24 @@ if [[ -f "$LIVE_APP/artisan" ]]; then
   "$PHP_BIN" "$LIVE_APP/artisan" down --retry=10 --refresh=5 || true
 fi
 mkdir -p "$BACKUP"
+ACTIVATED=1
 if [[ -d "$LIVE_APP" ]]; then
   mv "$LIVE_APP" "$BACKUP/application"
+  APP_BACKED_UP=1
 fi
 if [[ -d "$LIVE_PUBLIC" ]]; then
   mv "$LIVE_PUBLIC" "$BACKUP/public_html"
+  PUBLIC_BACKED_UP=1
 fi
-ACTIVATED=1
 write_state "ACTIVATING"
 mv "$RELEASE_DIR/application" "$LIVE_APP"
 mv "$RELEASE_DIR/public_html" "$LIVE_PUBLIC"
 rmdir "$RELEASE_DIR" 2>/dev/null || rm -rf "$RELEASE_DIR"
+
+# Cached view paths were generated in staging; rebuild after moving the tree.
+"$PHP_BIN" "$LIVE_APP/artisan" config:cache
+"$PHP_BIN" "$LIVE_APP/artisan" view:cache
+"$PHP_BIN" "$LIVE_APP/artisan" up
 
 write_state "VERIFYING"
 if ! verify_ready "$RELEASE_ID"; then
@@ -414,6 +436,6 @@ fi
 
 printf '%s\n' "$RELEASE_ID" > "$CURRENT_FILE"
 write_state "SUCCESS"
-prune
 SUCCESS=1
+prune || echo "WARNING: retention cleanup failed; release remains healthy"
 echo "Deployment successful: $PUBLIC_HEALTH_URL (release $RELEASE_ID)"
