@@ -2,12 +2,42 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\HealthController;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class HealthCheckTest extends TestCase
 {
+    #[Test]
+    public function overlapping_readiness_probes_do_not_delete_each_others_cache_entries(): void
+    {
+        $entries = [];
+        $nested = false;
+        Cache::shouldReceive('put')->andReturnUsing(function ($key, $value, $ttl) use (&$entries, &$nested) {
+            $this->assertGreaterThanOrEqual(30, $ttl);
+            $entries[$key] = $value;
+            if (! $nested) {
+                $nested = true;
+                $this->assertSame(200, (new HealthController)->ready()->getStatusCode());
+            }
+
+            return true;
+        });
+        Cache::shouldReceive('get')->andReturnUsing(function ($key) use (&$entries) {
+            return $entries[$key] ?? null;
+        });
+        Cache::shouldReceive('forget')->andReturnUsing(function ($key) use (&$entries) {
+            unset($entries[$key]);
+
+            return true;
+        });
+
+        $this->assertSame(200, (new HealthController)->ready()->getStatusCode());
+        $this->assertSame([], $entries);
+    }
+
     #[Test]
     public function health_endpoint_returns_ok(): void
     {
