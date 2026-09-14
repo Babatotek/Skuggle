@@ -1,6 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { apiMutation, apiRequest, describeApiError } from '../../lib/apiClient';
+import { buildRoute } from '../../routing/builders';
+import { Button, ConfirmDialog } from '../../components/ui';
+
+interface LinkedProfile {
+  id: string;
+  type: 'workforce' | 'student' | 'guardian';
+  label: string;
+}
 
 interface MembershipRow {
   id: number;
@@ -8,114 +17,159 @@ interface MembershipRow {
   role: string;
   roleLabel: string;
   privileged: boolean;
-  user: { id: string; name: string; email: string; status: string };
+  accountType?: string;
+  linkedProfile?: LinkedProfile | null;
+  accessRoles?: Array<{ name?: string; label?: string }>;
+  user: { id: string; name: string; email: string; status: string; lastAccess?: string | null };
 }
 
-export const AdministratorsView: React.FC = () => {
-  const { showToast, currentUser } = useApp();
-  const canManageRoles = (currentUser.permissions ?? []).includes('roles.manage');
+const formatAccess = (value?: string | null) => {
+  if (!value) return '—';
+  try {
+    return new Date(value).toLocaleString();
+  } catch {
+    return value;
+  }
+};
+
+/** Users directory — login identities only. Employment belongs in Workforce. */
+export const AdministratorsView: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
+  const { showToast, currentUser, currentRole } = useApp();
+  const canManageAccess = currentRole === 'Super Admin' && (currentUser.permissions ?? []).includes('roles.manage');
   const [rows, setRows] = useState<MembershipRow[]>([]);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [pending, setPending] = useState<MembershipRow | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = () => {
     apiRequest<{ success: true; data: { data: MembershipRow[] } }>('/school/memberships', { suppressErrorNotification: true })
       .then((response) => setRows(response.data.data))
-      .catch((error) => showToast('Administrators', describeApiError(error), 'error'));
+      .catch((error) => showToast('Users', describeApiError(error), 'error'));
   };
 
   useEffect(() => {
     load();
   }, []);
 
-  const createOfficer = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!canManageRoles) return;
+  const confirmToggleAccess = async () => {
+    if (!pending || !canManageAccess) return;
     setBusy(true);
     try {
-      await apiMutation('/school/memberships', 'POST', {
-        name,
-        email,
-        password,
-        role: 'school_admin',
-      });
-      setName('');
-      setEmail('');
-      setPassword('');
-      showToast('School Admin created', 'The officer can sign in with the email and password you set.', 'success');
+      const next = pending.status === 'active' ? 'suspended' : 'active';
+      await apiMutation(`/school/memberships/${pending.id}`, 'PATCH', { status: next });
+      showToast(
+        next === 'suspended' ? 'Account access suspended' : 'Account access restored',
+        `${pending.user.name}'s login access is now ${next}. Employment status was not changed.`,
+        'success',
+      );
+      setPending(null);
       load();
     } catch (error) {
-      showToast('Could not create admin', describeApiError(error), 'error');
+      showToast('Update failed', describeApiError(error), 'error');
     } finally {
       setBusy(false);
     }
   };
 
-  const suspend = async (row: MembershipRow) => {
-    if (!canManageRoles || row.role === 'school_super_admin') return;
-    try {
-      await apiMutation(`/school/memberships/${row.id}`, 'PATCH', { status: row.status === 'active' ? 'suspended' : 'active' });
-      load();
-    } catch (error) {
-      showToast('Update failed', describeApiError(error), 'error');
-    }
+  const assignedRoles = (row: MembershipRow) => {
+    const labels = (row.accessRoles ?? []).map((item) => item.label || item.name).filter(Boolean);
+    if (labels.length) return labels.join(', ');
+    return row.roleLabel || row.role || '—';
   };
+
+  const sorted = useMemo(() => [...rows].sort((a, b) => a.user.name.localeCompare(b.user.name)), [rows]);
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6">
-        <h1 className="font-display font-extrabold text-xl text-slate-900">Administrators</h1>
-        <p className="text-xs text-slate-500 mt-1">
-          Super Admin governs this school tenant. School Admin officers receive only delegated day-to-day permissions.
-        </p>
-      </div>
-
-      {canManageRoles && (
-        <form onSubmit={createOfficer} className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-3">
-          <h2 className="font-display font-bold text-sm text-slate-900">Create School Admin officer</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className="px-3 py-2 rounded-xl border border-slate-200 text-sm" />
-            <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="px-3 py-2 rounded-xl border border-slate-200 text-sm" />
-            <input required minLength={8} type="password" name="new-admin-password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Temporary password" className="px-3 py-2 rounded-xl border border-slate-200 text-sm" />
-          </div>
-          <button type="submit" disabled={busy} className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl disabled:opacity-50">
-            {busy ? 'Saving…' : 'Create School Admin'}
-          </button>
-        </form>
+      {!embedded && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
+          <h1 className="font-display text-xl font-extrabold text-slate-900">Users</h1>
+          <p className="mt-1 text-xs text-slate-500">Manage accounts that can access Skuggle. Employment records live under People → Workforce.</p>
+        </div>
       )}
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-x-auto">
+      {embedded && (
+        <p className="text-sm text-[var(--color-text-secondary)]">
+          Login identities for this school. Staff employment is managed in{' '}
+          <Link className="font-semibold text-[var(--color-action-primary)]" to={buildRoute('school.people.workforce')}>Workforce</Link>.
+        </p>
+      )}
+
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-xs">
         <table className="w-full text-xs">
           <thead>
-            <tr className="text-left text-slate-500 border-b border-slate-100">
-              <th className="px-4 py-3 font-bold">Name</th>
-              <th className="px-4 py-3 font-bold">Email</th>
-              <th className="px-4 py-3 font-bold">Role</th>
-              <th className="px-4 py-3 font-bold">Status</th>
-              <th className="px-4 py-3 font-bold"></th>
+            <tr className="border-b border-slate-100 text-left text-slate-500">
+              <th className="px-4 py-3 font-bold">User</th>
+              <th className="px-4 py-3 font-bold">Account Type</th>
+              <th className="px-4 py-3 font-bold">Linked Profile</th>
+              <th className="px-4 py-3 font-bold">Assigned Role(s)</th>
+              <th className="px-4 py-3 font-bold">Last Access</th>
+              <th className="px-4 py-3 font-bold">Account Status</th>
+              <th className="px-4 py-3 font-bold"><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
+            {sorted.map((row) => (
               <tr key={row.id} className="border-t border-slate-100">
-                <td className="px-4 py-3 font-semibold text-slate-800">{row.user.name}</td>
-                <td className="px-4 py-3">{row.user.email}</td>
-                <td className="px-4 py-3">{row.roleLabel}</td>
+                <td className="px-4 py-3">
+                  <span className="block font-semibold text-slate-800">{row.user.name}</span>
+                  <span className="block text-slate-500">{row.user.email}</span>
+                </td>
+                <td className="px-4 py-3">{row.accountType || 'School account'}</td>
+                <td className="px-4 py-3">
+                  {row.linkedProfile ? (
+                    <span className="block">
+                      <span className="block">{row.linkedProfile.label}</span>
+                      {row.linkedProfile.type === 'workforce' && (
+                        <Link
+                          className="font-semibold text-indigo-700"
+                          to={buildRoute('school.people.workforce.profile', { employeePublicId: row.linkedProfile.id })}
+                        >
+                          View Workforce Profile
+                        </Link>
+                      )}
+                    </span>
+                  ) : '—'}
+                </td>
+                <td className="px-4 py-3">{assignedRoles(row)}</td>
+                <td className="px-4 py-3 whitespace-nowrap">{formatAccess(row.user.lastAccess)}</td>
                 <td className="px-4 py-3 capitalize">{row.status}</td>
                 <td className="px-4 py-3 text-right">
-                  {canManageRoles && row.role !== 'school_super_admin' && (
-                    <button type="button" onClick={() => void suspend(row)} className="text-indigo-700 font-bold">
-                      {row.status === 'active' ? 'Suspend' : 'Reactivate'}
-                    </button>
+                  {canManageAccess && row.role !== 'school_super_admin' && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPending(row)}
+                    >
+                      {row.status === 'active' ? 'Suspend access' : 'Restore access'}
+                    </Button>
                   )}
                 </td>
               </tr>
             ))}
+            {sorted.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-4 py-8 text-center text-slate-500">No login accounts found for this school.</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
+
+      <ConfirmDialog
+        isOpen={Boolean(pending)}
+        onClose={() => setPending(null)}
+        onConfirm={confirmToggleAccess}
+        isLoading={busy}
+        variant="warning"
+        title={pending?.status === 'active' ? 'Suspend account access' : 'Restore account access'}
+        confirmLabel={pending?.status === 'active' ? 'Suspend access' : 'Restore access'}
+        message={
+          pending?.status === 'active'
+            ? `Suspend login access for ${pending.user.name}? This does not change their Workforce employment status.`
+            : `Restore login access for ${pending?.user.name}? Employment status is unchanged.`
+        }
+      />
     </div>
   );
 };

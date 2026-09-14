@@ -19,7 +19,6 @@ export const BrandingStudio = lazy(() => import('../features/branding/BrandingSt
 export const AttendanceView = lazy(() => import('../features/attendance/AttendanceView').then((m) => ({ default: m.AttendanceView })));
 export const StudentRegistryView = lazy(() => import('../features/students/StudentRegistryView').then((m) => ({ default: m.StudentRegistryView })));
 export const ResultsManagementView = lazy(() => import('../features/results/ResultsManagementView').then((m) => ({ default: m.ResultsManagementView })));
-export const StaffManagementView = lazy(() => import('../features/staff/StaffManagementView').then((m) => ({ default: m.StaffManagementView })));
 export const AcademicsConfigView = lazy(() => import('../features/academics/AcademicsConfigView').then((m) => ({ default: m.AcademicsConfigView })));
 export const ReportCardGeneratorView = lazy(() => import('../features/results/ReportCardGeneratorView').then((m) => ({ default: m.ReportCardGeneratorView })));
 export const FeeStructureBillingView = lazy(() => import('../features/finance/FeeStructureBillingView').then((m) => ({ default: m.FeeStructureBillingView })));
@@ -27,6 +26,8 @@ export const BroadcastCenterView = lazy(() => import('../features/communication/
 export const ClassTimetableView = lazy(() => import('../features/academics/ClassTimetableView').then((m) => ({ default: m.ClassTimetableView })));
 export const AILessonPlanner = lazy(() => import('../features/teacher/AILessonPlanner').then((m) => ({ default: m.AILessonPlanner })));
 export const AdministratorsView = lazy(() => import('../features/administration/AdministratorsView').then((m) => ({ default: m.AdministratorsView })));
+export const RolesCatalogView = lazy(() => import('../features/administration/RolesCatalogView').then((m) => ({ default: m.RolesCatalogView })));
+export const PermissionsCatalogView = lazy(() => import('../features/administration/PermissionsCatalogView').then((m) => ({ default: m.PermissionsCatalogView })));
 export const SchoolModuleView = lazy(() => import('../features/modules/SchoolModuleView').then((m) => ({ default: m.SchoolModuleView })));
 export const SchoolStructureView = lazy(() => import('../features/school/SchoolStructureView').then((m) => ({ default: m.SchoolStructureView })));
 export const PerformanceView = lazy(() => import('../features/performance/PerformanceView').then((m) => ({ default: m.PerformanceView })));

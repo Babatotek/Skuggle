@@ -32,7 +32,7 @@ function windowState(a: Assessment): 'upcoming' | 'open' | 'closed' | 'unschedul
 /**
  * CBT assessments are Assessment records with delivery=cbt.
  * Legacy /cbt/quizzes remain available for reconciliation but are no longer the staff source of truth.
- * Student timed player / attempt ingestion is deferred.
+ * Students take timed assessments at /school/my-assessments.
  */
 export default function OnlineAssessments() {
   const [page, setPage] = useState(1);

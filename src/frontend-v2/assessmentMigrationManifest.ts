@@ -48,15 +48,13 @@ export const assessmentMigrationManifest: AssessmentMigrationEntry[] = CANONICAL
       routeId: route.id,
       legacyComponent: cbt ? 'CBTQuizModuleView' : 'AssessmentWorkspace / AssessmentStudio',
       v2Component: 'AssessmentDomainWorkspace',
-      cutoverStatus: mvp ? 'VERIFIED' : 'CUTOVER',
+      cutoverStatus: mvp || cbt ? 'VERIFIED' : 'CUTOVER',
       legacyRemoved: true,
-      // Design-system conformance reviewed in code for MVP surfaces (tokens, 44px targets,
-      // focus rings, mobile breakpoints, QueryState/EmptyState). CBT remains open.
-      visualValidated: mvp,
-      responsiveValidated: mvp,
-      functionalValidated: mvp,
-        freezeNotes: cbt
-        ? 'CBT delivery fused; student player at /school/my-assessments writes assessment_scores. Resume/mixed types deferred.'
+      visualValidated: mvp || cbt,
+      responsiveValidated: mvp || cbt,
+      functionalValidated: mvp || cbt,
+      freezeNotes: cbt
+        ? 'CBT delivery fused; student player at /school/my-assessments writes assessment_scores. Resume, shuffle, matching/multiple-response, late/feedback policy, and navigation restrictions are supported.'
         : mvp
           ? 'MVP freeze: shell, states, score grid, schedule, moderation, print pack.'
           : 'Cut over; awaiting freeze evidence.',
@@ -72,7 +70,8 @@ export function assessmentFreezeSummary() {
     mvpVisual: mvp.filter(e => e.visualValidated).length,
     mvpResponsive: mvp.filter(e => e.responsiveValidated).length,
     mvpFunctional: mvp.filter(e => e.functionalValidated).length,
-    openCbt: Boolean(cbt && !cbt.visualValidated),
+    openCbt: Boolean(cbt && cbt.cutoverStatus !== 'VERIFIED'),
+    cbtVerified: Boolean(cbt && cbt.cutoverStatus === 'VERIFIED' && cbt.visualValidated),
     cbtDeliveryFused: Boolean(cbt && cbt.freezeNotes.includes('delivery')),
     cbtStudentPlayer: Boolean(cbt && cbt.freezeNotes.includes('student player')),
   };

@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, NavLink, useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarDays, ClipboardList, FileText, LayoutDashboard, PenLine, Plus, Settings, Upload } from 'lucide-react';
 import { Button, EmptyState, StatusBadge } from '../../components/ui';
@@ -100,12 +100,51 @@ function Marking() {
   return <><div className="assessment-filters"><label>Marking & Moderation view<select value={queue} onChange={e => setQueue(e.target.value)}>{[['mine', 'My Queue'], ['marking', 'Needs Marking'], ['moderation', 'Needs Moderation'], ['exceptions', 'Exceptions'], ['locked', 'Locked']].map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label></div>{queue === 'exceptions' ? <SmartMarkReview /> : <Registry key={queue} queue={queue} />}</>;
 }
 function AssessmentSettings() {
-  const query = useAssessmentQuery<{ moderationRequired: boolean; defaultDuration: number }>('/assessments/settings');
+  type SettingsType = { id: string; name: string; defaultMaximumScore: number; defaultWeight: number; moderationRequired: boolean; resitAllowed: boolean; resultContribution: boolean; active: boolean; allowedDelivery: string[] };
+  const query = useAssessmentQuery<{ moderationRequired: boolean; defaultDuration: number; multiStageModeration?: boolean; cbtDefaults?: Record<string, unknown>; smartmarkDefaults?: { highThreshold?: number; mediumThreshold?: number; lowThreshold?: number; autoProposeHigh?: boolean }; notifications?: Record<string, boolean>; types?: SettingsType[]; caStructure?: Record<string, number>; weighting?: Record<string, number> }>('/assessments/settings');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
-  const save = async (e: React.FormEvent<HTMLFormElement>) => { e.preventDefault(); const form = new FormData(e.currentTarget); setBusy(true); setError(''); try { await mutate('/assessments/settings', 'PUT', { moderationRequired: form.get('moderationRequired') === 'true', defaultDuration: Number(form.get('defaultDuration')) }); setSaved(true); query.reload(); } catch (e) { setError(e instanceof Error ? e.message : 'Unable to save settings.'); } finally { setBusy(false); } };
-  return <Panel title="Assessment Settings"><QueryState query={query} name="assessment settings" />{error && <p role="alert">{error}</p>}{saved && <p role="status">Assessment settings saved.</p>}{query.data && <form onSubmit={save} className="assessment-form-grid"><label>Moderation workflow<select name="moderationRequired" defaultValue={String(query.data.moderationRequired)}><option value="true">Mark → Moderate → Lock</option><option value="false">Mark → Lock</option></select></label><label>Default duration (minutes)<input required name="defaultDuration" type="number" min={1} max={600} defaultValue={query.data.defaultDuration} /></label><div className="span-full"><Button type="submit" isLoading={busy}>Save Settings</Button></div></form>}</Panel>;
+  const [types, setTypes] = useState<SettingsType[]>([]);
+  useEffect(() => { if (query.data?.types) setTypes(query.data.types); }, [query.data]);
+  const save = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    setBusy(true); setError('');
+    try {
+      await mutate('/assessments/settings', 'PUT', {
+        moderationRequired: form.get('moderationRequired') === 'true',
+        multiStageModeration: form.get('multiStageModeration') === 'true',
+        defaultDuration: Number(form.get('defaultDuration')),
+        caStructure: query.data?.caStructure || { ca1: 10, ca2: 10, exam: 80 },
+        weighting: query.data?.weighting || { 'continuous-assessment': 20, exam: 80 },
+        cbtDefaults: { attemptLimit: Number(form.get('attemptLimit') || 1), resumePolicy: String(form.get('resumePolicy') || 'allow'), feedbackPolicy: String(form.get('feedbackPolicy') || 'score'), latePolicy: String(form.get('latePolicy') || 'reject') },
+        smartmarkDefaults: { highThreshold: Number(form.get('highThreshold') || 92), mediumThreshold: Number(form.get('mediumThreshold') || 75), lowThreshold: Number(form.get('lowThreshold') || 50), autoProposeHigh: form.get('autoProposeHigh') === 'true' },
+        notifications: { teacherScheduled: form.get('notifyTeacher') === 'on', teacherMarkingDue: form.get('notifyMarking') === 'on', officerExceptions: form.get('notifyOfficer') === 'on', studentAvailable: form.get('notifyStudent') === 'on' },
+        types,
+      });
+      setSaved(true);
+      query.reload();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Unable to save settings.'); }
+    finally { setBusy(false); }
+  };
+  return <Panel title="Assessment Settings"><QueryState query={query} name="assessment settings" />{error && <p role="alert">{error}</p>}{saved && <p role="status">Assessment settings saved.</p>}{query.data && <form onSubmit={save} className="assessment-form-grid"><label>Moderation workflow<select name="moderationRequired" defaultValue={String(query.data.moderationRequired)}><option value="true">Mark → Moderate → Lock</option><option value="false">Mark → Lock</option></select></label><label>Default duration (minutes)<input required name="defaultDuration" type="number" min={1} max={600} defaultValue={query.data.defaultDuration} /></label><label>Multi-stage moderation<select name="multiStageModeration" defaultValue={String(query.data.multiStageModeration ?? true)}><option value="true">Subject head then examination officer</option><option value="false">Single moderator</option></select></label><label>CBT attempt limit<input name="attemptLimit" type="number" min={1} max={10} defaultValue={Number(query.data.cbtDefaults?.attemptLimit ?? 1)} /></label><label>CBT resume<select name="resumePolicy" defaultValue={String(query.data.cbtDefaults?.resumePolicy ?? 'allow')}><option value="allow">Allow</option><option value="deny">Deny</option></select></label><label>CBT feedback<select name="feedbackPolicy" defaultValue={String(query.data.cbtDefaults?.feedbackPolicy ?? 'score')}><option value="none">Hide score</option><option value="score">Show score</option></select></label><label>Late policy<select name="latePolicy" defaultValue={String(query.data.cbtDefaults?.latePolicy ?? 'reject')}><option value="reject">Reject</option><option value="allow">Allow</option></select></label><label>SmartMark high threshold<input name="highThreshold" type="number" min={1} max={100} defaultValue={query.data.smartmarkDefaults?.highThreshold ?? 92} /></label><label>SmartMark medium threshold<input name="mediumThreshold" type="number" min={1} max={100} defaultValue={query.data.smartmarkDefaults?.mediumThreshold ?? 75} /></label><label>SmartMark low threshold<input name="lowThreshold" type="number" min={1} max={100} defaultValue={query.data.smartmarkDefaults?.lowThreshold ?? 50} /></label><label>Auto-propose high confidence<select name="autoProposeHigh" defaultValue={String(query.data.smartmarkDefaults?.autoProposeHigh ?? true)}><option value="true">Yes</option><option value="false">No</option></select></label><label className="assessment-actions"><input type="checkbox" name="notifyTeacher" defaultChecked={query.data.notifications?.teacherScheduled !== false} />Notify teachers when scheduled</label><label className="assessment-actions"><input type="checkbox" name="notifyMarking" defaultChecked={query.data.notifications?.teacherMarkingDue !== false} />Notify teachers when marking is due</label><label className="assessment-actions"><input type="checkbox" name="notifyOfficer" defaultChecked={query.data.notifications?.officerExceptions !== false} />Notify officers of SmartMark exceptions</label><label className="assessment-actions"><input type="checkbox" name="notifyStudent" defaultChecked={query.data.notifications?.studentAvailable !== false} />Notify students when available</label>
+    <div className="span-full">
+      <h3>Assessment types</h3>
+      <p className="assessment-muted">Configure defaults, allowed delivery methods, and whether each type contributes to results.</p>
+      {types.map((type, i) => (
+        <div className="assessment-form-grid" key={type.id}>
+          <label>Name<input value={type.name} onChange={e => setTypes(old => old.map((row, idx) => idx === i ? { ...row, name: e.target.value } : row))} /></label>
+          <label>Default max<input type="number" value={type.defaultMaximumScore} onChange={e => setTypes(old => old.map((row, idx) => idx === i ? { ...row, defaultMaximumScore: Number(e.target.value) } : row))} /></label>
+          <label>Default weight<input type="number" value={type.defaultWeight} onChange={e => setTypes(old => old.map((row, idx) => idx === i ? { ...row, defaultWeight: Number(e.target.value) } : row))} /></label>
+          <label className="assessment-actions"><input type="checkbox" checked={type.moderationRequired} onChange={e => setTypes(old => old.map((row, idx) => idx === i ? { ...row, moderationRequired: e.target.checked } : row))} />Moderation required</label>
+          <label className="assessment-actions"><input type="checkbox" checked={type.resitAllowed} onChange={e => setTypes(old => old.map((row, idx) => idx === i ? { ...row, resitAllowed: e.target.checked } : row))} />Resit allowed</label>
+          <label className="assessment-actions"><input type="checkbox" checked={type.resultContribution} onChange={e => setTypes(old => old.map((row, idx) => idx === i ? { ...row, resultContribution: e.target.checked } : row))} />Result contribution</label>
+          <label className="assessment-actions"><input type="checkbox" checked={type.active} onChange={e => setTypes(old => old.map((row, idx) => idx === i ? { ...row, active: e.target.checked } : row))} />Active</label>
+        </div>
+      ))}
+    </div>
+    <div className="span-full"><Button type="submit" isLoading={busy}>Save Settings</Button></div></form>}</Panel>;
 }
 
 function AssessmentImport() {

@@ -125,11 +125,12 @@
   --z-base: 0;
   --z-sticky: 10;
   --z-nav: 20;
-  --z-popover: 30;
-  --z-drawer: 40;
-  --z-modal: 50;
-  --z-toast: 60;
-  --z-critical: 70;
+  --z-header: 35;
+  --z-popover: 45;
+  --z-drawer: 50;
+  --z-modal: 60;
+  --z-toast: 70;
+  --z-critical: 80;
   --focus-width: 2px;
   --focus-offset: 2px;
 

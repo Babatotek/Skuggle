@@ -13,6 +13,7 @@ use App\Models\AssessmentScore;
 use App\Models\SmartmarkBatch;
 use App\Models\SmartmarkSheet;
 use App\Models\Student;
+use App\Services\AssessmentCompleteService;
 use App\Services\AssessmentAccess;
 use App\Services\AssessmentWorkflow;
 use App\Services\AuditLogger;
@@ -35,7 +36,7 @@ final class SmartmarkController extends Controller
 
         $batches = SmartmarkBatch::query()
             ->whereIn('assessment_id', $access->scope(Assessment::query())->select('id'))
-            ->with(['sheets', 'assessment'])
+            ->with(['sheets.detections', 'assessment'])
             ->latest()
             ->limit(50)
             ->get();
@@ -48,17 +49,22 @@ final class SmartmarkController extends Controller
         abort_unless(app(AssessmentAccess::class)->allows('assessment.smartmark.process'), 403);
         $data = $request->validate([
             'file' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:20480'],
-            'assessmentId' => ['required', 'string'],
+            'assessmentId' => ['nullable', 'string'],
             'answerKey' => ['nullable', 'array', 'min:1', 'max:200'],
             'answerKey.*' => ['required', 'string', 'max:2'],
             'maxScore' => ['nullable', 'integer', 'min:1', 'max:1000'],
         ]);
-        $assessment = Assessment::query()->where('public_id', $data['assessmentId'])->firstOrFail();
-        $this->authorize('updateScores', $assessment);
-        $answerKey = array_map('strtoupper', $data['answerKey'] ?? $this->answerKeyFromQuestions($assessment));
-        abort_if($answerKey === [], 422, 'Provide an answer key or attach auto-markable questions before scanning.');
-        $maxScore = (int) ($data['maxScore'] ?? $assessment->maximum_score);
-        abort_if($maxScore > (float) $assessment->maximum_score, 422, 'Batch max score cannot exceed the assessment maximum.');
+        $assessment = null;
+        $answerKey = array_map('strtoupper', $data['answerKey'] ?? []);
+        $maxScore = (int) ($data['maxScore'] ?? 100);
+        if (! empty($data['assessmentId'])) {
+            $assessment = Assessment::query()->where('public_id', $data['assessmentId'])->firstOrFail();
+            $this->authorize('updateScores', $assessment);
+            $answerKey = $answerKey !== [] ? $answerKey : $this->answerKeyFromQuestions($assessment);
+            $maxScore = (int) ($data['maxScore'] ?? $assessment->maximum_score);
+            abort_if($maxScore > (float) $assessment->maximum_score, 422, 'Batch max score cannot exceed the assessment maximum.');
+        }
+        abort_if($assessment === null && $answerKey === [], 422, 'Provide an assessment or an answer key before scanning.');
         $file = $request->file('file');
         $scanner->scan($file);
         $disk = (string) config('skuggle.library.disk');
@@ -67,7 +73,7 @@ final class SmartmarkController extends Controller
         $bytes = $file->getContent();
         Storage::disk($disk)->put($key, $bytes, ['visibility' => 'private']);
         $batch = SmartmarkBatch::query()->create([
-            'assessment_id' => $assessment->getKey(),
+            'assessment_id' => $assessment?->getKey(),
             'created_by' => $request->user()->getKey(),
             'state' => 'queued',
             'storage_key' => $key,
@@ -79,14 +85,14 @@ final class SmartmarkController extends Controller
             'max_score' => $maxScore,
         ]);
         ProcessSmartmarkBatch::dispatch($batch->getKey(), TenantJobEnvelope::fromContext(app(TenantContext::class))->toArray());
-        app(AuditLogger::class)->record('assessment.smartmark_queued', $assessment, [], ['batchId' => $batch->public_id]);
+        app(AuditLogger::class)->record('assessment.smartmark_queued', $assessment ?? $batch, [], ['batchId' => $batch->public_id]);
 
         return ApiResponse::success($this->present($batch->load('sheets'), app(SmartmarkMatchingService::class)), [], 202);
     }
 
     public function show(string $batch, SmartmarkMatchingService $matcher): JsonResponse
     {
-        $item = SmartmarkBatch::query()->with(['sheets', 'assessment'])->where('public_id', $batch)->firstOrFail();
+        $item = SmartmarkBatch::query()->with(['sheets.detections', 'assessment'])->where('public_id', $batch)->firstOrFail();
         $assessment = Assessment::query()->findOrFail($item->assessment_id);
         $this->authorize('view', $assessment);
 
@@ -113,6 +119,10 @@ final class SmartmarkController extends Controller
             'detectedScore' => ['nullable', 'numeric', 'min:0'],
             'answers' => ['nullable', 'array', 'max:200'],
             'answers.*' => ['nullable', 'string', 'max:2'],
+            'detections' => ['nullable', 'array', 'max:200'],
+            'detections.*.position' => ['required_with:detections', 'integer', 'min:1'],
+            'detections.*.detected' => ['nullable', 'string', 'max:2'],
+            'detections.*.decision' => ['nullable', 'string', 'max:24'],
             'studentId' => ['nullable', 'string'],
             'approved' => ['required', 'boolean'],
         ]);
@@ -126,6 +136,20 @@ final class SmartmarkController extends Controller
         }
         abort_if($data['approved'] && ! $studentId, 422, 'Match an eligible student before approving this script.');
         $answers = array_map(fn ($answer) => strtoupper((string) $answer), $data['answers'] ?? $item->answers ?? []);
+        if (! empty($data['detections'])) {
+            foreach ($data['detections'] as $detection) {
+                $row = $item->detections()->where('position', $detection['position'])->first();
+                if ($row) {
+                    $detected = strtoupper((string) ($detection['detected'] ?? $row->detected));
+                    $row->update([
+                        'detected' => $detected,
+                        'teacher_decision' => $detection['decision'] ?? 'overridden',
+                        'marks' => strtoupper((string) $row->expected) === $detected ? 1 : 0,
+                    ]);
+                }
+            }
+            $answers = $item->detections()->orderBy('position')->pluck('detected')->all();
+        }
         $score = array_key_exists('detectedScore', $data) && $data['detectedScore'] !== null
             ? (float) $data['detectedScore']
             : $scoring->evaluate($answers, $batch->answer_key, (int) $batch->max_score, 100, null, $studentId !== null)['detected_score'];
@@ -141,10 +165,15 @@ final class SmartmarkController extends Controller
             'reviewed_by' => $request->user()->getKey(),
             'reviewed_at' => now(),
         ]);
-        app(AuditLogger::class)->record('assessment.smartmark_reviewed', $assessment, [], [
+        app(AuditLogger::class)->record('assessment.smartmark_reviewed', $assessment, [
+            'score' => $item->detected_score,
+            'answers' => $item->answers,
+        ], [
             'batchId' => $batch->public_id,
             'sheetId' => $item->public_id,
             'approved' => $data['approved'],
+            'score' => $score,
+            'answers' => $answers,
         ]);
 
         return ApiResponse::success($this->presentSheet($item->fresh(), $batch, $matcher));
@@ -171,7 +200,7 @@ final class SmartmarkController extends Controller
                     ['assessment_id' => $item->assessment_id, 'student_id' => $sheet->student_id],
                     [
                         'score' => $sheet->detected_score,
-                        'status' => 'draft',
+                        'status' => 'VERIFIED',
                         'graded_by' => $request->user()->getKey(),
                         'graded_at' => now(),
                         'metadata' => ['source' => 'smartmark', 'batchId' => $item->public_id, 'sheetId' => $sheet->public_id],
@@ -185,6 +214,19 @@ final class SmartmarkController extends Controller
         });
 
         return ApiResponse::success($this->present($item->fresh(['sheets', 'assessment']), $matcher));
+    }
+
+    public function export(string $batch)
+    {
+        $item = SmartmarkBatch::query()->with(['sheets.detections', 'assessment'])->where('public_id', $batch)->firstOrFail();
+        $this->authorize('view', Assessment::query()->findOrFail($item->assessment_id));
+        $csv = app(AssessmentCompleteService::class)->exceptionCsv($item);
+
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="smartmark-'.$item->public_id.'-exceptions.csv"',
+            'Cache-Control' => 'private, no-store',
+        ]);
     }
 
     /** @return list<string> */
@@ -267,6 +309,16 @@ final class SmartmarkController extends Controller
             'flagReason' => $sheet->flag_reason,
             'reviewedAt' => $sheet->reviewed_at?->toIso8601String(),
             'committedAt' => $sheet->committed_at?->toIso8601String(),
+            'scanUrl' => '/api/v1/smartmark/batches/'.$batch->public_id.'/scan',
+            'detections' => ($sheet->relationLoaded('detections') ? $sheet->detections : $sheet->detections()->orderBy('position')->get())->sortBy('position')->values()->map(fn ($d) => [
+                'id' => $d->public_id,
+                'position' => (int) $d->position,
+                'expected' => $d->expected,
+                'detected' => $d->detected,
+                'confidence' => (float) $d->confidence,
+                'marks' => (float) $d->marks,
+                'decision' => $d->teacher_decision,
+            ])->all(),
         ];
     }
 }

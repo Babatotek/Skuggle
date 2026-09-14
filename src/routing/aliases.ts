@@ -1,3 +1,4 @@
+import { ADMINISTRATION_REDIRECTS } from './administration';
 import type { LegacyAliasDefinition } from './types';
 import { LEGACY_NAV_TO_ROUTE_ID, ROUTES_BY_ID } from './registry';
 
@@ -31,6 +32,7 @@ const appTabAliases: LegacyAliasDefinition[] = [...LEGACY_NAV_TO_ROUTE_ID.entrie
 );
 
 export const LEGACY_ALIASES: readonly LegacyAliasDefinition[] = [
+  ...ADMINISTRATION_REDIRECTS.map((item, index) => alias(`legacy.administration.${index}`, item.oldPath, item.canonicalId, 'Administration PRD canonical ownership')),
   alias('legacy.assessment.schedule', '/school/assessment/exam-schedule', 'school.assessment.exam-schedule', 'Assessment V2 schedule cutover'),
   alias('legacy.app.root', '/app', 'school.home', 'Authenticated app root without tab; resolved to workspace default at runtime'),
   alias('legacy.app.home', '/app/home', 'school.home', 'Explicit home tab'),

@@ -32,12 +32,23 @@ type OmrItem = {
   marks: number;
 };
 
+type OmrBubble = { question: number; choice: string; cx: number; cy: number; r: number };
+type OmrGeometry = {
+  version: string;
+  pageWidth: number;
+  pageHeight: number;
+  fiducials: { id: string; x: number; y: number; size: number }[];
+  scanStrip: { x: number; y: number; moduleWidth: number; moduleHeight: number; maxModules: number };
+  bubbles: OmrBubble[];
+};
+
 type OmrLayout = {
   enabled: boolean;
   itemCount: number;
   instructions: string;
   items: OmrItem[];
   answerKey: string[] | null;
+  geometry?: OmrGeometry;
 };
 
 type PrintPack = {
@@ -75,9 +86,22 @@ const VARIANT_LABELS: Record<string, string> = {
   register: 'Attendance Register',
 };
 
-function Bubble({ letter }: { letter: string }) {
+function encodeScanBits(payload: string, maxModules: number): number[] {
+  const maxBytes = Math.max(1, Math.floor((maxModules - 8) / 8));
+  const text = payload.slice(0, Math.min(64, maxBytes));
+  const bytes = Array.from(text).map(ch => ch.charCodeAt(0));
+  const bits: number[] = [];
+  const length = bytes.length;
+  for (let i = 7; i >= 0; i -= 1) bits.push((length >> i) & 1);
+  bytes.forEach(byte => {
+    for (let i = 7; i >= 0; i -= 1) bits.push((byte >> i) & 1);
+  });
+  return bits;
+}
+
+function Bubble({ letter, filled = false }: { letter: string; filled?: boolean }) {
   return (
-    <span className="assessment-omr-bubble" aria-hidden>
+    <span className={`assessment-omr-bubble${filled ? ' is-filled' : ''}`} aria-hidden>
       <span>{letter}</span>
     </span>
   );
@@ -97,6 +121,97 @@ function OmrSheet({
     return <p className="assessment-muted">Attach multiple-choice or true/false questions to generate an OMR bubble sheet for SmartMark scanning.</p>;
   }
 
+  const geometry = omr.geometry;
+  const scanCode = candidate?.scanCode || `SM|${pack.header.assessmentId}|ADMISSION`;
+  const bits = geometry ? encodeScanBits(scanCode, geometry.scanStrip.maxModules) : [];
+  const keyByNumber = new Map(omr.items.map((item, index) => [item.number, omr.answerKey?.[index]]));
+
+  if (geometry) {
+    return (
+      <div
+        className="assessment-omr-sheet assessment-omr-sheet--geometric"
+        style={{ aspectRatio: `${geometry.pageWidth} / ${geometry.pageHeight}` }}
+      >
+        {geometry.fiducials.map(mark => (
+          <span
+            key={mark.id}
+            className="assessment-omr-fiducial"
+            style={{
+              left: `${(mark.x / geometry.pageWidth) * 100}%`,
+              top: `${(mark.y / geometry.pageHeight) * 100}%`,
+              width: `${(mark.size / geometry.pageWidth) * 100}%`,
+              height: `${(mark.size / geometry.pageHeight) * 100}%`,
+            }}
+          />
+        ))}
+        <div className="assessment-omr-identity assessment-omr-identity--geometric">
+          <div>
+            <p className="assessment-omr-label">SmartMark optical script · {geometry.version}</p>
+            <p className="assessment-omr-name">{candidate?.name || 'Candidate name: _______________________________'}</p>
+            <p className="assessment-omr-admission">
+              Admission:{' '}
+              <strong className="assessment-omr-admission">{candidate?.admissionNumber || '____________________'}</strong>
+            </p>
+            <p className="assessment-omr-scan-code">{scanCode}</p>
+          </div>
+          <div className="assessment-omr-meta">
+            {(candidate?.qrSvg || pack.header.qrSvg) && (
+              <img className="assessment-omr-qr" src={candidate?.qrSvg || pack.header.qrSvg || ''} alt="Scan code QR" width={96} height={96} />
+            )}
+            <p>{pack.header.className}</p>
+            <p>{pack.header.subject}</p>
+            <p>{pack.header.identifier}</p>
+          </div>
+        </div>
+        <div
+          className="assessment-omr-scan-strip"
+          style={{
+            left: `${(geometry.scanStrip.x / geometry.pageWidth) * 100}%`,
+            top: `${(geometry.scanStrip.y / geometry.pageHeight) * 100}%`,
+            height: `${(geometry.scanStrip.moduleHeight / geometry.pageHeight) * 100}%`,
+          }}
+          aria-hidden
+        >
+          {bits.map((bit, i) => (
+            <span
+              key={`bit-${i}`}
+              className={bit ? 'is-on' : 'is-off'}
+              style={{ width: `${(geometry.scanStrip.moduleWidth / geometry.pageWidth) * 100}%` }}
+            />
+          ))}
+        </div>
+        <p className="assessment-omr-instructions">{omr.instructions}</p>
+        {omr.items.map((item, index) => {
+          const column = Math.floor(index / 30);
+          const row = index % 30;
+          const baseX = column === 0 ? 70 : 540;
+          const cy = 290 + (row * 34);
+          return (
+            <div
+              className="assessment-omr-row assessment-omr-row--geometric"
+              key={item.number}
+              style={{
+                left: `${(baseX / geometry.pageWidth) * 100}%`,
+                top: `${((cy - 14) / geometry.pageHeight) * 100}%`,
+              }}
+            >
+              <span className="assessment-omr-number">{item.number}</span>
+              <div className="assessment-omr-choices">
+                {item.choices.map(choice => (
+                  <label key={choice} className="assessment-omr-choice">
+                    <Bubble letter={choice} filled={Boolean(showKey && keyByNumber.get(item.number) === choice)} />
+                    <span className="sr-only">Question {item.number} option {choice}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+        <p className="assessment-omr-footer-note">Shade one bubble only · Keep corner marks clear · Total marks {pack.header.maximumScore}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="assessment-omr-sheet">
       <div className="assessment-omr-identity">
@@ -107,7 +222,7 @@ function OmrSheet({
             Admission:{' '}
             <strong className="assessment-omr-admission">{candidate?.admissionNumber || '____________________'}</strong>
           </p>
-          <p className="assessment-omr-scan-code">{candidate?.scanCode || `SM|${pack.header.assessmentId}|ADMISSION`}</p>
+          <p className="assessment-omr-scan-code">{scanCode}</p>
         </div>
         <div className="assessment-omr-meta">
           {(candidate?.qrSvg || pack.header.qrSvg) && (
@@ -127,7 +242,7 @@ function OmrSheet({
             <div className="assessment-omr-choices">
               {item.choices.map(choice => (
                 <label key={choice} className="assessment-omr-choice">
-                  <Bubble letter={choice} />
+                  <Bubble letter={choice} filled={Boolean(showKey && omr.answerKey?.[index] === choice)} />
                   <span className="sr-only">Question {item.number} option {choice}</span>
                 </label>
               ))}

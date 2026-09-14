@@ -91,13 +91,14 @@ describe('Assessment V2 ownership', () => {
   });
 });
 describe('Assessment MVP freeze gates', () => {
-  it('marks A1–A9 freeze routes verified while leaving CBT open', () => {
+  it('marks A1–A9 freeze routes and CBT staff UI verified', () => {
     const summary = assessmentFreezeSummary();
     expect(summary.mvpTotal).toBe(ASSESSMENT_MVP_FREEZE_ROUTE_IDS.length);
     expect(summary.mvpVisual).toBe(summary.mvpTotal);
     expect(summary.mvpResponsive).toBe(summary.mvpTotal);
     expect(summary.mvpFunctional).toBe(summary.mvpTotal);
-    expect(summary.openCbt).toBe(true);
+    expect(summary.openCbt).toBe(false);
+    expect(summary.cbtVerified).toBe(true);
     expect(summary.cbtDeliveryFused).toBe(true);
     expect(summary.cbtStudentPlayer).toBe(true);
     for (const id of ASSESSMENT_MVP_FREEZE_ROUTE_IDS) {
@@ -106,8 +107,8 @@ describe('Assessment MVP freeze gates', () => {
       expect(entry?.legacyRemoved).toBe(true);
     }
     const cbt = assessmentMigrationManifest.find(e => e.routeId === 'school.assessment.cbt');
-    expect(cbt?.visualValidated).toBe(false);
-    expect(cbt?.cutoverStatus).toBe('CUTOVER');
+    expect(cbt?.visualValidated).toBe(true);
+    expect(cbt?.cutoverStatus).toBe('VERIFIED');
   });
   it('lists CBT assessments from Assessment delivery filter on Online Assessments', async () => {
     const cbtRecord = { ...record, delivery: 'cbt', availableFrom: '2026-09-07T10:00:00+01:00', availableUntil: '2026-09-07T10:45:00+01:00', metadata: { duration: 45, startTime: '10:00' } };

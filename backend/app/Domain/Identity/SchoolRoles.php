@@ -52,6 +52,23 @@ final class SchoolRoles
         return ['roles.manage', 'security.manage', 'audit.view', 'settings.configure', 'results.approve', 'results.publish', 'finance.manage'];
     }
 
+    /**
+     * Identity / platform roles that must not be recreated as school access roles.
+     *
+     * @return list<string>
+     */
+    public static function reservedAccessRoleNames(): array
+    {
+        return [
+            self::PLATFORM_SUPER_ADMIN,
+            'platform_owner',
+            self::SCHOOL_SUPER_ADMIN,
+            'super admin',
+            'student',
+            'parent',
+        ];
+    }
+
     public static function isSchoolSuperAdmin(?string $role): bool
     {
         return $role === self::SCHOOL_SUPER_ADMIN;

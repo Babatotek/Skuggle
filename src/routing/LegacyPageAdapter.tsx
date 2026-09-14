@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext';
 import type { CanonicalRouteDefinition } from './types';
 import { buildRoute } from './builders';
 import { RouteAccessDenied, RouteNotFound, RoutePlaceholder } from './RouteSurfaces';
+import { WorkforcePage } from '../domains/people/workforce/WorkforcePage';
 import {
   AcademicsConfigView,
   AdministratorsView,
@@ -22,15 +23,16 @@ import {
   ParentDashboard,
   ParentsView,
   PerformanceView,
+  PermissionsCatalogView,
   PlatformOwnerDashboard,
   PrincipalDashboard,
   ReportCardGeneratorView,
   ReportsCentreView,
   ResultsManagementView,
+  RolesCatalogView,
   SchoolAdminDashboard,
   SchoolModuleView,
   SchoolStructureView,
-  StaffManagementView,
   StudentDashboard,
   StudentRegistryView,
   SubscriptionView,
@@ -92,9 +94,9 @@ export const LegacyPageAdapter: React.FC<{
     case 'guardians':
       return <ParentsView />;
     case 'workforce':
-      return <StaffManagementView context={view === 'teachers' || context.view === 'teachers' ? 'teachers' : 'staff'} />;
+      return <WorkforcePage view={view === 'teachers' || context.view === 'teachers' ? 'teachers' : 'staff'} />;
     case 'invitations':
-      return <InvitationsPage />;
+      return <InvitationsPage embedded={route.domain === 'administration'} />;
     case 'academics':
       return <AcademicsConfigView initialSection={academicsSection} onNavigateSection={onNavigateTab} />;
     case 'timetable':
@@ -114,7 +116,7 @@ export const LegacyPageAdapter: React.FC<{
     case 'module':
       return route.moduleKey ? <SchoolModuleView moduleKey={route.moduleKey} /> : <HelpSupportView />;
     case 'structure':
-      return <SchoolStructureView resource={context.resource || 'overview'} title={route.title} />;
+      return <SchoolStructureView focused={route.domain === 'administration'} resource={context.resource || 'overview'} title={route.title} />;
     case 'broadcasts':
       return <BroadcastCenterView />;
     case 'messages':
@@ -122,17 +124,21 @@ export const LegacyPageAdapter: React.FC<{
     case 'reports':
       return <ReportsCentreView title={route.title} />;
     case 'administrators':
-      return <AdministratorsView />;
+      return <AdministratorsView embedded={route.domain === 'administration'} />;
     case 'accounts':
-      return <AdministratorsView />;
+      return <AdministratorsView embedded={route.domain === 'administration'} />;
+    case 'roles':
+      return <RolesCatalogView />;
+    case 'permissions':
+      return <PermissionsCatalogView />;
     case 'forms':
-      return <FormsSettingsView />;
+      return <FormsSettingsView embedded={route.domain === 'administration'} />;
     case 'subscription':
       return <SubscriptionView title={route.title} />;
     case 'audit':
-      return <AuditLogsView />;
+      return <AuditLogsView embedded={route.domain === 'administration'} />;
     case 'branding':
-      return <BrandingStudio onPreviewWelcome={() => navigate(buildRoute('public.tenant-welcome'))} />;
+      return <BrandingStudio embedded={route.domain === 'administration'} onPreviewWelcome={() => navigate(buildRoute('public.tenant-welcome'))} />;
     case 'help':
       return <HelpSupportView />;
     case 'lessons':

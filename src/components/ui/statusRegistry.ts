@@ -66,6 +66,12 @@ const REGISTRY: Record<string, StatusDefinition> = {
   inactive: { tone: 'neutral' },
   draft: { tone: 'neutral' },
   unpublished: { tone: 'neutral' },
+  recorded: { tone: 'informational' },
+  reviewed: { tone: 'positive' },
+  open: { tone: 'attention' },
+  resolved: { tone: 'positive' },
+  monitoring: { tone: 'informational' },
+  closed: { tone: 'neutral' },
 };
 
 export function resolveStatus(value?: string): StatusDefinition {

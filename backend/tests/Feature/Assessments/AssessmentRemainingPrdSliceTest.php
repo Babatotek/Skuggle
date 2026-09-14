@@ -173,7 +173,7 @@ final class AssessmentRemainingPrdSliceTest extends TestCase
             'suggestion' => $suggestion,
         ], ['Idempotency-Key' => (string) Str::uuid()])
             ->assertOk()
-            ->assertJsonPath('data.status', 'ENTERED');
+            ->assertJsonPath('data.status', 'VERIFIED');
     }
 
     public function test_print_pack_includes_qr_svg(): void

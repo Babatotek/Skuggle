@@ -22,6 +22,7 @@ class AssessmentSubmission extends Model
             'answers' => 'array',
             'started_at' => 'datetime',
             'submitted_at' => 'datetime',
+            'shuffle_map' => 'array',
         ];
     }
 

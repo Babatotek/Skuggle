@@ -15,10 +15,13 @@ function isLaravelProxyPath(pathname: string): boolean {
   return (
     pathname.startsWith('/api/v1') ||
     pathname.startsWith('/sanctum') ||
+    pathname.startsWith('/storage/') ||
     pathname === '/health' ||
     pathname === '/ready' ||
     pathname === '/startup' ||
-    pathname === '/live'
+    pathname === '/live' ||
+    pathname === '/version' ||
+    pathname.startsWith('/email/')
   );
 }
 

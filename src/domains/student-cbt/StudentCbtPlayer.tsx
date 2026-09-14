@@ -1,11 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../../components/ui';
+import { API_BASE_URL } from '../../lib/apiClient';
 import { buildRoute } from '../../routing/builders';
 import { describeApiError, getStudentCbt, saveStudentCbt, submitStudentCbt, type StudentCbtPlayer } from './api';
 import './student-cbt.css';
 
 const FREE_TEXT = new Set(['short-answer', 'essay', 'fill-blank', 'calculation']);
+
+function optionList(options: StudentCbtPlayer['questions'][number]['options']): string[] {
+  return Array.isArray(options) ? options.map(String) : [];
+}
 
 export default function StudentCbtPlayerPage() {
   const { assessmentPublicId = '' } = useParams();
@@ -20,6 +25,7 @@ export default function StudentCbtPlayerPage() {
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const answersRef = useRef(answers);
   answersRef.current = answers;
+  const maxVisited = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,11 +63,16 @@ export default function StudentCbtPlayerPage() {
     void onSubmit(true);
   }, [secondsLeft]);
 
+  useEffect(() => {
+    maxVisited.current = Math.max(maxVisited.current, index);
+  }, [index]);
+
   const question = paper?.questions[index];
   const answered = useMemo(() => Object.values(answers).filter(v => String(v || '').trim() !== '').length, [answers]);
 
   const onSubmit = async (auto = false) => {
     if (!paper || busy || result) return;
+    if (!auto && !window.confirm('Submit your answers? You cannot change them after submission.')) return;
     setBusy(true);
     setError('');
     try {
@@ -81,14 +92,19 @@ export default function StudentCbtPlayerPage() {
   if (!paper) return <div className="student-cbt-player"><div className="student-cbt-skeleton" role="status" aria-label="Loading CBT paper"><div /><div /></div></div>;
 
   if (result) {
+    const policy = paper.feedbackPolicy || 'score';
     return (
       <div className="student-cbt-player">
         <header className="student-cbt-player-header"><h1>{paper.title}</h1></header>
         <div className="student-cbt-result" role="status">
           <h2>Submitted</h2>
-          {result.needsMarking
-            ? <p>Your objective answers were auto-marked ({result.score} provisional marks). Written responses are with your teacher for marking.</p>
-            : <p>Score: {result.score} / {result.maxScore} ({result.percentage}%)</p>}
+          {policy === 'none' ? (
+            <p>Your answers were saved. Results will be shared by your school when marking is complete.</p>
+          ) : result.needsMarking ? (
+            <p>Your objective answers were auto-marked ({result.score} provisional marks). Written responses are with your teacher for marking.</p>
+          ) : (
+            <p>Score: {result.score} / {result.maxScore} ({result.percentage}%)</p>
+          )}
           <Link className="student-cbt-link" to={buildRoute('school.student-cbt')}>Back to my CBT assessments</Link>
         </div>
       </div>
@@ -107,6 +123,13 @@ export default function StudentCbtPlayerPage() {
 
   const clock = secondsLeft === null ? '' : `${String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:${String(secondsLeft % 60).padStart(2, '0')}`;
   const isFreeText = question ? FREE_TEXT.has(question.questionType) : false;
+  const isMulti = question?.questionType === 'multiple-response';
+  const isMatching = question?.questionType === 'matching';
+  const matching = isMatching && question && !Array.isArray(question.options)
+    ? { left: (question.options.left || []).map(String), right: (question.options.right || []).map(String) }
+    : null;
+  const selectedMulti = new Set((answers[question?.id || ''] || '').split('\n').filter(Boolean));
+  const restricted = Boolean(paper.navigationRestricted);
 
   return (
     <div className="student-cbt-player">
@@ -114,16 +137,39 @@ export default function StudentCbtPlayerPage() {
         <div>
           <p className="student-cbt-brand">Skuggle CBT</p>
           <h1>{paper.title}</h1>
-          <p>{paper.className} · {paper.subject} · {paper.maxScore} marks · {saveState || (paper.attemptStatus === 'in_progress' ? 'Resumed' : 'Ready')}</p>
+          <p>{paper.className} · {paper.subject} · {paper.maxScore} marks · {saveState || (paper.attemptStatus === 'in_progress' ? 'Resumed' : 'Ready')}{paper.attemptLimit && paper.attemptLimit > 1 ? ` · Attempt ${paper.attemptNumber || 1}/${paper.attemptLimit}` : ''}</p>
         </div>
         <div className="student-cbt-timer" role="timer" aria-live="polite">{clock}</div>
       </header>
       {paper.instructions && <p className="student-cbt-instructions">{paper.instructions}</p>}
       {error && <p className="student-cbt-error" role="alert">{error}</p>}
+      <nav className="student-cbt-progress" aria-label="Question progress">
+        {paper.questions.map((q, i) => (
+          <button
+            key={q.id}
+            type="button"
+            className={i === index ? 'active' : answers[q.id] ? 'answered' : undefined}
+            disabled={restricted && i > maxVisited.current + 1}
+            onClick={() => {
+              if (restricted && i < index) return;
+              setIndex(i);
+            }}
+          >
+            {q.number}
+          </button>
+        ))}
+      </nav>
       {question && (
         <article className="student-cbt-question">
           <h2>{question.section ? `${question.section} · ` : ''}Question {question.number} of {paper.questions.length} ({question.marks} marks)</h2>
           <p>{question.prompt}</p>
+          {question.imageUrl && (
+            <img
+              className="student-cbt-media"
+              src={question.imageUrl.startsWith('/api') ? question.imageUrl : `${API_BASE_URL}${question.imageUrl}`}
+              alt={`Illustration for question ${question.number}`}
+            />
+          )}
           {isFreeText ? (
             <label className="student-cbt-free-text">
               <span className="sr-only">Your answer</span>
@@ -135,9 +181,53 @@ export default function StudentCbtPlayerPage() {
                 placeholder="Type your answer"
               />
             </label>
+          ) : isMulti ? (
+            <div className="student-cbt-options" role="group" aria-label={`Answers for question ${question.number}`}>
+              {optionList(question.options).map(option => (
+                <label key={option} className={selectedMulti.has(option) ? 'selected' : undefined}>
+                  <input
+                    type="checkbox"
+                    checked={selectedMulti.has(option)}
+                    onChange={() => {
+                      const next = new Set(selectedMulti);
+                      if (next.has(option)) next.delete(option); else next.add(option);
+                      setAnswers(old => ({ ...old, [question.id]: Array.from(next).join('\n') }));
+                    }}
+                  />
+                  <span>{option}</span>
+                </label>
+              ))}
+            </div>
+          ) : isMatching && matching ? (
+            <div className="student-cbt-matching">
+              {matching.left.map((left, i) => {
+                const pairs = Object.fromEntries((answers[question.id] || '').split('\n').filter(Boolean).map(line => {
+                  const [l, r] = line.split('=').map(v => v.trim());
+                  return [l, r];
+                }));
+                return (
+                  <label key={`${left}-${i}`}>
+                    <span>{left}</span>
+                    <select
+                      value={pairs[left] || ''}
+                      onChange={e => {
+                        const next = { ...pairs, [left]: e.target.value };
+                        setAnswers(old => ({
+                          ...old,
+                          [question.id]: Object.entries(next).filter(([, r]) => r).map(([l, r]) => `${l}=${r}`).join('\n'),
+                        }));
+                      }}
+                    >
+                      <option value="">Select…</option>
+                      {matching.right.map(right => <option key={right} value={right}>{right}</option>)}
+                    </select>
+                  </label>
+                );
+              })}
+            </div>
           ) : (
             <div className="student-cbt-options" role="radiogroup" aria-label={`Answers for question ${question.number}`}>
-              {question.options.map(option => (
+              {optionList(question.options).map(option => (
                 <label key={option} className={answers[question.id] === option ? 'selected' : undefined}>
                   <input
                     type="radio"
@@ -153,7 +243,7 @@ export default function StudentCbtPlayerPage() {
         </article>
       )}
       <footer className="student-cbt-player-footer">
-        <Button variant="outline" disabled={index === 0} onClick={() => setIndex(i => i - 1)}>Previous</Button>
+        <Button variant="outline" disabled={index === 0 || restricted} onClick={() => setIndex(i => i - 1)}>Previous</Button>
         <span>{answered}/{paper.questions.length} answered</span>
         {index < paper.questions.length - 1 ? (
           <Button onClick={() => setIndex(i => i + 1)}>Next</Button>

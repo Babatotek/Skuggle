@@ -37,6 +37,7 @@ export const RELATE_DOMAINS = ['home'] as const;
 export type DomainId = SchoolDomain | (typeof PERSONAL_DOMAINS)[number] | (typeof PLATFORM_DOMAINS)[number] | (typeof PUBLIC_DOMAINS)[number] | (typeof AUTH_DOMAINS)[number] | (typeof RELATE_DOMAINS)[number];
 
 export type PageKey =
+  | 'administration'
   | 'landing'
   | 'register-school'
   | 'tenant-welcome'
@@ -54,6 +55,7 @@ export type PageKey =
   | 'guardians'
   | 'workforce'
   | 'admissions'
+  | 'student-services'
   | 'academics'
   | 'timetable'
   | 'assessment'
@@ -73,6 +75,8 @@ export type PageKey =
   | 'reports'
   | 'administrators'
   | 'accounts'
+  | 'roles'
+  | 'permissions'
   | 'forms'
   | 'subscription'
   | 'audit'

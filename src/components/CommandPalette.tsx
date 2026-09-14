@@ -3,7 +3,9 @@ import { Search, CornerDownLeft, ArrowUp, ArrowDown } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { visibleNavItems, workspaceKind } from '../lib/navigation';
 import { navIcon } from '../lib/navIcons';
-import { routeFromLegacyNavId } from '../routing/builders';
+import { ADMINISTRATION_ROUTES } from '../routing/administration';
+import { routerNavigate } from '../routing/historyCompatibility';
+import { routeFromLegacyNavId, buildRoute } from '../routing/builders';
 import { hasNavigationRouteAccess, primaryNavigationIdForRoute } from '../routing/primaryNavigation';
 import { useAccess } from '../state/ApplicationStateProviders';
 
@@ -51,11 +53,16 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
         workspace: workspaceKind(currentWorkspace.type),
       }).flatMap((item) => {
         const route = routeFromLegacyNavId(item.id);
-        if (!route || !hasNavigationRouteAccess(route, access.capabilities)) return [];
+        if (!route || route.domain === 'administration' || !hasNavigationRouteAccess(route, access.capabilities)) return [];
         return [{ ...item, destinationType: primaryNavigationIdForRoute(route) === route.id ? 'Primary destination' : 'Contextual destination' }];
-      }),
+      }).concat(currentWorkspace.type === 'school' ? ADMINISTRATION_ROUTES.filter(route => hasNavigationRouteAccess(route, access.capabilities)).map(route => ({ id: route.id, label: route.title, module: 'Administration', category: 'Administration', icon: 'school-settings' as const, groupId: 'administration', destinationType: route.id === 'school.administration' ? 'Primary destination' : 'Contextual destination' })) : []),
     [currentRole, currentUser.permissions, currentWorkspace.type, access.capabilities],
   );
+
+  const select = (id: string) => {
+    if (id.startsWith('school.administration')) routerNavigate(buildRoute(id));
+    else onSelect(id);
+  };
 
   const results = useMemo(() => {
     const scored = items
@@ -97,7 +104,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
       }
       if (event.key === 'Enter' && results[activeIndex]) {
         event.preventDefault();
-        onSelect(results[activeIndex].id);
+        select(results[activeIndex].id);
         onClose();
       }
     };
@@ -108,7 +115,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-start justify-center px-4 pt-[12vh]">
+    <div className="fixed inset-0 z-[var(--z-critical)] flex items-start justify-center px-4 pt-[12vh]">
       <button type="button" aria-label="Close command palette" className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm" onClick={onClose} />
       <div role="dialog" aria-modal="true" aria-label="Jump to a module" className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
         <div className="flex items-center gap-2 px-4 border-b border-slate-100">
@@ -135,7 +142,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
                 type="button"
                 onMouseEnter={() => setActiveIndex(index)}
                 onClick={() => {
-                  onSelect(item.id);
+                  select(item.id);
                   onClose();
                 }}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 text-left ${active ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}

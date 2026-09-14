@@ -227,19 +227,38 @@ export interface StudentRecord {
 }
 
 // Staff Member
+export type EmploymentStatus =
+  | 'Active'
+  | 'On Leave'
+  | 'Suspended'
+  | 'Terminated'
+  | 'Probation'
+  | 'Resigned'
+  | 'Retired'
+  | 'Inactive'
+  | 'Pending Invitation';
+
 export interface StaffMember {
   id: string;
   staffNo: string;
   fullName: string;
   email: string;
   phone: string;
-  role: UserRole;
+  /** Job designation display label. Prefer `position`; kept for legacy consumers. */
+  role: string;
+  position: string;
+  positionId?: string | null;
+  department?: string;
+  departmentId?: string | null;
+  staffCategory?: 'teaching' | 'non_teaching' | null;
   campus: string;
+  campusId?: string | null;
+  linkedUserId?: string | null;
   assignedClasses: string[];
   assignedSubjects: string[];
   /** Compatibility alias used by compact staff cards. */
   subjects?: string[];
-  status: 'Active' | 'Pending Invitation' | 'Suspended';
+  status: EmploymentStatus;
   temporaryPassword?: string;
   invitedAt?: string;
   avatarUrl?: string;

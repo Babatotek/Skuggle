@@ -31,6 +31,7 @@ import {
   CBTQuiz,
 } from '../types';
 import { apiMutation, apiRequest, describeApiError } from '../lib/apiClient';
+import { mapEmployeeRow, toEmploymentStatusApi } from '../domains/people/workforce/employmentStatus';
 import { backendRoleToUi } from '../lib/roles';
 import { ApplicationStateProviders, useAccess, useAcademicContext, useAuth, useWorkspace } from '../state/ApplicationStateProviders';
 
@@ -472,6 +473,9 @@ const initialStaff: StaffMember[] = [
     email: 'e.adeleke@crownheights.edu.ng',
     phone: '+234 803 445 6677',
     role: 'Teacher',
+    position: 'Teacher',
+    staffCategory: 'teaching',
+    department: 'Academics',
     campus: 'Main Lekki Campus',
     assignedClasses: ['JSS 1', 'JSS 2', 'JSS 3'],
     assignedSubjects: ['Mathematics', 'Basic Technology'],
@@ -484,6 +488,9 @@ const initialStaff: StaffMember[] = [
     email: 'f.adebayo@crownheights.edu.ng',
     phone: '+234 802 998 1122',
     role: 'Principal',
+    position: 'Principal',
+    staffCategory: 'teaching',
+    department: 'Academics',
     campus: 'Main Lekki Campus',
     assignedClasses: ['All Levels'],
     assignedSubjects: ['School Administration'],
@@ -496,10 +503,13 @@ const initialStaff: StaffMember[] = [
     email: 'j.nwachukwu@crownheights.edu.ng',
     phone: '+234 814 332 8890',
     role: 'Teacher',
+    position: 'Teacher',
+    staffCategory: 'teaching',
+    department: 'Academics',
     campus: 'Main Lekki Campus',
     assignedClasses: ['JSS 2', 'SSS 1'],
     assignedSubjects: ['English Language', 'Literature'],
-    status: 'Active',
+    status: 'On Leave',
   },
   {
     id: 'stf-004',
@@ -508,6 +518,9 @@ const initialStaff: StaffMember[] = [
     email: 'bursar@crownheights.edu.ng',
     phone: '+234 806 771 2233',
     role: 'Bursar',
+    position: 'Bursar',
+    staffCategory: 'non_teaching',
+    department: 'Finance',
     campus: 'Main Lekki Campus',
     assignedClasses: ['Finance'],
     assignedSubjects: ['Accounts & Invoicing'],
@@ -520,12 +533,13 @@ const initialStaff: StaffMember[] = [
     email: 'c.eze@crownheights.edu.ng',
     phone: '+234 811 002 9944',
     role: 'Teacher',
+    position: 'Teacher',
+    staffCategory: 'teaching',
+    department: 'Academics',
     campus: 'Main Lekki Campus',
     assignedClasses: ['Primary 5', 'JSS 1'],
     assignedSubjects: ['Basic Science', 'Agricultural Science'],
-    status: 'Pending Invitation',
-    temporaryPassword: 'Skuggle@Temp2026',
-    invitedAt: '2026-08-25',
+    status: 'Active',
   },
 ];
 
@@ -880,8 +894,9 @@ interface AppContextType {
   refreshStudents: () => Promise<void>;
   updateStudent: (id: string, updates: Partial<StudentRecord>) => void;
   staff: StaffMember[];
-  addStaff: (member: StaffMember) => void;
-  updateStaff: (id: string, updates: Partial<StaffMember>) => void;
+  addStaff: (member: StaffMember, options?: { persist?: boolean }) => void;
+  updateStaff: (id: string, updates: Partial<StaffMember>, options?: { persist?: boolean }) => void;
+  refreshStaff: () => Promise<void>;
   inviteStaff: (data: {
     fullName: string;
     email: string;
@@ -889,6 +904,7 @@ interface AppContextType {
     role: UserRole | string;
     subjects?: string[];
     assignedClasses?: string[];
+    employeeId?: string;
   }) => void;
   sessions: AcademicSession[];
   terms: AcademicTerm[];
@@ -1185,7 +1201,7 @@ const LegacyAppContextAdapter: React.FC<{ children: React.ReactNode }> = ({ chil
       }
       if (classRows.status === 'fulfilled') setClasses(classRows.value.map((row) => ({ id: String(row.id), name: String(row.name), category: (String(row.educationalLevel || 'Junior Secondary') as ClassLevel['category']), arms: row.arm ? [String(row.arm)] : [], subjects: [] })));
       if (subjectRows.status === 'fulfilled') setSubjects(subjectRows.value.map((row) => ({ id: String(row.id), code: String(row.code), name: String(row.name), category: 'General', applicableLevels: [] })));
-      if (staffRows.status === 'fulfilled') setStaff(staffRows.value.map((row) => ({ id: String(row.id), staffNo: String(row.employeeNumber), fullName: String(row.name), email: String(row.email ?? ''), phone: String(row.phone ?? ''), role: 'Teacher', campus: String((row.department as Record<string, unknown> | null)?.name ?? ''), assignedClasses: [], assignedSubjects: [], status: String(row.status).toLowerCase() === 'active' ? 'Active' : 'Suspended' })));
+      if (staffRows.status === 'fulfilled') setStaff(staffRows.value.map((row) => mapEmployeeRow(row)));
       if (assessmentRows.status === 'fulfilled') setAssessments(assessmentRows.value.map((row) => ({ id: String(row.id), title: String(row.title), assessmentType: String(row.type ?? 'test'), scheduledDate: String(row.date ?? ''), subject: String(row.subject ?? ''), classLevel: String(row.className ?? ''), arm: '', term: '', session: '', teacherId: '', teacherName: '', weights: { ca1Weight: 0, ca2Weight: 0, midTermWeight: 0, terminalExamWeight: Number(row.maxScore ?? 100), total: Number(row.maxScore ?? 100) }, scores: [], status: ({ draft: 'Draft', submitted: 'Submitted', validated: 'Validated', approved: 'Approved', published: 'Published' } as Record<string, AssessmentRecord['status']>)[String(row.status)] ?? 'Draft' })));
       if (paymentRows.status === 'fulfilled') setFeeTransactions(paymentRows.value.map((row) => ({ id: String(row.id), studentId: String((row.metadata as Record<string, unknown> | null)?.studentId ?? ''), studentName: String((row.metadata as Record<string, unknown> | null)?.studentName ?? 'Account payment'), admissionNo: String((row.metadata as Record<string, unknown> | null)?.admissionNo ?? ''), amount: Number(row.amountMinor ?? 0) / 100, currency: String(row.currency ?? 'NGN'), title: String((row.metadata as Record<string, unknown> | null)?.title ?? 'School fee payment'), status: String(row.status) === 'succeeded' ? 'paid' : 'pending', paymentMethod: String(row.provider ?? 'Card'), receiptNumber: String(row.providerReference ?? ''), date: String(row.paidAt ?? row.createdAt ?? '').slice(0, 10) })));
       if (inviteRows.status === 'fulfilled') setInvitations(inviteRows.value.map((row) => ({ id: String(row.id), schoolId: branding.schoolId, schoolName: branding.schoolName, recipientName: String(row.name ?? row.email ?? ''), recipientEmail: String(row.email ?? ''), targetRole: String(row.roleLabel ?? row.role ?? 'Teacher') as UserRole, token: String(row.tokenHint ?? ''), inviteLink: '', expiresAt: String(row.expiresAt ?? ''), isUsed: String(row.status) === 'accepted', isRevoked: String(row.status) === 'revoked', createdAt: String(row.createdAt ?? '') })));
@@ -1686,6 +1702,16 @@ const LegacyAppContextAdapter: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch { /* best effort */ }
   };
 
+  const refreshStaff = async () => {
+    if (demoMode) return;
+    try {
+      const response = await apiRequest<{ success: true; data: { data?: Array<Record<string, unknown>> } | Array<Record<string, unknown>> }>('/employees?perPage=100');
+      const payload = response.data;
+      const rows = Array.isArray(payload) ? payload : (payload.data ?? []);
+      setStaff(rows.map((row) => mapEmployeeRow(row)));
+    } catch { /* best effort */ }
+  };
+
   const addStudent = (student: StudentRecord) => {
     setStudents((prev) => [student, ...prev]);
     if (demoMode) { showToast('Student registered', `${student.firstName} ${student.lastName} (${student.admissionNo}) added to ${student.classLevel}.`); return; }
@@ -1710,20 +1736,49 @@ const LegacyAppContextAdapter: React.FC<{ children: React.ReactNode }> = ({ chil
       .catch((error) => { if (previous) setStudents((items) => items.map((item) => item.id === id ? previous : item)); showToast('Student update failed', describeApiError(error), 'failed'); });
   };
 
-  const addStaff = (member: StaffMember) => {
-    setStaff((prev) => [member, ...prev]);
-    if (demoMode) { showToast('Staff member added', `${member.fullName} has been granted ${member.role} access.`); return; }
-    void apiMutation<{ success: true; data: Record<string, unknown> }>('/employees', 'POST', { employee_number: member.staffNo, name: member.fullName, employment_type: 'full_time', started_at: new Date().toISOString().slice(0, 10), status: 'active' })
+  const addStaff = (member: StaffMember, options?: { persist?: boolean }) => {
+    setStaff((prev) => [member, ...prev.filter((item) => item.id !== member.id)]);
+    if (demoMode) { showToast('Staff member added', `${member.fullName} was added to the workforce.`); return; }
+    if (options?.persist === false) return;
+    void apiMutation<{ success: true; data: Record<string, unknown> }>('/employees', 'POST', {
+      employee_number: member.staffNo,
+      name: member.fullName,
+      employment_type: 'full_time',
+      started_at: new Date().toISOString().slice(0, 10),
+      status: toEmploymentStatusApi(member.status),
+      staff_category: member.staffCategory ?? null,
+      position_id: member.positionId ?? null,
+      department_id: member.departmentId ?? null,
+      campus_id: member.campusId ?? null,
+      personal: { email: member.email || null, phone: member.phone || null },
+    })
       .then((response) => { setStaff((items) => items.map((item) => item.id === member.id ? { ...item, id: String(response.data.id) } : item)); showToast('Staff member added', `${member.fullName} was saved to the database.`); })
       .catch((error) => { setStaff((items) => items.filter((item) => item.id !== member.id)); showToast('Staff creation failed', describeApiError(error), 'failed'); });
   };
 
-  const updateStaff = (id: string, updates: Partial<StaffMember>) => {
+  const updateStaff = (id: string, updates: Partial<StaffMember>, options?: { persist?: boolean }) => {
     const previous = staff.find((item) => item.id === id);
-    setStaff((prev) => prev.map((s) => (s.id === id ? { ...s, ...updates } : s)));
-    if (demoMode) { showToast('Staff updated', 'Staff permissions and details updated.'); return; }
-    void apiMutation(`/employees/${encodeURIComponent(id)}`, 'PATCH', { name: updates.fullName, status: updates.status?.toLowerCase().replace('pending invitation', 'inactive') })
-      .then(() => showToast('Staff updated', 'The database record was updated.'))
+    const next = { ...updates };
+    if (updates.position) next.role = updates.position;
+    setStaff((prev) => prev.map((s) => (s.id === id ? { ...s, ...next } : s)));
+    if (demoMode) { showToast('Staff updated', 'Employment record updated.'); return; }
+    if (options?.persist === false) return;
+    const payload: Record<string, unknown> = {};
+    if (updates.fullName !== undefined) payload.name = updates.fullName;
+    if (updates.status !== undefined) payload.status = toEmploymentStatusApi(updates.status);
+    if (updates.positionId !== undefined) payload.position_id = updates.positionId;
+    if (updates.departmentId !== undefined) payload.department_id = updates.departmentId;
+    if (updates.campusId !== undefined) payload.campus_id = updates.campusId;
+    if (updates.staffCategory !== undefined) payload.staff_category = updates.staffCategory;
+    if (updates.email !== undefined || updates.phone !== undefined) {
+      payload.personal = {
+        email: updates.email !== undefined ? (updates.email || null) : undefined,
+        phone: updates.phone !== undefined ? (updates.phone || null) : undefined,
+      };
+    }
+    if (Object.keys(payload).length === 0) return;
+    void apiMutation(`/employees/${encodeURIComponent(id)}`, 'PATCH', payload)
+      .then(() => showToast('Staff updated', 'The employment record was updated.'))
       .catch((error) => { if (previous) setStaff((items) => items.map((item) => item.id === id ? previous : item)); showToast('Staff update failed', describeApiError(error), 'failed'); });
   };
 
@@ -1734,27 +1789,19 @@ const LegacyAppContextAdapter: React.FC<{ children: React.ReactNode }> = ({ chil
     role: UserRole | string;
     subjects?: string[];
     assignedClasses?: string[];
+    employeeId?: string;
   }) => {
-    const newStaffMember: StaffMember = {
-      id: `stf-${Date.now().toString().slice(-4)}`,
-      staffNo: `CHIA/STF/${Math.floor(100 + Math.random() * 900)}`,
-      fullName: data.fullName,
-      email: data.email,
-      phone: data.phone,
-      role: (data.role as UserRole) || 'Teacher',
-      campus: 'Main Lekki Campus',
-      assignedClasses: data.assignedClasses || ['JSS 1', 'JSS 2'],
-      assignedSubjects: data.subjects || ['General Studies'],
-      status: 'Pending Invitation',
-      temporaryPassword: `SKG-${Math.floor(1000 + Math.random() * 9000)}`,
-      invitedAt: new Date().toISOString().split('T')[0],
-    };
-    setStaff((prev) => [newStaffMember, ...prev]);
-    if (demoMode) { showToast('Invitation sent', `Invited ${data.fullName} as ${data.role}. Credentials generated.`); return; }
+    if (demoMode) { showToast('Invitation sent', `Invited ${data.fullName} with access role ${data.role}.`); return; }
     const backendRole = String(data.role).toLowerCase().replace(/ /g, '_');
-    void apiMutation<{ success: true; data: { invite: Record<string, unknown> } }>('/invites', 'POST', { name: data.fullName, email: data.email, role: backendRole, expiresInDays: 7 })
-      .then((response) => { setStaff((items) => items.map((item) => item.id === newStaffMember.id ? { ...item, id: String(response.data.invite.id) } : item)); showToast('Invitation sent', `The secure invitation was emailed to ${data.email}.`); })
-      .catch((error) => { setStaff((items) => items.filter((item) => item.id !== newStaffMember.id)); showToast('Invitation failed', describeApiError(error), 'failed'); });
+    void apiMutation<{ success: true; data: { invite: Record<string, unknown> } }>('/invites', 'POST', {
+      name: data.fullName,
+      email: data.email,
+      role: backendRole,
+      expiresInDays: 7,
+      employeeId: data.employeeId,
+    })
+      .then(() => showToast('Invitation sent', `The secure invitation was emailed to ${data.email}.`))
+      .catch((error) => showToast('Invitation failed', describeApiError(error), 'failed'));
   };
 
   const addAssessment = (asm: AssessmentRecord) => {
@@ -2038,6 +2085,7 @@ const LegacyAppContextAdapter: React.FC<{ children: React.ReactNode }> = ({ chil
         updateStudent,
         staff,
         addStaff,
+        refreshStaff,
         updateStaff,
         inviteStaff,
         sessions,

@@ -20,6 +20,7 @@ use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\LookupCacheService;
 use App\Support\ApiResponse;
+use App\Support\PublicStorageUrl;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -96,6 +97,10 @@ class SchoolStructureController extends Controller
             default => abort(404),
         };
 
+        if (! in_array($resource, ['profile', 'arms'], true)) {
+            $audit->record('school_structure.created', $resource, [], $payload);
+        }
+
         return ApiResponse::success($payload, [], 201);
     }
 
@@ -106,8 +111,10 @@ class SchoolStructureController extends Controller
             return ApiResponse::success($this->updateProfile($request, $audit));
         }
 
+        $before = [];
         $payload = match ($resource) {
-            'campuses' => tap(Campus::query()->where('public_id', $id)->firstOrFail(), function (Campus $item) use ($request): void {
+            'campuses' => tap(Campus::query()->where('public_id', $id)->firstOrFail(), function (Campus $item) use ($request, &$before): void {
+                $before = $item->getAttributes();
                 $data = $request->validate(['name' => ['sometimes', 'string', 'max:160'], 'code' => ['sometimes', 'string', 'max:32'], 'status' => ['nullable', 'string', 'max:24']]);
                 $item->update([
                     'name' => $data['name'] ?? $item->name,
@@ -115,21 +122,25 @@ class SchoolStructureController extends Controller
                     'status' => $data['status'] ?? $item->status,
                 ]);
             }),
-            'classes' => tap(SchoolClass::query()->where('public_id', $id)->firstOrFail(), function (SchoolClass $item) use ($request): void {
+            'classes' => tap(SchoolClass::query()->where('public_id', $id)->firstOrFail(), function (SchoolClass $item) use ($request, &$before): void {
+                $before = $item->getAttributes();
                 $data = $request->validate(['name' => ['sometimes', 'string', 'max:100'], 'arm' => ['nullable', 'string', 'max:40'], 'status' => ['nullable', 'string', 'max:24'], 'capacity' => ['nullable', 'integer', 'min:1']]);
                 $item->update($data);
                 app(LookupCacheService::class)->forgetAll();
             }),
-            'departments' => tap(Department::query()->where('public_id', $id)->firstOrFail(), function (Department $item) use ($request): void {
+            'departments' => tap(Department::query()->where('public_id', $id)->firstOrFail(), function (Department $item) use ($request, &$before): void {
+                $before = $item->getAttributes();
                 $data = $request->validate(['name' => ['sometimes', 'string', 'max:120'], 'code' => ['sometimes', 'string', 'max:32']]);
                 $item->update(['name' => $data['name'] ?? $item->name, 'code' => isset($data['code']) ? strtoupper($data['code']) : $item->code]);
             }),
-            'subjects' => tap(Subject::query()->where('public_id', $id)->firstOrFail(), function (Subject $item) use ($request): void {
+            'subjects' => tap(Subject::query()->where('public_id', $id)->firstOrFail(), function (Subject $item) use ($request, &$before): void {
+                $before = $item->getAttributes();
                 $data = $request->validate(['name' => ['sometimes', 'string', 'max:120'], 'code' => ['sometimes', 'string', 'max:32'], 'status' => ['nullable', 'string', 'max:24']]);
                 $item->update(['name' => $data['name'] ?? $item->name, 'code' => isset($data['code']) ? strtoupper($data['code']) : $item->code, 'status' => $data['status'] ?? $item->status]);
                 app(LookupCacheService::class)->forgetAll();
             }),
-            'terms' => tap(Term::query()->where('public_id', $id)->firstOrFail(), function (Term $item) use ($request): void {
+            'terms' => tap(Term::query()->where('public_id', $id)->firstOrFail(), function (Term $item) use ($request, &$before): void {
+                $before = $item->getAttributes();
                 $data = $request->validate(['name' => ['sometimes', 'string', 'max:64'], 'startsAt' => ['sometimes', 'date'], 'endsAt' => ['sometimes', 'date'], 'isCurrent' => ['nullable', 'boolean']]);
                 if (! empty($data['isCurrent'])) {
                     Term::query()->update(['is_current' => false]);
@@ -143,6 +154,8 @@ class SchoolStructureController extends Controller
             }),
             default => abort(404),
         };
+
+        $audit->record('school_structure.updated', $payload, $before, $payload->getAttributes());
 
         return ApiResponse::success(match ($resource) {
             'campuses' => ['id' => $payload->public_id, 'name' => $payload->name, 'code' => $payload->code, 'status' => $payload->status],
@@ -177,7 +190,7 @@ class SchoolStructureController extends Controller
             'state' => data_get($settings, 'profile.state'),
             'email' => data_get($settings, 'contact.email'),
             'phone' => data_get($settings, 'contact.phone'),
-            'logoUrl' => data_get($settings, 'branding.logo_url'),
+            'logoUrl' => PublicStorageUrl::relative(data_get($settings, 'branding.logo_url')),
         ];
     }
 
@@ -199,6 +212,7 @@ class SchoolStructureController extends Controller
         $tenant = $this->context->tenant();
         $before = $tenant->settings ?? [];
         $settings = $before;
+        $previousName = $tenant->name;
         foreach (['motto', 'address', 'city', 'state'] as $key) {
             if (array_key_exists($key, $data)) {
                 data_set($settings, "profile.{$key}", $data[$key]);
@@ -214,6 +228,9 @@ class SchoolStructureController extends Controller
             'timezone' => $data['timezone'] ?? $tenant->timezone,
             'settings' => $settings,
         ])->save();
+        if (isset($data['name']) && $data['name'] !== $previousName) {
+            app(\App\Services\EmployeeNumberGenerator::class)->realignExisting($tenant->fresh());
+        }
         $audit->record('school.profile.updated', $tenant, $before, $settings);
 
         return $this->profile();
@@ -397,7 +414,11 @@ class SchoolStructureController extends Controller
     private function assertWrite(Request $request, string $resource): void
     {
         $permissions = $request->attributes->get('membership')?->permissionNames() ?? [];
-        $need = in_array($resource, ['enrolments'], true) ? ['settings.configure', 'students.create'] : ['settings.configure', 'users.manage'];
+        $need = match ($resource) {
+            'enrolments' => ['settings.configure', 'students.create'],
+            'teacher-allocations', 'departments' => ['settings.configure', 'users.manage'],
+            default => ['settings.configure'],
+        };
         abort_unless(count(array_intersect($need, $permissions)) > 0, 403);
     }
 

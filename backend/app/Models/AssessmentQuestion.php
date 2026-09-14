@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Domain\Tenancy\Concerns\BelongsToTenant;
 use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AssessmentQuestion extends Model
 {
@@ -18,5 +19,11 @@ class AssessmentQuestion extends Model
     protected function casts(): array
     {
         return ['options' => 'array', 'correct_answer' => 'encrypted', 'rubric' => 'array'];
+    }
+
+    /** @return BelongsTo<AssessmentSection, $this> */
+    public function section(): BelongsTo
+    {
+        return $this->belongsTo(AssessmentSection::class, 'section_id');
     }
 }

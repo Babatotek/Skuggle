@@ -7,6 +7,7 @@ use App\Models\Assessment;
 use App\Models\AttendanceRecord;
 use App\Models\ResultPublication;
 use App\Models\Tenant;
+use App\Support\PublicStorageUrl;
 
 final class ResultReportService
 {
@@ -138,7 +139,7 @@ final class ResultReportService
         return [
             'name' => $tenant->name,
             'motto' => data_get($settings, 'profile.motto'),
-            'logoUrl' => data_get($settings, 'branding.logo_url'),
+            'logoUrl' => PublicStorageUrl::relative(data_get($settings, 'branding.logo_url')),
             'primaryColour' => data_get($settings, 'branding.primary_colour', '#4338CA'),
             'contact' => data_get($settings, 'contact'),
         ];

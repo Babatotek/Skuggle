@@ -33,7 +33,7 @@ export const ShellHeader: React.FC<ShellHeaderProps> = ({
   const school = family === 'school-staff' || family === 'parent-student';
 
   return (
-    <header className="sticky top-0 z-[var(--z-sticky)] border-b border-[var(--color-border-default)] bg-[var(--color-surface-raised)]">
+    <header className="sticky top-0 z-[var(--z-header)] border-b border-[var(--color-border-default)] bg-[var(--color-surface-raised)]">
       {(!isOnline || offlineQueue.length > 0) && (
         <div className="flex items-center justify-between gap-3 bg-[var(--color-status-attention-bg)] px-4 py-1.5 text-xs font-semibold text-[var(--color-status-attention-text)]">
           <span className="flex items-center gap-2">

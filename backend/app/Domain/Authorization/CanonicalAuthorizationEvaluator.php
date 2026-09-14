@@ -6,6 +6,7 @@ use App\Domain\Tenancy\TenantContext;
 use App\Models\Role;
 use App\Models\RoleAssignment;
 use App\Models\Tenant;
+use App\Models\TenantAccessRole;
 use App\Models\TenantMembership;
 use Illuminate\Support\Facades\Log;
 
@@ -57,7 +58,7 @@ final class CanonicalAuthorizationEvaluator
         // Mutations go through RoleAssignmentService, which clears this request-scoped
         // cache. Including the current second makes temporal boundaries visible
         // without issuing a cache-version query on every authorization check.
-        $cacheKey = PermissionRegistry::VERSION.':'.$membership->getKey().':'.$membership->role_id.':'.$membership->updated_at?->getTimestamp().':'.now()->getTimestamp();
+        $cacheKey = PermissionRegistry::VERSION.':'.$membership->getKey().':'.$membership->role_id.':'.($membership->tenant_access_role_id ?? '0').':'.$membership->updated_at?->getTimestamp().':'.now()->getTimestamp();
         if (isset($this->requestCache[$cacheKey])) {
             return $this->requestCache[$cacheKey];
         }
@@ -73,6 +74,16 @@ final class CanonicalAuthorizationEvaluator
         }
         $roles = $roles->merge($assignments->pluck('role')->filter());
         $grants = $roles->unique('id')->flatMap(fn (Role $role) => $role->permissions->pluck('name'))->all();
+
+        $accessRole = $membership->relationLoaded('accessRole')
+            ? $membership->accessRole
+            : ($membership->tenant_access_role_id
+                ? TenantAccessRole::query()->with('permissions')->find($membership->tenant_access_role_id)
+                : null);
+        if ($accessRole instanceof TenantAccessRole) {
+            $grants = [...$grants, ...$accessRole->permissions->pluck('name')->all()];
+        }
+
         $effective = [];
         foreach ($grants as $grant) {
             $canonical = PermissionRegistry::canonicalFor((string) $grant);

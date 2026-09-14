@@ -56,14 +56,15 @@ final class SmartmarkScoringService
 
     public function band(float $confidence, bool $unreadableMarks, bool $matched): SmartmarkConfidenceBand
     {
+        $settings = AssessmentSettings::forTenant()['smartmarkDefaults'] ?? [];
         if (! $matched) {
             return SmartmarkConfidenceBand::Unmatched;
         }
-        if ($unreadableMarks || $confidence < (float) config('skuggle.ocr.low_threshold', 50)) {
+        if ($unreadableMarks || $confidence < (float) ($settings['lowThreshold'] ?? config('skuggle.ocr.low_threshold', 50))) {
             return SmartmarkConfidenceBand::Unreadable;
         }
-        $high = (float) config('skuggle.ocr.review_threshold', 92);
-        $medium = (float) config('skuggle.ocr.medium_threshold', 75);
+        $high = (float) ($settings['highThreshold'] ?? config('skuggle.ocr.review_threshold', 92));
+        $medium = (float) ($settings['mediumThreshold'] ?? config('skuggle.ocr.medium_threshold', 75));
         if ($confidence >= $high) {
             return SmartmarkConfidenceBand::High;
         }

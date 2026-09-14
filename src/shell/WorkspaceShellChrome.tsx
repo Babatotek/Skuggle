@@ -80,11 +80,13 @@ export const WorkspaceShellChrome: React.FC<WorkspaceShellChromeProps> = ({
     : undefined;
   const platformClass = family === 'platform' ? 'bg-[var(--primitive-neutral-50)]' : 'bg-[var(--color-bg-canvas)]';
   const reduced = prefersReducedMotion();
-  const usesV2Composition = matched?.route.id.startsWith('school.people.students')
+  const usesV2Composition = matched?.route.domain === 'administration'
+    || matched?.route.id.startsWith('school.people.students')
     || matched?.route.id === 'school.people.guardians'
     || matched?.route.id.startsWith('school.people.workforce')
       || matched?.route.id.startsWith('school.admissions')
-      || matched?.route.domain === 'assessment';
+      || matched?.route.domain === 'assessment'
+      || matched?.route.domain === 'student-services';
 
   useEffect(() => {
     document.documentElement.dataset.density = readShellDensity();

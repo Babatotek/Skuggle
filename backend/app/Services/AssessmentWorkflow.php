@@ -26,10 +26,34 @@ final class AssessmentWorkflow
 
     public function roster(Assessment $item)
     {
-        return Enrollment::query()->where('class_id', $item->class_id)->where('academic_session_id', $item->academic_session_id)
-            ->where('status', 'active')->with('student')->get()->pluck('student')->filter()
-            ->when(($item->metadata['participantMode'] ?? 'class') === 'selected', fn ($students) => $students->whereIn('public_id', $item->metadata['studentIds'] ?? []))
-            ->unique('id')->values();
+        $mode = $item->participant_mode ?: ($item->metadata['participantMode'] ?? 'class');
+        $classIds = collect([$item->class_id]);
+        $name = $item->schoolClass?->name;
+        if ($mode === 'multiple-arms') {
+            $arms = array_filter((array) ($item->metadata['arms'] ?? []));
+            if ($name && $arms !== []) {
+                $classIds = \App\Models\SchoolClass::query()->where('name', $name)->whereIn('arm', $arms)->pluck('id');
+            }
+        }
+        if ($mode === 'subject-group' && $name) {
+            $classIds = \App\Models\SchoolClass::query()
+                ->where('name', $name)
+                ->where('status', 'active')
+                ->whereExists(function ($q) use ($item): void {
+                    $q->select(DB::raw(1))
+                        ->from('class_subject')
+                        ->whereColumn('class_subject.class_id', 'school_classes.id')
+                        ->where('class_subject.subject_id', $item->subject_id);
+                })
+                ->pluck('id');
+        }
+        $students = Enrollment::query()->whereIn('class_id', $classIds)->where('academic_session_id', $item->academic_session_id)
+            ->where('status', 'active')->with('student')->get()->pluck('student')->filter();
+        if (in_array($mode, ['selected', 'special-cohort'], true)) {
+            $students = $students->whereIn('public_id', $item->metadata['studentIds'] ?? []);
+        }
+
+        return $students->unique('id')->values();
     }
 
     public function revision(Assessment $item): string
@@ -65,6 +89,11 @@ final class AssessmentWorkflow
             }
             if ((int) $other->class_id === (int) $item->class_id) {
                 $conflicts[] = ['type' => 'class', 'message' => 'Same class overlaps '.$other->title.'.', 'assessmentId' => $other->public_id, 'title' => $other->title];
+            }
+            $itemRoster = $this->roster($item)->pluck('id');
+            $otherRoster = $this->roster($other)->pluck('id');
+            if ($itemRoster->intersect($otherRoster)->isNotEmpty() && (int) $other->class_id !== (int) $item->class_id) {
+                $conflicts[] = ['type' => 'cohort', 'message' => 'Student cohort overlaps '.$other->title.'.', 'assessmentId' => $other->public_id, 'title' => $other->title];
             }
             $delivery = (string) ($meta['delivery'] ?? 'manual');
             $otherDelivery = (string) ($other->metadata['delivery'] ?? 'manual');
@@ -155,7 +184,8 @@ final class AssessmentWorkflow
      *   itemCount: int,
      *   instructions: string,
      *   items: list<array{number:int,choices:list<string>,questionType:string,prompt:string,marks:float}>,
-     *   answerKey: list<string>|null
+     *   answerKey: list<string>|null,
+     *   geometry: array<string, mixed>
      * }
      */
     public function omrLayout(Assessment $item, bool $includeAnswers = false): array
@@ -188,9 +218,10 @@ final class AssessmentWorkflow
         return [
             'enabled' => $items !== [],
             'itemCount' => count($items),
-            'instructions' => 'Use a dark pen or HB pencil. Shade one bubble fully per question. Do not tick or cross. Write the admission number clearly in BLOCK letters. Ambiguous or double marks are flagged for teacher review.',
+            'instructions' => 'Use a dark pen or HB pencil. Shade one bubble fully per question. Do not tick or cross. Keep corner marks and the scan strip unobstructed. Ambiguous or double marks are flagged for teacher review.',
             'items' => $items,
             'answerKey' => $includeAnswers ? $answerKey : null,
+            'geometry' => app(SmartmarkOmrGeometry::class)->build($items),
         ];
     }
 
@@ -356,8 +387,8 @@ final class AssessmentWorkflow
     public function unlockImpact(Assessment $item): array
     {
         $meta = $item->metadata ?? [];
-        $lockVersion = (int) ($meta['lockVersion'] ?? 0);
-        $lockedAt = $meta['lockedAt'] ?? ($item->status === 'locked' ? now()->toIso8601String() : null);
+        $lockVersion = (int) (($item->metadata['lockVersion'] ?? 0) ?: ($item->locked_at ? 1 : 0));
+        $lockedAt = $item->locked_at?->toIso8601String() ?? ($meta['lockedAt'] ?? ($item->status === 'locked' ? now()->toIso8601String() : null));
         $publishedResults = 0;
         $rosterIds = $this->roster($item)->pluck('id');
         if ($rosterIds->isNotEmpty()) {
@@ -437,8 +468,21 @@ final class AssessmentWorkflow
                 abort_if($state === 'ENTERED' && $value === null, 422, 'Entered scores require a numeric value.');
                 $score = AssessmentScore::query()->firstOrNew(['assessment_id' => $item->getKey(), 'student_id' => $student->getKey()]);
                 $before = $score->only(['score', 'status', 'metadata']);
+                $previousScore = $score->score !== null ? (float) $score->score : null;
+                $previousStatus = $score->status;
                 $score->fill(['score' => $value, 'status' => $state, 'graded_by' => $actor, 'graded_at' => now(), 'revision' => ($score->revision ?? 0) + 1,
                     'metadata' => array_merge($score->metadata ?? [], ['comment' => $data['comments'][$publicId] ?? $score->metadata['comment'] ?? ''])])->save();
+                app(AssessmentCompleteService::class)->recordAdjustment(
+                    $item,
+                    (int) $student->getKey(),
+                    $previousScore,
+                    $value !== null ? (float) $value : null,
+                    $previousStatus,
+                    $state,
+                    $actor,
+                    $score->getKey(),
+                    'Score entry grid'
+                );
                 app(AuditLogger::class)->record('assessment.score_adjusted', $score, $before, $score->only(['score', 'status', 'metadata']));
             }
             $item->increment('revision');

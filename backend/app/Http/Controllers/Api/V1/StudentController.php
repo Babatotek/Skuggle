@@ -88,6 +88,7 @@ class StudentController extends Controller
             ])->values(),
             'lifecycleStatuses' => Student::lifecycleStatuses(),
             'admissionNumberPattern' => app(AdmissionNumberGenerator::class)->pattern($tenant),
+            'schoolCode' => \App\Support\SchoolCode::forTenant($tenant),
             'customFields' => $this->customFields->definitions($tenant, CustomFieldRegistry::ENTITY_STUDENT, true),
         ]);
     }

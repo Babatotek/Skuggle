@@ -16,12 +16,14 @@ import { buildRoute, matchCanonicalPath, matchLegacyAlias, routeFromLegacyNavId,
 import { evaluateGuard } from './guards';
 import { bindRouterNavigate } from './historyCompatibility';
 import { LegacyPageAdapter } from './LegacyPageAdapter';
+const AdministrationWorkspace = React.lazy(() => import('../domains/administration/AdministrationWorkspace'));
 const AssessmentDomainWorkspace = React.lazy(() => import('../domains/assessment/AssessmentDomainWorkspace'));
 const StudentCbtList = React.lazy(() => import('../domains/student-cbt/StudentCbtList'));
 const StudentCbtPlayerPage = React.lazy(() => import('../domains/student-cbt/StudentCbtPlayer'));
 import { StudentsPage } from '../domains/people/students/StudentsPage';
 import { GuardiansPage } from '../domains/people/guardians/GuardiansPage';
 import { WorkforcePage } from '../domains/people/workforce/WorkforcePage';
+import { EmployeeProfilePage } from '../domains/people/workforce/EmployeeProfilePage';
 import {
   AdmissionsApplicationsPage,
   AdmissionsDecisionsPage,
@@ -30,6 +32,7 @@ import {
   AdmissionsScreeningPage,
   AdmissionsSettingsPage,
 } from '../domains/admissions/AdmissionsPages';
+import { StudentServicesPage, studentServicesSectionFromRoute } from '../domains/student-services/StudentServicesPage';
 import { normalizeLocation } from './normalize';
 import { parseRouteParams } from './params';
 import {
@@ -210,7 +213,9 @@ const GuardedPage: React.FC<{ route: CanonicalRouteDefinition; params: Record<st
     return <RouteAccessDenied onHome={() => navigate(buildRoute('school.home'))} />;
   }
   if (route.id === 'auth.continue') return <WorkspaceDefaultRedirect />;
-  const surface = route.id === 'school.student-cbt'
+  const surface = route.domain === 'administration'
+    ? <Suspense fallback={<RouteLoading />}><AdministrationWorkspace route={route} onNavigateTab={onNavigateTab} /></Suspense>
+    : route.id === 'school.student-cbt'
     ? <Suspense fallback={<RouteLoading />}><StudentCbtList /></Suspense>
     : route.id === 'school.student-cbt.take'
     ? <Suspense fallback={<RouteLoading />}><StudentCbtPlayerPage /></Suspense>
@@ -220,6 +225,8 @@ const GuardedPage: React.FC<{ route: CanonicalRouteDefinition; params: Record<st
     ? <StudentsPage studentPublicId={parsed.params.studentPublicId} />
     : route.id === 'school.people.guardians'
       ? <GuardiansPage />
+      : route.id === 'school.people.workforce.profile'
+        ? <EmployeeProfilePage employeePublicId={parsed.params.employeePublicId} />
       : route.id === 'school.people.workforce' || route.id === 'school.people.workforce.teachers'
         ? <WorkforcePage view={route.id.endsWith('.teachers') || parsed.query.view === 'teachers' ? 'teachers' : 'staff'} />
         : route.id === 'school.admissions'
@@ -234,6 +241,8 @@ const GuardedPage: React.FC<{ route: CanonicalRouteDefinition; params: Record<st
                   ? <AdmissionsEnrolmentPage />
                   : route.id === 'school.admissions.settings'
                     ? <AdmissionsSettingsPage />
+                    : route.domain === 'student-services'
+                      ? <StudentServicesPage sectionId={studentServicesSectionFromRoute(route.id, route.pageContext?.section)} />
         : <LegacyPageAdapter route={route} params={parsed.params} onNavigateTab={onNavigateTab} />;
   return (
     <>

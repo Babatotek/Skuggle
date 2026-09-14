@@ -6,6 +6,8 @@ use App\Domain\Tenancy\TenantContext;
 use App\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
 use App\Models\Assessment;
+use App\Models\AssessmentTemplate;
+use App\Models\AssessmentType;
 use App\Models\Campus;
 use App\Models\Enrollment;
 use App\Models\SchoolClass;
@@ -13,6 +15,9 @@ use App\Models\SmartmarkBatch;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Services\AcademicContext;
+use App\Services\AssessmentCompleteService;
+use App\Services\AssessmentNotifier;
+use App\Services\AssessmentSettings;
 use App\Services\AssessmentAccess;
 use App\Services\AssessmentItemAnalyticsService;
 use App\Services\AssessmentTheoryMarkingService;
@@ -54,13 +59,32 @@ class AssessmentController extends Controller
     private function present(Assessment $item): array
     {
         $meta = $item->metadata ?? [];
-        $expected = ($meta['participantMode'] ?? 'class') === 'selected' ? count($meta['studentIds'] ?? []) : (int) $item->getAttribute('expected_count');
-        $duration = max(1, (int) ($meta['duration'] ?? 60));
-        $availableFrom = $item->scheduled_at?->toIso8601String();
-        $availableUntil = $item->scheduled_at?->copy()->addMinutes($duration)->toIso8601String();
+        $expected = (($item->participant_mode ?: ($meta['participantMode'] ?? 'class')) === 'selected') ? count($meta['studentIds'] ?? []) : (int) $item->getAttribute('expected_count');
+        $duration = max(1, (int) ($item->duration_minutes ?: ($meta['duration'] ?? 60)));
+        $from = $item->starts_at ?: $item->scheduled_at;
+        $availableFrom = $from?->toIso8601String();
+        $availableUntil = ($item->ends_at ?: $from?->copy()->addMinutes($duration))?->toIso8601String();
 
         return ['id' => $item->public_id, 'title' => $item->title, 'type' => $item->type, 'classId' => $item->schoolClass?->public_id, 'className' => trim(($item->schoolClass?->name ?? '').' '.($item->schoolClass?->arm ?? '')), 'subjectId' => $item->subject?->public_id, 'subject' => $item->subject?->name,
-            'date' => $item->scheduled_at?->toDateString(), 'scheduledAt' => $item->scheduled_at?->toIso8601String(), 'availableFrom' => $availableFrom, 'availableUntil' => $availableUntil, 'maxScore' => (float) $item->maximum_score, 'status' => $item->status, 'delivery' => $meta['delivery'] ?? 'manual', 'marked' => (int) ($item->marked_count ?? 0), 'expected' => $expected, 'revision' => $item->revision, 'metadata' => $meta,
+            'date' => $item->scheduled_at?->toDateString(), 'scheduledAt' => $item->scheduled_at?->toIso8601String(), 'availableFrom' => $availableFrom, 'availableUntil' => $availableUntil, 'maxScore' => (float) $item->maximum_score, 'status' => $item->status, 'delivery' => $item->delivery ?: ($meta['delivery'] ?? 'manual'), 'marked' => (int) ($item->marked_count ?? 0), 'expected' => $expected, 'revision' => $item->revision, 'metadata' => array_merge($meta, [
+                'weighting' => $item->weight ?? ($meta['weighting'] ?? 0),
+                'code' => $item->code ?? ($meta['code'] ?? ''),
+                'instructions' => $item->instructions ?? ($meta['instructions'] ?? ''),
+                'description' => $item->description ?? ($meta['description'] ?? ''),
+                'participantMode' => $item->participant_mode ?: ($meta['participantMode'] ?? 'class'),
+                'contentMode' => $item->content_mode ?: ($meta['contentMode'] ?? 'score-only'),
+                'passThreshold' => $item->pass_threshold,
+                'latePolicy' => $item->late_policy ?: ($meta['latePolicy'] ?? 'reject'),
+                'randomQuestions' => (bool) $item->random_questions,
+                'randomOptions' => (bool) $item->random_options,
+                'attemptLimit' => (int) ($item->attempt_limit ?: 1),
+                'resumePolicy' => $item->resume_policy ?: ($meta['resumePolicy'] ?? 'allow'),
+                'feedbackPolicy' => $item->feedback_policy ?: ($meta['feedbackPolicy'] ?? 'score'),
+                'navigationRestricted' => (bool) $item->navigation_restricted,
+                'duration' => $duration,
+                'startTime' => $meta['startTime'] ?? ($item->scheduled_at?->format('H:i')),
+                'lockedAt' => $item->locked_at?->toIso8601String() ?? ($meta['lockedAt'] ?? null),
+            ]),
             'scoreEntryAllowed' => $this->access->allows('assessment.score.enter') && in_array($item->status, AssessmentWorkflow::EDITABLE, true)];
     }
 
@@ -72,7 +96,11 @@ class AssessmentController extends Controller
         $subjects = Subject::query()->where('status', 'active')->orderBy('name')->get();
         $links = DB::table('class_subject')->where('tenant_id', app(TenantContext::class)->tenantId())->get()->filter(fn ($link) => $this->access->assigned((int) $link->class_id, (int) $link->subject_id, (int) $session->getKey()));
 
-        return ApiResponse::success(['classes' => $classes->whereIn('id', $links->pluck('class_id'))->map(fn ($x) => ['id' => $x->public_id, 'name' => trim($x->name.' '.$x->arm)])->values(), 'subjects' => $subjects->whereIn('id', $links->pluck('subject_id'))->map(fn ($x) => ['id' => $x->public_id, 'name' => $x->name, 'classIds' => $classes->whereIn('id', $links->where('subject_id', $x->getKey())->pluck('class_id'))->pluck('public_id')->values()])->values(), 'assessmentTypes' => collect(AssessmentWorkflow::TYPES)->map(fn ($x) => ['id' => $x, 'name' => ucwords(str_replace('-', ' ', $x))]), 'session' => ['id' => $session->public_id, 'name' => $session->name], 'term' => ['id' => $term->public_id, 'name' => $term->name]]);
+        $tenant = app(TenantContext::class)->tenant();
+        AssessmentSettings::seedTypes($tenant);
+        $types = AssessmentType::query()->where('is_active', true)->orderBy('position')->get();
+
+        return ApiResponse::success(['classes' => $classes->whereIn('id', $links->pluck('class_id'))->map(fn ($x) => ['id' => $x->public_id, 'name' => trim($x->name.' '.$x->arm), 'baseName' => $x->name, 'arm' => $x->arm])->values(), 'subjects' => $subjects->whereIn('id', $links->pluck('subject_id'))->map(fn ($x) => ['id' => $x->public_id, 'name' => $x->name, 'classIds' => $classes->whereIn('id', $links->where('subject_id', $x->getKey())->pluck('class_id'))->pluck('public_id')->values()])->values(), 'assessmentTypes' => $types->map(fn ($x) => app(AssessmentCompleteService::class)->presentType($x))->values(), 'session' => ['id' => $session->public_id, 'name' => $session->name], 'term' => ['id' => $term->public_id, 'name' => $term->name]]);
     }
 
     public function index(Request $request): JsonResponse
@@ -93,7 +121,10 @@ class AssessmentController extends Controller
             $query->whereHas('subject', fn ($q) => $q->where('public_id', $request->input('subjectId')));
         }
         if ($request->filled('delivery')) {
-            $query->where('metadata->delivery', $request->input('delivery'));
+            $delivery = $request->input('delivery');
+            $query->where(function ($q) use ($delivery) {
+                $q->where('delivery', $delivery)->orWhere('metadata->delivery', $delivery);
+            });
         }
         if ($request->filled('from')) {
             $query->whereDate('scheduled_at', '>=', $request->date('from'));
@@ -142,7 +173,7 @@ class AssessmentController extends Controller
 
     private function input(Request $request): array
     {
-        return $request->validate(['title' => 'required|string|max:180', 'classId' => 'required|string', 'subjectId' => 'required|string', 'assessmentTypeId' => ['required', Rule::in(AssessmentWorkflow::TYPES)], 'date' => 'required|date', 'maxScore' => 'required|numeric|gt:0|max:1000', 'instructions' => 'nullable|string|max:5000', 'description' => 'nullable|string|max:5000', 'weighting' => 'nullable|numeric|min:0|max:100', 'code' => 'nullable|string|max:80', 'participantMode' => 'required|in:class,selected', 'studentIds' => 'array|max:500', 'studentIds.*' => 'string|distinct', 'contentMode' => 'required|in:score-only,questions', 'delivery' => 'required|in:manual,paper,smartmark,project,oral,cbt', 'startTime' => 'required|date_format:H:i', 'duration' => 'required|integer|min:1|max:600', 'venue' => 'required|string|max:180', 'invigilator' => 'required|string|max:180']);
+        return $request->validate(['title' => 'required|string|max:180', 'classId' => 'required|string', 'subjectId' => 'required|string', 'assessmentTypeId' => ['required', Rule::in(AssessmentWorkflow::TYPES)], 'date' => 'required|date', 'maxScore' => 'required|numeric|gt:0|max:1000', 'instructions' => 'nullable|string|max:5000', 'description' => 'nullable|string|max:5000', 'weighting' => 'nullable|numeric|min:0|max:100', 'code' => 'nullable|string|max:80', 'participantMode' => 'required|in:class,selected,arm,multiple-arms,subject-group,special-cohort', 'studentIds' => 'array|max:500', 'studentIds.*' => 'string|distinct', 'arms' => 'array|max:20', 'arms.*' => 'string|max:40', 'contentMode' => 'required|in:score-only,questions,rubric', 'delivery' => 'required|in:manual,paper,smartmark,project,oral,cbt', 'startTime' => 'required|date_format:H:i', 'duration' => 'required|integer|min:1|max:600', 'venue' => 'required|string|max:180', 'invigilator' => 'required|string|max:180', 'passThreshold' => 'nullable|numeric|min:0|max:1000', 'latePolicy' => 'nullable|in:reject,allow', 'randomQuestions' => 'sometimes|boolean', 'randomOptions' => 'sometimes|boolean', 'attemptLimit' => 'nullable|integer|min:1|max:10', 'resumePolicy' => 'nullable|in:allow,deny', 'feedbackPolicy' => 'nullable|in:none,score,detailed', 'navigationRestricted' => 'sometimes|boolean', 'customFields' => 'sometimes|array']);
     }
 
     public function papers(string $assessment, Request $request): JsonResponse
@@ -162,8 +193,34 @@ class AssessmentController extends Controller
 
     public function exportScores(string $assessment, Request $request)
     {
+        $kind = $request->string('kind', 'scores');
         $item = $this->item($request, $assessment);
-        abort_unless($this->access->allows('assessment.score.enter') || $this->access->allows('assessment.score.moderate'), 403);
+        abort_unless($this->access->allows('assessment.score.enter') || $this->access->allows('assessment.score.moderate') || $this->access->allows('assessment.score.view'), 403);
+        if ($kind === 'moderation') {
+            $review = $this->workflow->moderationReview($item);
+            $lines = ['Check,Status,Count,Message'];
+            foreach ($review['checks'] as $check) {
+                $lines[] = sprintf('"%s",%s,%s,"%s"', $check['label'], $check['status'], $check['count'], str_replace('"', '""', $check['message']));
+            }
+            $body = implode("\n", $lines);
+            $filename = 'assessment-'.$item->public_id.'-moderation.csv';
+        } elseif ($kind === 'completion') {
+            $lines = ['Student,Admission,Status,Score'];
+            $scores = $item->scores()->get()->keyBy('student_id');
+            foreach ($this->workflow->roster($item) as $student) {
+                $score = $scores->get($student->getKey());
+                $lines[] = sprintf('"%s","%s",%s,%s', str_replace('"', '""', trim($student->first_name.' '.$student->last_name)), $student->admission_number, $score->status ?? 'MISSING', $score->score ?? '');
+            }
+            $body = implode("\n", $lines);
+            $filename = 'assessment-'.$item->public_id.'-completion.csv';
+        } elseif ($kind === 'questions') {
+            $lines = ['Number,Type,Prompt,Marks,Topic'];
+            foreach ($item->questions()->orderBy('position')->get() as $question) {
+                $lines[] = sprintf('%s,%s,"%s",%s,"%s"', $question->position, $question->question_type, str_replace('"', '""', mb_substr($question->prompt, 0, 200)), $question->marks, str_replace('"', '""', (string) $question->learning_outcome));
+            }
+            $body = implode("\n", $lines);
+            $filename = 'assessment-'.$item->public_id.'-questions.csv';
+        } else {
         $item->loadMissing(['schoolClass', 'subject', 'scores']);
         $roster = $this->workflow->roster($item);
         $scores = $item->scores->keyBy('student_id');
@@ -179,9 +236,11 @@ class AssessmentController extends Controller
                 $score?->metadata['source'] ?? ''
             );
         }
-        $filename = 'assessment-'.$item->public_id.'-scores.csv';
+            $body = implode("\n", $lines);
+            $filename = 'assessment-'.$item->public_id.'-scores.csv';
+        }
 
-        return response(implode("\n", $lines), 200, [
+        return response($body, 200, [
             'Content-Type' => 'text/csv; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="'.$filename.'"',
             'Cache-Control' => 'private, no-store',
@@ -250,10 +309,13 @@ class AssessmentController extends Controller
         $subject = Subject::query()->where('public_id', $data['subjectId'])->where('status', 'active')->firstOrFail();
         abort_unless($this->access->assigned($class->getKey(), $subject->getKey(), $session->getKey()), 403);
         abort_unless(DB::table('class_subject')->where('tenant_id', app(TenantContext::class)->tenantId())->where('class_id', $class->getKey())->where('subject_id', $subject->getKey())->exists(), 422, 'The subject is not offered by this class.');
-        if ($data['participantMode'] === 'selected') {
+        if (in_array($data['participantMode'], ['selected', 'special-cohort'], true)) {
             abort_if(empty($data['studentIds']), 422, 'Select at least one participant.');
             $count = Enrollment::query()->where('class_id', $class->getKey())->where('academic_session_id', $session->getKey())->where('status', 'active')->whereHas('student', fn ($q) => $q->whereIn('public_id', $data['studentIds']))->distinct()->count('student_id');
             abort_unless($count === count($data['studentIds']), 422, 'Participants must belong to this class and academic session.');
+        }
+        if ($data['participantMode'] === 'multiple-arms') {
+            abort_if(empty($data['arms']), 422, 'Select at least one arm for a multiple-arm cohort.');
         }
         if ($item) {
             abort_unless(in_array($item->status, ['draft', 'ready'], true) && ! $item->scores()->exists(), 409, 'Only unmarked drafts can be edited.');
@@ -263,8 +325,13 @@ class AssessmentController extends Controller
             $data['venue'] = trim((string) $data['venue']) !== '' ? $data['venue'] : 'Online';
             $data['invigilator'] = trim((string) $data['invigilator']) !== '' ? $data['invigilator'] : 'System';
         }
+        if (! empty($data['customFields']) && is_array($data['customFields'])) {
+            $data['customFields'] = app(\App\Services\FormEngineService::class)->validateValues(app(TenantContext::class)->tenant(), 'assessment.configuration', $data['customFields']);
+        }
         $item ??= new Assessment(['created_by' => $request->user()->getKey(), 'status' => 'draft', 'revision' => 0]);
-        $item->fill(['class_id' => $class->getKey(), 'subject_id' => $subject->getKey(), 'academic_session_id' => $session->getKey(), 'term_id' => $term->getKey(), 'title' => $data['title'], 'type' => $data['assessmentTypeId'], 'maximum_score' => $data['maxScore'], 'scheduled_at' => $data['date'].' '.($data['startTime'] ?? '00:00'), 'metadata' => array_merge($item->metadata ?? [], collect($data)->except(['title', 'classId', 'subjectId', 'assessmentTypeId', 'date', 'maxScore'])->all()), 'revision' => $item->revision + 1])->save();
+        $item->fill(['class_id' => $class->getKey(), 'subject_id' => $subject->getKey(), 'academic_session_id' => $session->getKey(), 'term_id' => $term->getKey(), 'title' => $data['title'], 'type' => $data['assessmentTypeId'], 'maximum_score' => $data['maxScore'], 'scheduled_at' => $data['date'].' '.($data['startTime'] ?? '00:00'), 'metadata' => array_merge($item->metadata ?? [], collect($data)->except(['title', 'classId', 'subjectId', 'assessmentTypeId', 'date', 'maxScore'])->all()), 'revision' => $item->revision + 1]);
+        app(AssessmentCompleteService::class)->persistCanonical($item, $data);
+        $item->save();
         app(AuditLogger::class)->record('assessment.saved', $item, [], ['revision' => $item->revision]);
 
         return $item;
@@ -373,8 +440,11 @@ class AssessmentController extends Controller
             }
             abort_unless(in_array($item->status, explode(',', $from), true), 409, 'This transition is unavailable in the current state.');
             $cap = match ($data['action']) {
-                'moderate' => 'assessment.score.moderate', 'lock' => 'assessment.score.lock', 'reopen' => 'assessment.score.unlock', 'submit' => 'assessment.score.enter', default => 'assessment.assessment.create'
+                'moderate' => 'assessment.score.moderate', 'lock' => 'assessment.score.lock', 'reopen' => 'assessment.score.unlock', 'submit' => 'assessment.score.enter', 'schedule' => 'assessment.assessment.schedule', 'cancel' => 'assessment.assessment.cancel', default => 'assessment.assessment.create'
             };
+            if (in_array($data['action'], ['schedule', 'cancel', 'ready', 'activate', 'complete'], true) && ! $this->access->allows($cap)) {
+                $cap = 'assessment.assessment.create';
+            }
             abort_unless($this->access->allows($cap), 403);
             if ($data['action'] === 'reopen') {
                 abort_if(empty(trim($data['reason'] ?? '')), 422, 'A reason is required to reopen scores.');
@@ -468,7 +538,22 @@ class AssessmentController extends Controller
                     'unlockImpactAcknowledged' => (bool) ($data['acknowledgeImpact'] ?? false),
                 ]);
             }
-            $item->update(['status' => $to, 'revision' => $item->revision + 1, 'metadata' => $metadata]);
+            $updates = ['status' => $to, 'revision' => $item->revision + 1, 'metadata' => $metadata];
+            if ($to === 'locked') {
+                $updates['locked_at'] = now();
+                $updates['locked_by'] = $request->user()->getKey();
+            }
+            if ($to === 'reopened') {
+                $updates['locked_at'] = null;
+                $updates['locked_by'] = null;
+            }
+            $item->update($updates);
+            if ($data['action'] === 'schedule') {
+                app(AssessmentNotifier::class)->assessmentScheduled($item);
+            }
+            if (in_array($to, ['completed', 'marking'], true) || $data['action'] === 'complete') {
+                app(AssessmentNotifier::class)->teacherMarkingDue($item);
+            }
             if (in_array($to, ['validated', 'locked'], true)) {
                 $item->scores()->whereNotIn('status', ['ABSENT', 'EXEMPT'])->update(['status' => $to === 'locked' ? 'LOCKED' : 'MODERATED']);
             }
@@ -492,12 +577,125 @@ class AssessmentController extends Controller
     {
         abort_unless($this->access->allows('assessment.settings.configure'), 403);
         $tenant = app(TenantContext::class)->tenant();
+        AssessmentSettings::seedTypes($tenant);
         if ($request->isMethod('put')) {
-            $data = $request->validate(['moderationRequired' => 'required|boolean', 'defaultDuration' => 'required|integer|min:1|max:600']);
-            $tenant->update(['settings' => array_merge($tenant->settings ?? [], ['assessment' => $data])]);
+            $data = $request->validate([
+                'moderationRequired' => 'required|boolean',
+                'multiStageModeration' => 'sometimes|boolean',
+                'defaultDuration' => 'required|integer|min:1|max:600',
+                'caStructure' => 'sometimes|array',
+                'weighting' => 'sometimes|array',
+                'markingRules' => 'sometimes|array',
+                'cbtDefaults' => 'sometimes|array',
+                'smartmarkDefaults' => 'sometimes|array',
+                'smartmarkDefaults.highThreshold' => 'sometimes|numeric|min:1|max:100',
+                'smartmarkDefaults.mediumThreshold' => 'sometimes|numeric|min:1|max:100',
+                'smartmarkDefaults.lowThreshold' => 'sometimes|numeric|min:1|max:100',
+                'smartmarkDefaults.autoProposeHigh' => 'sometimes|boolean',
+                'questionBankDefaults' => 'sometimes|array',
+                'paperTemplates' => 'sometimes|array',
+                'aiAssistance' => 'sometimes|array',
+                'notifications' => 'sometimes|array',
+                'types' => 'sometimes|array',
+                'types.*.code' => 'required_with:types|string|max:40',
+                'types.*.name' => 'required_with:types|string|max:120',
+                'types.*.defaultMaximumScore' => 'nullable|numeric',
+                'types.*.defaultWeight' => 'nullable|numeric',
+                'types.*.allowedDelivery' => 'nullable|array',
+                'types.*.moderationRequired' => 'nullable|boolean',
+                'types.*.resitAllowed' => 'nullable|boolean',
+                'types.*.resultContribution' => 'nullable|boolean',
+                'types.*.active' => 'nullable|boolean',
+            ]);
+            $types = $data['types'] ?? null;
+            unset($data['types']);
+            $tenant->update(['settings' => array_merge($tenant->settings ?? [], ['assessment' => array_replace_recursive(AssessmentSettings::forTenant($tenant), $data)])]);
+            if (is_array($types)) {
+                foreach ($types as $index => $type) {
+                    AssessmentType::query()->updateOrCreate(
+                        ['code' => $type['code']],
+                        [
+                            'name' => $type['name'],
+                            'default_maximum_score' => $type['defaultMaximumScore'] ?? 20,
+                            'default_weight' => $type['defaultWeight'] ?? 10,
+                            'allowed_delivery' => $type['allowedDelivery'] ?? [],
+                            'moderation_required' => (bool) ($type['moderationRequired'] ?? true),
+                            'resit_allowed' => (bool) ($type['resitAllowed'] ?? false),
+                            'result_contribution' => (bool) ($type['resultContribution'] ?? true),
+                            'is_active' => (bool) ($type['active'] ?? true),
+                            'position' => $index + 1,
+                        ]
+                    );
+                }
+            }
             app(AuditLogger::class)->record('assessment.settings_updated', $tenant, [], $data);
         }
+        $settings = AssessmentSettings::forTenant($tenant->fresh());
+        $settings['types'] = AssessmentType::query()->orderBy('position')->get()->map(fn ($x) => app(AssessmentCompleteService::class)->presentType($x))->values();
 
-        return ApiResponse::success(array_merge(['moderationRequired' => true, 'defaultDuration' => 60], $tenant->settings['assessment'] ?? []));
+        return ApiResponse::success($settings);
+    }
+
+    public function duplicate(string $assessment, Request $request): JsonResponse
+    {
+        abort_unless($this->access->allows('assessment.assessment.create'), 403);
+        $copy = app(AssessmentCompleteService::class)->duplicate($this->item($request, $assessment), $request->user()->getKey());
+
+        return ApiResponse::success(['id' => $copy->public_id], [], 201);
+    }
+
+    public function saveTemplate(string $assessment, Request $request): JsonResponse
+    {
+        abort_unless($this->access->allows('assessment.assessment.create'), 403);
+        $data = $request->validate(['title' => 'nullable|string|max:180']);
+        $template = app(AssessmentCompleteService::class)->saveTemplate($this->item($request, $assessment), $request->user()->getKey(), $data['title'] ?? null);
+
+        return ApiResponse::success(['id' => $template->public_id, 'title' => $template->title], [], 201);
+    }
+
+    public function templates(): JsonResponse
+    {
+        abort_unless($this->access->allows('assessment.assessment.view'), 403);
+
+        return ApiResponse::success(AssessmentTemplate::query()->latest()->limit(50)->get()->map(fn ($t) => ['id' => $t->public_id, 'title' => $t->title, 'type' => $t->type]));
+    }
+
+    public function applyTemplate(string $assessment, Request $request): JsonResponse
+    {
+        abort_unless($this->access->allows('assessment.assessment.create'), 403);
+        $data = $request->validate(['templateId' => 'required|string']);
+        $item = $this->item($request, $assessment, true);
+        $template = AssessmentTemplate::query()->where('public_id', $data['templateId'])->firstOrFail();
+        $updated = app(AssessmentCompleteService::class)->applyTemplate($item, $template);
+
+        return ApiResponse::success(['id' => $updated->public_id, 'revision' => $updated->revision]);
+    }
+
+    public function sections(string $assessment, Request $request): JsonResponse
+    {
+        $item = $this->item($request, $assessment);
+        if ($request->isMethod('put')) {
+            abort_unless($this->access->allows('assessment.assessment.update') || $this->access->allows('assessment.assessment.create'), 403);
+            $data = $request->validate([
+                'sections' => 'present|array|max:20',
+                'sections.*.title' => 'required|string|max:180',
+                'sections.*.position' => 'nullable|integer|min:1',
+                'sections.*.optionalCount' => 'nullable|integer|min:0|max:100',
+                'sections.*.maximumMarks' => 'nullable|numeric|min:0',
+                'sections.*.instructions' => 'nullable|string|max:2000',
+            ]);
+            $rows = app(AssessmentCompleteService::class)->syncSections($item, $data['sections']);
+        } else {
+            $rows = $item->sections()->orderBy('position')->get();
+        }
+
+        return ApiResponse::success($rows->map(fn ($s) => [
+            'id' => $s->public_id,
+            'title' => $s->title,
+            'position' => (int) $s->position,
+            'optionalCount' => $s->optional_count,
+            'maximumMarks' => $s->maximum_marks,
+            'instructions' => $s->instructions,
+        ])->values());
     }
 }

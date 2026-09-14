@@ -190,8 +190,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: 'late-arrivals', label: 'Late Arrivals', view: 'module', icon: 'late-arrivals', moduleKey: 'late-arrivals', permission: 'attendance.view', workspaces: school },
       { id: 'attendance-analytics', label: 'Attendance Analytics', view: 'attendance', icon: 'attendance-analytics', attendanceTab: 'trends', permission: 'attendance.view', alsoRoles: ['Principal'], workspaces: school },
       { id: 'attendance-summary', label: 'Cohort Overview', view: 'attendance', icon: 'attendance-summary', attendanceTab: 'summary', permission: 'attendance.view', alsoRoles: ['Principal'], workspaces: school },
-      { id: 'biometrics', label: 'Biometrics', view: 'module', icon: 'biometrics', moduleKey: 'biometrics', permission: 'attendance.create', workspaces: school },
-      { id: 'attendance-notifications', label: 'Attendance Notifications', view: 'module', icon: 'attendance-notifications', moduleKey: 'attendance-notifications', permission: 'attendance.create', workspaces: school },
     ],
   },
   {

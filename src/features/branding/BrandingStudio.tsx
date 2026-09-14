@@ -17,10 +17,11 @@ import { useApp } from '../../context/AppContext';
 import { apiMutation, describeApiError } from '../../lib/apiClient';
 
 interface BrandingStudioProps {
+  embedded?: boolean;
   onPreviewWelcome?: () => void;
 }
 
-export const BrandingStudio: React.FC<BrandingStudioProps> = ({ onPreviewWelcome }) => {
+export const BrandingStudio: React.FC<BrandingStudioProps> = ({ onPreviewWelcome, embedded = false }) => {
   const { branding, updateBranding, showToast, demoMode } = useApp();
 
   const [schoolName, setSchoolName] = useState(branding.schoolName);
@@ -103,9 +104,9 @@ export const BrandingStudio: React.FC<BrandingStudioProps> = ({ onPreviewWelcome
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <h1 className="font-display font-bold text-xl sm:text-2xl text-slate-900">
+            {!embedded && <h1 className="font-display font-bold text-xl sm:text-2xl text-slate-900">
               Branding Studio & Tenant Customizer
-            </h1>
+            </h1>}
             <span className="px-2.5 py-0.5 text-xs font-bold bg-emerald-100 text-emerald-800 rounded-full">
               Published Active
             </span>

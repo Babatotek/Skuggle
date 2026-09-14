@@ -77,12 +77,17 @@ trait CreatesTenantUsers
                 ],
             ],
             'teacher' => ['privileged' => false, 'permissions' => ['students.view', 'attendance.view', 'attendance.create', 'assessments.view', 'assessment.create', 'scores.edit', 'assessment.smartmark.process', 'assessment.smartmark.review', 'results.view', 'library.view', 'ai.generate']],
+            'principal' => ['privileged' => false, 'permissions' => ['students.view', 'attendance.view', 'assessments.view', 'results.view', 'results.approve', 'results.publish', 'reports.view', 'finance.view', 'admissions.manage', 'communication.send', 'services.manage']],
+            'bursar' => ['privileged' => false, 'permissions' => ['students.view', 'reports.view', 'reports.export', 'finance.view', 'finance.manage']],
             'student' => ['privileged' => false, 'permissions' => ['assessments.view', 'assessment.cbt.attempt', 'results.view', 'library.view']],
             'parent' => ['privileged' => false, 'permissions' => ['results.view', 'library.view']],
         ] as $roleName => $config) {
             $role = Role::query()->updateOrCreate(
                 ['name' => $roleName],
-                ['label' => $roleName, 'privileged' => $config['privileged']],
+                [
+                    'label' => Str::title(str_replace('_', ' ', $roleName)),
+                    'privileged' => $config['privileged'],
+                ],
             );
             $role->permissions()->sync(Permission::query()->whereIn('name', $config['permissions'])->pluck('id'));
         }

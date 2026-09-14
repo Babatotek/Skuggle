@@ -22,10 +22,11 @@ export type StudentCbtQuestion = {
   number: number;
   prompt: string;
   questionType: string;
-  options: string[];
+  options: string[] | { left?: string[]; right?: string[]; [key: string]: unknown };
   marks: number;
   section?: string | null;
   autoMarkable?: boolean;
+  imageUrl?: string | null;
 };
 
 export type StudentCbtPlayer = {
@@ -45,6 +46,10 @@ export type StudentCbtPlayer = {
   attemptStatus?: string | null;
   startedAt?: string | null;
   questions: StudentCbtQuestion[];
+  navigationRestricted?: boolean;
+  feedbackPolicy?: 'none' | 'score' | 'detailed' | string;
+  attemptLimit?: number;
+  attemptNumber?: number;
 };
 
 export const listStudentCbt = () => apiRequest<{ data: { data: StudentCbtListItem[] } }>('/student/cbt/assessments', { suppressErrorNotification: true });

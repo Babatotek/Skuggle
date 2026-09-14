@@ -30,10 +30,12 @@ Multi-tenant School Operating and Learning Intelligence Platform for Nigerian nu
 # Install dependencies
 npm install
 
-# Start development server
+# Start the Skuggle PHP backend (8010) and frontend (3000)
 npm run dev
 
 # The app will be available at http://localhost:3000
+# Requires PHP 8.3+, backend/vendor, and a configured backend/.env.
+# SKUGGLE_BACKEND_URL optionally overrides the dedicated API address.
 ```
 
 ### Production Build

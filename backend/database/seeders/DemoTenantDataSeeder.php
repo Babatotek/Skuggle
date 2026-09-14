@@ -300,29 +300,43 @@ class DemoTenantDataSeeder extends Seeder
      */
     private function seedStaff(Tenant $school, array $users): void
     {
+        $code = \App\Support\SchoolCode::forTenant($school);
         $staff = [
-            ['admin@royalgateway.edu.ng', 'RGA-E-001', 'Demo School Admin', 'full_time'],
-            ['principal@royalgateway.edu.ng', 'RGA-E-002', 'Mrs. Adeyemi', 'full_time'],
-            ['adewale.o@royalgateway.edu.ng', 'RGA-E-003', 'Mr. Adewale', 'full_time'],
-            ['bursar@royalgateway.edu.ng', 'RGA-E-004', 'Mrs. Okonkwo', 'full_time'],
-            ['exams@royalgateway.edu.ng', 'RGA-E-005', 'Mr. Danladi', 'full_time'],
+            ['admin@royalgateway.edu.ng', $code.'-E-001', 'Demo School Admin', 'full_time'],
+            ['principal@royalgateway.edu.ng', $code.'-E-002', 'Mrs. Adeyemi', 'full_time'],
+            ['adewale.o@royalgateway.edu.ng', $code.'-E-003', 'Mr. Adewale', 'full_time'],
+            ['bursar@royalgateway.edu.ng', $code.'-E-004', 'Mrs. Okonkwo', 'full_time'],
+            ['exams@royalgateway.edu.ng', $code.'-E-005', 'Mr. Danladi', 'full_time'],
         ];
 
         foreach ($staff as [$email, $number, $name, $type]) {
             $user = $users[$email] ?? null;
-            Employee::query()->updateOrCreate(
-                [
-                    'tenant_id' => $school->getKey(),
+            $employee = Employee::query()
+                ->where('tenant_id', $school->getKey())
+                ->when($user, fn ($query) => $query->where('user_id', $user->getKey()), fn ($query) => $query->where('name', $name))
+                ->first();
+
+            if ($employee) {
+                $employee->fill([
                     'employee_number' => $number,
-                ],
-                [
                     'user_id' => $user?->getKey(),
                     'name' => $name,
                     'employment_type' => $type,
                     'started_at' => '2023-09-01',
                     'status' => 'active',
-                ],
-            );
+                ])->save();
+                continue;
+            }
+
+            Employee::query()->create([
+                'tenant_id' => $school->getKey(),
+                'employee_number' => $number,
+                'user_id' => $user?->getKey(),
+                'name' => $name,
+                'employment_type' => $type,
+                'started_at' => '2023-09-01',
+                'status' => 'active',
+            ]);
         }
     }
 

@@ -7,12 +7,13 @@ export interface Assessment {
 }
 export interface AssessmentInput {
   title: string; classId: string; subjectId: string; assessmentTypeId: string; date: string; maxScore: number;
-  instructions: string; description: string; weighting: number; code: string; participantMode: 'class' | 'selected';
-  studentIds: string[]; contentMode: 'score-only' | 'questions'; delivery: string; startTime: string;
-  duration: number; venue: string; invigilator: string;
+  instructions: string; description: string; weighting: number; code: string; participantMode: 'class' | 'selected' | 'arm' | 'multiple-arms' | 'subject-group' | 'special-cohort';
+  studentIds: string[]; arms?: string[]; contentMode: 'score-only' | 'questions' | 'rubric'; delivery: string; startTime: string;
+  duration: number; venue: string; invigilator: string; passThreshold?: number; latePolicy?: string; randomQuestions?: boolean;
+  randomOptions?: boolean; attemptLimit?: number; resumePolicy?: string; feedbackPolicy?: string; navigationRestricted?: boolean;
 }
 export interface Page<T> { data: T[]; meta: { currentPage: number; perPage?: number; total: number; lastPage: number } }
-export interface Lookup { id: string; name: string; classIds?: string[] }
+export interface Lookup { id: string; name: string; classIds?: string[]; baseName?: string; arm?: string }
 export interface Lookups { classes: Lookup[]; subjects: Lookup[]; assessmentTypes: Lookup[]; session: Lookup; term: Lookup }
 export interface Overview {
   metrics: { active: number; marking: number; scheduled: number; moderation: number };
@@ -20,7 +21,7 @@ export interface Overview {
   trend: { month: string; assessments: number; completed: number }[];
   coverage: { id: string; className: string; subject: string; planned: number; completed: number; marked: number }[];
 }
-export interface Question { id: string; prompt: string; questionType: string; options: string[]; correctAnswer: string; rationale: string; marks: number; difficulty: string; topic: string; curriculum: string; status: string; aiGenerated: boolean; position?: number; section?: string; rubric?: { label: string; maxMarks: number }[] }
+export interface Question { id: string; prompt: string; questionType: string; options: string[]; correctAnswer: string; rationale: string; marks: number; difficulty: string; topic: string; curriculum: string; learningObjective?: string; source?: string; status: string; aiGenerated: boolean; position?: number; section?: string; rubric?: { label: string; maxMarks: number }[]; hasImage?: boolean }
 export interface ScoreRow { id: string; admissionNumber: string; fullName: string; score: number | null; state: string; comment: string }
 export interface Scores { assessmentId: string; title: string; maxScore: number; status: string; editable: boolean; revision: string; students: ScoreRow[] }
 export const ASSESSMENT_TYPES = ['continuous-assessment', 'quiz', 'test', 'mid-term-test', 'exam', 'assignment', 'project', 'practical', 'oral', 'presentation'];

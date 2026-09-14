@@ -20,6 +20,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -48,12 +49,17 @@ class InviteController extends Controller
             'email' => ['required', 'email:rfc', 'max:254'],
             'role' => ['required', 'string', Rule::in($allowedRoles)],
             'name' => ['nullable', 'string', 'max:180'],
+            'employeeId' => ['nullable', 'string'],
             'expiresInDays' => ['nullable', 'integer', 'min:1', 'max:30'],
         ]);
 
         if (in_array($data['role'], [SchoolRoles::SCHOOL_SUPER_ADMIN, SchoolRoles::LEGACY_ADMIN], true)) {
             return ApiResponse::error('FORBIDDEN', 'Super Admin authority cannot be granted by invitation.', 403);
         }
+
+        $employee = ! empty($data['employeeId']) ? Employee::query()->where('public_id', $data['employeeId'])->firstOrFail() : null;
+        abort_if($employee && $employee->user_id, 422, 'This employee already has a linked account.');
+        if ($employee) abort_if(TenantInvitation::query()->where('status', 'pending')->where('expires_at', '>', now())->where('metadata->employee_id', $employee->public_id)->exists(), 422, 'An account invitation is already pending for this employee.');
 
         $role = Role::query()->where('name', $data['role'])->firstOrFail();
         $token = TenantInvitation::issueToken();
@@ -70,6 +76,7 @@ class InviteController extends Controller
             'metadata' => [
                 'name' => $data['name'] ?? null,
                 'school_code' => $context->tenant()->code,
+                'employee_id' => $employee?->public_id,
             ],
         ]);
 
@@ -137,6 +144,7 @@ class InviteController extends Controller
 
         $result = DB::transaction(function () use ($invite, $data, $email, $audit, $context): array {
             $user = User::query()->where('email', $email)->first();
+            if ($user) abort_unless(auth()->id() === $user->getKey() || Hash::check($data['password'], $user->password), 422, 'Sign in to your existing account or confirm its current password to accept this invitation.');
             if (! $user) {
                 $user = User::query()->create([
                     'name' => $data['name'],
@@ -148,7 +156,7 @@ class InviteController extends Controller
                 event(new Registered($user));
             }
 
-            $membership = TenantMembership::query()->updateOrCreate(
+            $membership = TenantMembership::query()->firstOrCreate(
                 [
                     'tenant_id' => $invite->tenant_id,
                     'user_id' => $user->getKey(),
@@ -161,6 +169,7 @@ class InviteController extends Controller
                 ],
             );
 
+            abort_unless($membership->status === 'active', 403, 'School access is suspended or disabled. Contact your school administrator.');
             $context->set($invite->tenant, $membership);
             try {
                 $this->provisionRoleRecord($invite, $user, $data['name']);
@@ -226,20 +235,12 @@ class InviteController extends Controller
         $role = $invite->role->name;
         $tenantId = $invite->tenant_id;
 
-        if (in_array($role, ['teacher', 'bursar', 'principal', SchoolRoles::SCHOOL_ADMIN, SchoolRoles::SCHOOL_SUPER_ADMIN, 'examination_officer', 'admission_officer'], true)) {
-            Employee::query()->firstOrCreate(
-                [
-                    'tenant_id' => $tenantId,
-                    'user_id' => $user->getKey(),
-                ],
-                [
-                    'employee_number' => 'INV-'.Str::upper(Str::random(8)),
-                    'name' => $name,
-                    'employment_type' => 'full_time',
-                    'started_at' => now()->toDateString(),
-                    'status' => 'active',
-                ],
-            );
+        if ($employeeId = data_get($invite->metadata, 'employee_id')) {
+            $employee = Employee::query()->where('public_id', $employeeId)->lockForUpdate()->firstOrFail();
+            abort_if($employee->user_id && $employee->user_id !== $user->getKey(), 422, 'This employee is already linked to another account.');
+            abort_if(Employee::query()->where('user_id', $user->getKey())->where('id', '!=', $employee->getKey())->exists(), 422, 'This account already has a workforce profile in this school.');
+            $employee->user_id = $user->getKey();
+            $employee->save();
         }
 
         if ($role === 'parent') {

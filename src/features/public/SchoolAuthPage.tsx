@@ -126,7 +126,7 @@ const TxtField: React.FC<TxtFieldProps> = ({ id, label, value, onChange, type = 
 /* ── Checkbox ───────────────────────────────────────────────────────────── */
 const CheckboxField: React.FC<{ id: string; label: string; checked: boolean; onChange: (v: boolean) => void }> =
   ({ id, label, checked, onChange }) => (
-    <div className="flex items-center gap-2.5">
+    <div className="flex items-center justify-center gap-2.5">
       <input id={id} type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)}
         className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400 cursor-pointer" />
       <label htmlFor={id} className="text-xs text-slate-600 cursor-pointer select-none">{label}</label>
@@ -286,7 +286,7 @@ export const SchoolAuthPage: React.FC<SchoolAuthPageProps> = ({ onSuccess, onBac
   return (
     <>
       {forgotPasswordOpen && <ForgotPasswordModal initialEmail={siEmail} onClose={() => setForgotPasswordOpen(false)} />}
-    <div className="min-h-screen flex flex-col lg:flex-row bg-[#f8f9fe]">
+    <div className="min-h-screen flex items-center justify-center bg-[#f8f9fe] px-4 py-6 lg:px-8 lg:py-8">
       {pendingVerifyEmail && (
         <EmailVerificationModal
           email={pendingVerifyEmail}
@@ -295,13 +295,16 @@ export const SchoolAuthPage: React.FC<SchoolAuthPageProps> = ({ onSuccess, onBac
         />
       )}
 
+      {/* One centered composition: left brand + right form stay vertically aligned */}
+      <div className="w-full max-w-[1080px] flex flex-col lg:flex-row lg:items-stretch min-h-0 lg:min-h-[640px] rounded-3xl overflow-hidden bg-white shadow-[0_20px_60px_-28px_rgba(30,27,75,0.35)]">
+
       {/* ══════════════════════════════════════════════════════════════════════
-          LEFT PANEL — dark purple, mascot, tagline
+          LEFT PANEL — dark purple, mascot, tagline (center-left of composition)
       ═══════════════════════════════════════════════════════════════════════ */}
-      <div className="hidden lg:flex lg:w-[42%] xl:w-[45%] p-8 relative">
-        {/* rounded container with gradient background */}
+      <div className="hidden lg:flex lg:w-[40%] xl:w-[42%] p-5 xl:p-6 relative self-stretch">
+        {/* rounded container with gradient background — shares height with form column */}
         <div
-          className="w-full rounded-3xl flex flex-col justify-between p-10 relative overflow-hidden"
+          className="w-full rounded-3xl flex flex-col justify-between gap-6 p-7 xl:p-8 relative overflow-hidden h-full"
           style={{ background: 'linear-gradient(160deg, #2e1065 0%, #1e1b4b 55%, #312e81 100%)' }}
         >
           {/* subtle grid texture */}
@@ -320,34 +323,24 @@ export const SchoolAuthPage: React.FC<SchoolAuthPageProps> = ({ onSuccess, onBac
             <span className="font-display font-extrabold text-white text-2xl tracking-tight">Skuggle</span>
           </div>
 
-          {/* robot mascot - larger size, facing right toward the form */}
-          <div className="relative z-10 flex items-center justify-center py-4 flex-1">
+          {/* robot mascot — moderately larger, facing right toward the form */}
+          <div className="relative z-10 flex flex-1 items-center justify-center py-2">
             <motion.img
               src="/skuggle-ai-login-new (2).png"
               alt="Skuggle AI mascot"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0, transition: { duration: 0.7, ease: 'easeOut' } }}
               whileHover={{ y: -6, transition: { type: 'spring', stiffness: 220, damping: 16 } }}
-              className="w-[85%] max-w-[380px] drop-shadow-2xl object-contain select-none"
+              className="w-auto max-w-[min(100%,420px)] h-[clamp(280px,46vh,460px)] drop-shadow-2xl object-contain select-none"
             />
           </div>
 
           {/* tagline */}
-          <div className="relative z-10 space-y-5">
-            <div>
-              <p className="text-xs font-bold tracking-widest text-indigo-300 uppercase mb-2">Welcome back</p>
-              <h2 className="font-display text-3xl xl:text-4xl font-extrabold text-white leading-tight">
-                Your school day,<br />in one calm place.
-              </h2>
-            </div>
-            <div className="space-y-2">
-              {['Role-specific workspaces', 'Tenant- and permission-aware access'].map(item => (
-                <div key={item} className="flex items-center gap-2.5">
-                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
-                  <span className="text-xs text-indigo-200 font-medium">{item}</span>
-                </div>
-              ))}
-            </div>
+          <div className="relative z-10 mx-auto w-full max-w-[340px] space-y-3 text-center pb-1">
+            <p className="text-xs font-bold tracking-widest text-indigo-300 uppercase mb-2">Welcome back</p>
+            <h2 className="font-display text-2xl xl:text-3xl font-extrabold text-white leading-tight">
+              Your school day,<br />in one calm place.
+            </h2>
           </div>
         </div>
       </div>
@@ -355,7 +348,7 @@ export const SchoolAuthPage: React.FC<SchoolAuthPageProps> = ({ onSuccess, onBac
       {/* ══════════════════════════════════════════════════════════════════════
           RIGHT PANEL — form
       ═══════════════════════════════════════════════════════════════════════ */}
-      <div className="flex-1 flex flex-col min-h-screen lg:min-h-0 bg-white lg:bg-[#f8f9fe]">
+      <div className="flex-1 flex flex-col min-h-[100dvh] lg:min-h-0 bg-white">
 
         {/* mobile top bar */}
         <div className="lg:hidden flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-white">
@@ -367,7 +360,7 @@ export const SchoolAuthPage: React.FC<SchoolAuthPageProps> = ({ onSuccess, onBac
         </div>
 
         {/* desktop back */}
-        <div className="hidden lg:flex items-center px-10 pt-8">
+        <div className="hidden lg:flex items-center px-10 pt-6">
           <button type="button" onClick={onBack}
             className="flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors">
             <ChevronLeft className="w-4 h-4" /> Back
@@ -541,6 +534,7 @@ export const SchoolAuthPage: React.FC<SchoolAuthPageProps> = ({ onSuccess, onBac
             </AnimatePresence>
           </div>
         </div>
+      </div>
       </div>
     </div>
     </>

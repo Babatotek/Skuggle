@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\V1;
 use App\Domain\Tenancy\TenantContext;
 use App\Http\Controllers\Controller;
 use App\Services\AuditLogger;
+use App\Services\EmployeeNumberGenerator;
 use App\Support\ApiResponse;
+use App\Support\PublicStorageUrl;
 use App\Support\TenantStoragePath;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,7 +27,7 @@ final class BrandingController extends Controller
         Storage::disk('public')->putFileAs(dirname($path), $logo, basename($path), ['visibility' => 'public']);
         $before = $tenant->settings ?? [];
         $settings = $before;
-        $url = Storage::disk('public')->url($path);
+        $url = PublicStorageUrl::fromKey($path);
         $oldKey = (string) data_get($settings, 'branding.logo_key', '');
         data_set($settings, 'branding.logo_url', $url);
         data_set($settings, 'branding.logo_key', $path);
@@ -69,7 +71,11 @@ final class BrandingController extends Controller
                 data_set($settings, "branding.{$key}", $data[$input]);
             }
         }
+        $previousName = $tenant->name;
         $tenant->update(['name' => $data['schoolName'] ?? $tenant->name, 'settings' => $settings]);
+        if (isset($data['schoolName']) && $data['schoolName'] !== $previousName) {
+            app(EmployeeNumberGenerator::class)->realignExisting($tenant->fresh());
+        }
         $audit->record('tenant.branding.updated', $tenant, $before, $settings);
 
         return ApiResponse::success(['message' => 'School branding saved.', 'settings' => $settings]);

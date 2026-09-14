@@ -19,7 +19,7 @@ const FIELD_ROLE_OPTIONS = [
   ['teacher', 'Teacher'], ['parent', 'Parent'], ['student', 'Student'],
 ] as const;
 
-export const FormsSettingsView: React.FC = () => {
+export const FormsSettingsView: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const { showToast } = useApp();
   const [groups, setGroups] = useState<FormGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -491,10 +491,10 @@ export const FormsSettingsView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      {!embedded && <PageHeader
         title="Forms"
         subtitle="Customize the questions on enrolment, profiles, and other school forms — no technical setup required."
-      />
+      />}
 
       {loading && <p className="text-sm text-slate-500">Loading forms...</p>}
 

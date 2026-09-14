@@ -15,7 +15,9 @@ final class CustomFieldRegistry
 
     public const ENTITY_STAFF = 'staff';
 
-    private const ENTITIES = [self::ENTITY_STUDENT, self::ENTITY_STAFF];
+    public const ENTITY_ASSESSMENT = 'assessment';
+
+    private const ENTITIES = [self::ENTITY_STUDENT, self::ENTITY_STAFF, self::ENTITY_ASSESSMENT];
 
     public function __construct(
         private readonly FormEngineService $forms,

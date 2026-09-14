@@ -11,7 +11,10 @@ use App\Models\SchoolClass;
 use App\Models\Subject;
 use App\Models\TeacherAssignment;
 use App\Services\AcademicContext;
+use App\Services\AssessmentCompleteService;
 use App\Services\AssessmentAccess;
+use App\Services\UploadSecurityScanner;
+use Illuminate\Support\Facades\Storage;
 use App\Services\AssessmentWorkflow;
 use App\Services\AuditLogger;
 use App\Support\ApiResponse;
@@ -47,7 +50,7 @@ class AssessmentQuestionController extends Controller
 
     private function present($q): array
     {
-        return ['id' => $q->public_id, 'prompt' => $q->prompt, 'questionType' => $q->question_type, 'options' => $q->options ?? [], 'correctAnswer' => $q->correct_answer ?? '', 'rationale' => $q->rationale ?? '', 'rubric' => $q->rubric ?? [], 'marks' => (float) $q->marks, 'difficulty' => $q->difficulty ?? 'medium', 'topic' => $q->topic ?? '', 'curriculum' => $q->curriculum ?? '', 'status' => $q->status ?? 'accepted', 'aiGenerated' => (bool) ($q->ai_generated ?? false), 'position' => $q->position, 'section' => $q->learning_outcome ?? ''];
+        return ['id' => $q->public_id, 'prompt' => $q->prompt, 'questionType' => $q->question_type, 'options' => $q->options ?? [], 'correctAnswer' => $q->correct_answer ?? '', 'rationale' => $q->rationale ?? '', 'rubric' => $q->rubric ?? [], 'marks' => (float) $q->marks, 'difficulty' => $q->difficulty ?? 'medium', 'topic' => $q->topic ?? '', 'curriculum' => $q->curriculum ?? '', 'learningObjective' => $q->learning_objective ?? '', 'source' => $q->source ?? '', 'status' => $q->status ?? 'accepted', 'aiGenerated' => (bool) ($q->ai_generated ?? false), 'position' => $q->position, 'section' => $q->learning_outcome ?? '', 'imageKey' => $q->image_key ?? null, 'hasImage' => filled($q->image_key ?? null)];
     }
 
     public function index(Request $request): JsonResponse
@@ -96,6 +99,8 @@ class AssessmentQuestionController extends Controller
             'marks' => 'required|numeric|gt:0|max:1000',
             'topic' => 'nullable|string|max:255',
             'curriculum' => 'nullable|string|max:255',
+            'learningObjective' => 'nullable|string|max:255',
+            'source' => 'nullable|string|max:80',
             'difficulty' => 'required|in:easy,medium,difficult',
             'aiGenerated' => 'boolean',
         ]);
@@ -111,7 +116,7 @@ class AssessmentQuestionController extends Controller
         $subject = Subject::query()->where('public_id', $data['subjectId'])->firstOrFail();
         abort_unless($this->access->assigned($class->getKey(), $subject->getKey(), $session->getKey()), 403);
         abort_unless(DB::table('class_subject')->where('tenant_id', $class->tenant_id)->where('class_id', $class->getKey())->where('subject_id', $subject->getKey())->exists(), 422);
-        $q = AssessmentBankQuestion::query()->create(['class_id' => $class->getKey(), 'subject_id' => $subject->getKey(), 'academic_session_id' => $session->getKey(), 'created_by' => $request->user()->getKey(), 'question_type' => $data['questionType'], 'prompt' => $data['prompt'], 'options' => $data['options'] ?? [], 'correct_answer' => $data['correctAnswer'] ?? '', 'rationale' => $data['rationale'] ?? '', 'rubric' => $data['rubric'] ?? null, 'marks' => $data['marks'], 'difficulty' => $data['difficulty'], 'topic' => $data['topic'] ?? '', 'curriculum' => $data['curriculum'] ?? '', 'status' => 'draft', 'ai_generated' => $data['aiGenerated'] ?? false]);
+        $q = AssessmentBankQuestion::query()->create(['class_id' => $class->getKey(), 'subject_id' => $subject->getKey(), 'academic_session_id' => $session->getKey(), 'created_by' => $request->user()->getKey(), 'question_type' => $data['questionType'], 'prompt' => $data['prompt'], 'options' => $data['options'] ?? [], 'correct_answer' => $data['correctAnswer'] ?? '', 'rationale' => $data['rationale'] ?? '', 'rubric' => $data['rubric'] ?? null, 'marks' => $data['marks'], 'difficulty' => $data['difficulty'], 'topic' => $data['topic'] ?? '', 'curriculum' => $data['curriculum'] ?? '', 'learning_objective' => $data['learningObjective'] ?? '', 'source' => $data['source'] ?? ($data['aiGenerated'] ?? false ? 'ai' : 'teacher'), 'status' => 'draft', 'ai_generated' => $data['aiGenerated'] ?? false]);
         app(AuditLogger::class)->record('assessment.question_created', $q);
 
         return ApiResponse::success($this->present($q), [], 201);
@@ -154,8 +159,16 @@ class AssessmentQuestionController extends Controller
                 foreach ($data['questions'] as $index => $row) {
                     $source = $existing->get($row['id']) ?? $banks->get($row['id']);
                     abort_unless($source, 422, 'Only accepted questions for this class and subject can be added.');
-                    $q = $existing->get($row['id']) ?? new AssessmentQuestion(['assessment_id' => $item->getKey(), 'question_type' => $source->question_type, 'prompt' => $source->prompt, 'options' => $source->options, 'correct_answer' => $source->correct_answer, 'rationale' => $source->rationale]);
-                    $q->fill(['position' => $index + 1, 'marks' => $row['marks'], 'learning_outcome' => $row['section'] ?? ''])->save();
+                    $q = $existing->get($row['id']) ?? new AssessmentQuestion(['assessment_id' => $item->getKey(), 'question_type' => $source->question_type, 'prompt' => $source->prompt, 'options' => $source->options, 'correct_answer' => $source->correct_answer, 'rationale' => $source->rationale, 'rubric' => $source->rubric ?? null, 'learning_objective' => $source->learning_objective ?? null, 'image_key' => $source->image_key ?? null, 'source' => $source->source ?? 'bank']);
+                    $q->fill(['position' => $index + 1, 'marks' => $row['marks'], 'learning_outcome' => $row['section'] ?? '']);
+                    if (! empty($row['section'])) {
+                        $section = $item->sections()->firstOrCreate(
+                            ['title' => $row['section']],
+                            ['position' => $item->sections()->count() + 1]
+                        );
+                        $q->section_id = $section->getKey();
+                    }
+                    $q->save();
                     $keep[] = $q->getKey();
                 }
                 $item->questions()->whereNotIn('id', $keep)->delete();
@@ -166,5 +179,31 @@ class AssessmentQuestionController extends Controller
         }
 
         return ApiResponse::success(['revision' => $item->revision, 'editable' => in_array($item->status, ['draft', 'ready'], true) && $this->access->allows('assessment.assessment.create'), 'questions' => $item->questions()->orderBy('position')->get()->map(fn ($x) => $this->present($x))]);
+    }
+
+    public function media(string $question, Request $request): JsonResponse
+    {
+        abort_unless($this->access->allows('assessment.question.update') || $this->access->allows('assessment.assessment.create'), 403);
+        $data = $request->validate(['file' => ['required', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120']]);
+        $q = $this->bankQuery($request)->where('public_id', $question)->first();
+        if (! $q) {
+            $q = AssessmentQuestion::query()->where('public_id', $question)->firstOrFail();
+        }
+        app(UploadSecurityScanner::class)->scan($request->file('file'));
+        $file = $request->file('file');
+        $key = app(AssessmentCompleteService::class)->storeQuestionImage((string) $file->getContent(), strtolower($file->guessExtension() ?: 'png'));
+        $q->update(['image_key' => $key]);
+
+        return ApiResponse::success(['id' => $q->public_id, 'imageKey' => $key]);
+    }
+
+    public function showMedia(string $question, Request $request)
+    {
+        abort_unless($this->access->allows('assessment.question.view') || $this->access->allows('assessment.assessment.view') || $this->access->allows('assessment.cbt.attempt'), 403);
+        $q = AssessmentBankQuestion::query()->where('public_id', $question)->first()
+            ?: AssessmentQuestion::query()->where('public_id', $question)->firstOrFail();
+        abort_unless($q->image_key, 404);
+
+        return Storage::disk((string) config('skuggle.library.disk'))->response($q->image_key, 'question-'.$q->public_id, ['Cache-Control' => 'private, no-store']);
     }
 }

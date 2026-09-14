@@ -7,6 +7,15 @@ import { mutate, useAssessmentQuery } from './api';
 import { assessmentHref, Panel, QueryState } from './components';
 
 interface RosterOption { id: string; name: string; admissionNo: string | null }
+interface Detection {
+  id: string;
+  position: number;
+  expected: string;
+  detected: string;
+  confidence: number;
+  marks: number;
+  decision: string | null;
+}
 interface Sheet {
   id: string;
   studentId: string | null;
@@ -19,6 +28,8 @@ interface Sheet {
   flagReason: string;
   reviewedAt: string | null;
   answers: string[];
+  detections?: Detection[];
+  scanUrl?: string;
 }
 interface BatchStats { processed: number; verified: number; needsReview: number; unmatched: number; failed: number }
 interface Batch {
@@ -57,6 +68,8 @@ export default function SmartMarkReview() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<'all' | 'needs' | 'unmatched'>('needs');
+  const [uploadMessage, setUploadMessage] = useState('');
+  const [detectionEdits, setDetectionEdits] = useState<Record<string, Record<number, string>>>({});
 
   const processing = useMemo(() => (query.data || []).some(b => ['queued', 'processing'].includes(b.state)), [query.data]);
   useEffect(() => {
@@ -97,7 +110,7 @@ export default function SmartMarkReview() {
 
   return (
     <Panel title="SmartMark Review">
-      <p className="assessment-muted">Upload scanned bubble sheets, auto-mark high-confidence scripts, resolve exceptions, then commit verified scores into Assessment.</p>
+      <p className="assessment-muted">Upload scanned bubble sheets, auto-mark high-confidence scripts, resolve per-question exceptions, then commit verified scores into Assessment.</p>
       <div className="assessment-metrics">
         {[
           ['Processed', totals.processed, 'tone-information'],
@@ -115,6 +128,30 @@ export default function SmartMarkReview() {
           </div>
         ))}
       </div>
+      {canProcess && (
+        <details className="assessment-panel">
+          <summary>Upload scan (QR can identify assessment)</summary>
+          <p className="assessment-muted">Drop a multi-page PDF or image. If the scan includes an SM|assessmentId|admission code, the assessment is resolved automatically.</p>
+          <form onSubmit={e => {
+            e.preventDefault();
+            const data = new FormData(e.currentTarget);
+            const key = String(data.get('answerKey') || '').split(/[,\s]+/).filter(Boolean);
+            data.delete('answerKey');
+            key.forEach((answer, i) => data.append(`answerKey[${i}]`, answer.toUpperCase()));
+            void run(async () => {
+              await mutate('/smartmark/batches', 'POST', data);
+              setUploadMessage('Scripts queued for OCR.');
+              e.currentTarget.reset();
+            });
+          }}>
+            <label>Student scripts<input required type="file" name="file" accept="image/jpeg,image/png,image/webp,application/pdf" /></label>
+            <label>Assessment public ID (optional if QR present)<input name="assessmentId" maxLength={40} /></label>
+            <label>Answer key (optional)<input name="answerKey" maxLength={600} placeholder="A,B,C,D" /></label>
+            <Button type="submit" disabled={busy}>Upload & process</Button>
+            {uploadMessage && <p role="status">{uploadMessage}</p>}
+          </form>
+        </details>
+      )}
       <div className="assessment-filters">
         <label>Queue filter
           <select value={filter} onChange={e => setFilter(e.target.value as typeof filter)}>
@@ -141,58 +178,105 @@ export default function SmartMarkReview() {
                 <div className="assessment-actions">
                   {batch.assessmentId && <Link className="assessment-link" to={assessmentHref(batch.assessmentId)}>Open assessment</Link>}
                   <a className="assessment-link" href={`${API_BASE_URL}/smartmark/batches/${batch.id}/scan`} target="_blank" rel="noreferrer">Open scan</a>
+                  <a className="assessment-link" href={`${API_BASE_URL}/smartmark/batches/${batch.id}/export`} target="_blank" rel="noreferrer">Export exceptions</a>
                 </div>
               </div>
               {batch.error && <p role="alert" className="assessment-error">{batch.error}</p>}
               {['queued', 'processing'].includes(batch.state) && <p role="status" className="assessment-muted">OCR processing in progress…</p>}
-              {batch.sheets.map(sheet => (
-                <form
-                  className="assessment-question smartmark-sheet"
-                  key={sheet.id}
-                  onSubmit={e => {
-                    e.preventDefault();
-                    if (!canReview) return;
-                    const data = new FormData(e.currentTarget);
-                    const studentId = String(data.get('studentId') || '') || undefined;
-                    void run(() => mutate(`/smartmark/sheets/${sheet.id}`, 'PATCH', {
-                      detectedScore: Number(data.get('score')),
-                      answers: String(data.get('answers') || '').split(/[,\s]+/).filter(Boolean).map(v => v.toUpperCase()),
-                      studentId,
-                      approved: true,
-                    }));
-                  }}
-                >
-                  <div className="assessment-panel-heading">
-                    <div>
-                      <h4>{sheet.studentName || 'Unmatched student'} · {sheet.admissionNo || 'No admission no.'}</h4>
-                      <p className="assessment-muted">{sheet.flagReason || 'Ready for verification.'}</p>
+              {batch.sheets.map(sheet => {
+                const edits = detectionEdits[sheet.id] || {};
+                const detections = sheet.detections || [];
+                return (
+                  <form
+                    className="assessment-question smartmark-sheet"
+                    key={sheet.id}
+                    onSubmit={e => {
+                      e.preventDefault();
+                      if (!canReview) return;
+                      const data = new FormData(e.currentTarget);
+                      const studentId = String(data.get('studentId') || '') || undefined;
+                      const detectionPayload = detections.map(d => ({
+                        position: d.position,
+                        detected: (edits[d.position] ?? d.detected ?? '').toUpperCase(),
+                        decision: edits[d.position] && edits[d.position] !== d.detected ? 'overridden' : 'accepted',
+                      }));
+                      void run(() => mutate(`/smartmark/sheets/${sheet.id}`, 'PATCH', {
+                        detectedScore: Number(data.get('score')),
+                        answers: detectionPayload.length
+                          ? detectionPayload.map(d => d.detected)
+                          : String(data.get('answers') || '').split(/[,\s]+/).filter(Boolean).map(v => v.toUpperCase()),
+                        detections: detectionPayload.length ? detectionPayload : undefined,
+                        studentId,
+                        approved: true,
+                      }));
+                    }}
+                  >
+                    <div className="assessment-panel-heading">
+                      <div>
+                        <h4>{sheet.studentName || 'Unmatched student'} · {sheet.admissionNo || 'No admission no.'}</h4>
+                        <p className="assessment-muted">{sheet.flagReason || 'Ready for verification.'}</p>
+                      </div>
+                      <span className={`assessment-icon ${bandTone(sheet.confidenceBand)}`} title={sheet.confidenceBand}>
+                        {BAND_LABEL[sheet.confidenceBand] || sheet.confidenceBand}
+                      </span>
                     </div>
-                    <span className={`assessment-icon ${bandTone(sheet.confidenceBand)}`} title={sheet.confidenceBand}>
-                      {BAND_LABEL[sheet.confidenceBand] || sheet.confidenceBand}
-                    </span>
-                  </div>
-                  <p>Confidence: {Math.round(sheet.confidence)}% · Detected responses: {Array.isArray(sheet.answers) ? sheet.answers.join(', ') : JSON.stringify(sheet.answers)}</p>
-                  <div className="assessment-filters">
-                    {(!sheet.studentId || sheet.confidenceBand === 'UNMATCHED') && (
-                      <label>Match roster student
-                        <select name="studentId" defaultValue={sheet.studentId || ''} required={sheet.flagged} disabled={busy || batch.state === 'committed'}>
-                          <option value="">Select student</option>
-                          {batch.roster.map(option => (
-                            <option key={option.id} value={option.id}>{option.name} ({option.admissionNo || 'no admission'})</option>
-                          ))}
-                        </select>
+                    <div className="assessment-filters">
+                      {(!sheet.studentId || sheet.confidenceBand === 'UNMATCHED') && (
+                        <label>Match roster student
+                          <select name="studentId" defaultValue={sheet.studentId || ''} required={sheet.flagged} disabled={busy || batch.state === 'committed'}>
+                            <option value="">Select student</option>
+                            {batch.roster.map(option => (
+                              <option key={option.id} value={option.id}>{option.name} ({option.admissionNo || 'no admission'})</option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
+                      <label>Verified mark
+                        <input name="score" type="number" required min={0} max={batch.maxScore} step="0.01" defaultValue={sheet.detectedScore} disabled={busy || batch.state === 'committed'} />
                       </label>
+                      {!detections.length && (
+                        <label>Answers (optional edit)
+                          <input name="answers" defaultValue={Array.isArray(sheet.answers) ? sheet.answers.join(',') : ''} disabled={busy || batch.state === 'committed'} />
+                        </label>
+                      )}
+                      {canReview && batch.state !== 'committed' && <Button type="submit" disabled={busy}>{sheet.flagged || !sheet.reviewedAt ? 'Verify score' : 'Update verification'}</Button>}
+                    </div>
+                    {detections.length > 0 && (
+                      <div className="assessment-table-wrap">
+                        <table className="assessment-table">
+                          <thead>
+                            <tr><th>#</th><th>Expected</th><th>Detected</th><th>Confidence</th><th>Mark</th><th>Decision</th></tr>
+                          </thead>
+                          <tbody>
+                            {detections.map(d => (
+                              <tr key={d.id || d.position}>
+                                <td>{d.position}</td>
+                                <td>{d.expected}</td>
+                                <td>
+                                  <input
+                                    maxLength={2}
+                                    aria-label={`Detected answer for question ${d.position}`}
+                                    disabled={busy || batch.state === 'committed'}
+                                    value={(edits[d.position] ?? d.detected) || ''}
+                                    onChange={e => setDetectionEdits(old => ({
+                                      ...old,
+                                      [sheet.id]: { ...(old[sheet.id] || {}), [d.position]: e.target.value.toUpperCase() },
+                                    }))}
+                                  />
+                                </td>
+                                <td>{Math.round(d.confidence)}%</td>
+                                <td>{d.marks}</td>
+                                <td>{d.decision || (edits[d.position] && edits[d.position] !== d.detected ? 'pending override' : '—')}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        <p className="assessment-muted">Scan preview opens beside this review so you can compare bubbles to detected letters.</p>
+                      </div>
                     )}
-                    <label>Verified mark
-                      <input name="score" type="number" required min={0} max={batch.maxScore} step="0.01" defaultValue={sheet.detectedScore} disabled={busy || batch.state === 'committed'} />
-                    </label>
-                    <label>Answers (optional edit)
-                      <input name="answers" defaultValue={Array.isArray(sheet.answers) ? sheet.answers.join(',') : ''} disabled={busy || batch.state === 'committed'} />
-                    </label>
-                    {canReview && batch.state !== 'committed' && <Button type="submit" disabled={busy}>{sheet.flagged || !sheet.reviewedAt ? 'Verify score' : 'Update verification'}</Button>}
-                  </div>
-                </form>
-              ))}
+                  </form>
+                );
+              })}
               {canReview && batch.state !== 'committed' && batch.state !== 'failed' && (
                 <Button
                   disabled={busy || batch.sheets.length === 0 || batch.sheets.some(s => s.flagged || !s.reviewedAt || !s.studentId)}

@@ -106,6 +106,17 @@ final class FormCatalog
                     ['key' => 'additional', 'name' => 'Additional Information'],
                 ],
             ),
+            'assessment.configuration' => self::form(
+                'assessment.configuration',
+                'Assessment Configuration',
+                'academics',
+                'assessment',
+                [
+                    ['key' => 'identity', 'name' => 'Assessment Identity'],
+                    ['key' => 'delivery', 'name' => 'Delivery'],
+                    ['key' => 'additional', 'name' => 'Jurisdiction Fields'],
+                ],
+            ),
         ];
     }
 
@@ -127,7 +138,7 @@ final class FormCatalog
     /** @return list<string> */
     public static function legacyEntityKeys(): array
     {
-        return ['student', 'staff', 'teacher', 'parent'];
+        return ['student', 'staff', 'teacher', 'parent', 'assessment'];
     }
 
     public static function legacyEntityToFormKey(string $entity): ?string
@@ -137,6 +148,7 @@ final class FormCatalog
             'staff' => 'staff.profile',
             'teacher' => 'teacher.profile',
             'parent' => 'parent.profile',
+            'assessment' => 'assessment.configuration',
             default => null,
         };
     }
@@ -182,6 +194,14 @@ final class FormCatalog
                 self::field('last_name', 'Last Name', 'short_answer', 'applicant', true),
                 self::field('date_of_birth', 'Date of Birth', 'date', 'applicant', true),
                 self::field('guardian', 'Parent / Guardian', 'short_answer', 'guardian', true),
+            ],
+            'assessment.configuration' => [
+                self::field('paper_code', 'Paper code', 'short_answer', 'identity'),
+                self::field('state_examination_id', 'State examination ID', 'short_answer', 'identity'),
+                self::field('external_examiner', 'External examiner', 'short_answer', 'delivery'),
+                self::field('practical_venue', 'Practical venue', 'short_answer', 'delivery'),
+                self::field('candidate_number', 'Candidate number', 'short_answer', 'additional'),
+                self::field('special_accommodation', 'Special accommodation', 'short_answer', 'additional'),
             ],
             default => [],
         };

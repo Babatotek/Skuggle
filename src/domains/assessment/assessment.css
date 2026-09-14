@@ -162,8 +162,65 @@
 .assessment-omr-choices { display: flex; gap: 8px; flex-wrap: wrap; }
 .assessment-omr-choice { display: inline-flex; }
 .assessment-omr-bubble { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 2px solid #111; border-radius: 999px; font-size: 12px; font-weight: 700; background: #fff; color: #111; }
+.assessment-omr-bubble.is-filled { background: #111; color: #fff; }
 .assessment-omr-key { margin-left: auto; font-size: 12px; font-weight: 700; }
 .assessment-omr-qr { display: block; margin: 0 0 8px auto; width: 96px; height: 96px; }
+.assessment-omr-sheet--geometric {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  border: 1px solid #111;
+  background: #fff;
+  min-height: 960px;
+  overflow: hidden;
+}
+.assessment-omr-fiducial {
+  position: absolute;
+  background: #111;
+  z-index: 2;
+}
+.assessment-omr-identity--geometric {
+  position: absolute;
+  left: 7%;
+  right: 7%;
+  top: 5.5%;
+  z-index: 1;
+}
+.assessment-omr-scan-strip {
+  position: absolute;
+  display: flex;
+  align-items: stretch;
+  z-index: 2;
+  border: 1px solid #111;
+  background: #fff;
+}
+.assessment-omr-scan-strip span { display: block; height: 100%; flex: 0 0 auto; }
+.assessment-omr-scan-strip .is-on { background: #111; }
+.assessment-omr-scan-strip .is-off { background: #fff; }
+.assessment-omr-sheet--geometric .assessment-omr-instructions {
+  position: absolute;
+  left: 7%;
+  right: 7%;
+  top: 19%;
+  margin: 0;
+  font-size: 11px;
+}
+.assessment-omr-row--geometric {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 1;
+}
+.assessment-omr-sheet--geometric .assessment-omr-footer-note {
+  position: absolute;
+  left: 7%;
+  right: 7%;
+  bottom: 3%;
+  margin: 0;
+  font-size: 11px;
+}
 .student-cbt-free-text textarea { width: 100%; min-height: 120px; padding: 12px; font-size: 16px; }
 @media print {
   .assessment-domain button, .assessment-nav, .assessment-domain > header, .assessment-print-controls { display: none !important; }

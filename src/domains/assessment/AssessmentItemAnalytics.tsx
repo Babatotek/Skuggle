@@ -15,27 +15,66 @@ type ItemRow = {
   correct: number;
   facility: number | null;
   omitRate: number | null;
+  skippedRate?: number | null;
+  averageTime?: number | null;
+  discrimination?: number | null;
+  distractors?: Record<string, number>;
 };
 
 export default function AssessmentItemAnalytics({ id }: { id: string }) {
-  const query = useAssessmentQuery<{ assessmentId: string; attemptCount: number; items: ItemRow[] }>(`/assessments/${id}/item-analytics`);
+  const query = useAssessmentQuery<{
+    assessmentId: string;
+    attemptCount: number;
+    scoreDistribution?: Record<string, number>;
+    items: ItemRow[];
+  }>(`/assessments/${id}/item-analytics`);
   const { hasCapability } = useAccess();
   const canExport = hasCapability('assessment.score.enter') || hasCapability('assessment.score.moderate') || hasCapability('scores.edit');
 
   return (
     <Panel
       title="Item analytics"
-      action={canExport ? <a className="assessment-link" href={`${API_BASE_URL}/assessments/${id}/export`} target="_blank" rel="noreferrer">Download score CSV</a> : undefined}
+      action={canExport ? (
+        <div className="assessment-actions">
+          <a className="assessment-link" href={`${API_BASE_URL}/assessments/${id}/export?kind=scores`} target="_blank" rel="noreferrer">Scores CSV</a>
+          <a className="assessment-link" href={`${API_BASE_URL}/assessments/${id}/export?kind=moderation`} target="_blank" rel="noreferrer">Moderation sheet</a>
+          <a className="assessment-link" href={`${API_BASE_URL}/assessments/${id}/export?kind=completion`} target="_blank" rel="noreferrer">Marking completion</a>
+          <a className="assessment-link" href={`${API_BASE_URL}/assessments/${id}/export?kind=questions`} target="_blank" rel="noreferrer">Question bank subset</a>
+        </div>
+      ) : undefined}
     >
       <QueryState query={query} name="item analytics" />
       {query.data && (
         <>
-          <p className="assessment-muted">{query.data.attemptCount} submitted attempt(s). Facility is % correct among answered objective items.</p>
+          <p className="assessment-muted">{query.data.attemptCount} submitted attempt(s). Facility is % correct among answered objective items. Discrimination uses upper/lower 27%.</p>
+          {query.data.scoreDistribution && (
+            <div className="assessment-metrics">
+              {Object.entries(query.data.scoreDistribution).map(([bucket, count]) => (
+                <div className="assessment-metric" key={bucket}>
+                  <div>
+                    <p>{bucket}%</p>
+                    <strong>{count}</strong>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           {query.data.items.length === 0 ? <EmptyState title="No questions to analyse." /> : (
             <div className="assessment-table-wrap">
               <table className="assessment-table">
                 <thead>
-                  <tr><th>#</th><th>Prompt</th><th>Type</th><th>Answered</th><th>Correct</th><th>Facility</th><th>Omit rate</th></tr>
+                  <tr>
+                    <th>#</th>
+                    <th>Prompt</th>
+                    <th>Type</th>
+                    <th>Answered</th>
+                    <th>Correct</th>
+                    <th>Facility</th>
+                    <th>Omit</th>
+                    <th>Disc.</th>
+                    <th>Avg time</th>
+                    <th>Distractors</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {query.data.items.map(item => (
@@ -47,6 +86,13 @@ export default function AssessmentItemAnalytics({ id }: { id: string }) {
                       <td>{item.correct}</td>
                       <td>{item.facility === null ? '—' : `${Math.round(item.facility * 100)}%`}</td>
                       <td>{item.omitRate === null ? '—' : `${Math.round(item.omitRate * 100)}%`}</td>
+                      <td>{item.discrimination == null ? '—' : item.discrimination.toFixed(2)}</td>
+                      <td>{item.averageTime == null ? '—' : `${item.averageTime}s`}</td>
+                      <td>
+                        {item.distractors && Object.keys(item.distractors).length
+                          ? Object.entries(item.distractors).map(([k, v]) => `${k}:${v}`).join(' · ')
+                          : '—'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

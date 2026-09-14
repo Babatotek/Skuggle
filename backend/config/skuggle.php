@@ -77,6 +77,8 @@ return [
         'review_threshold' => (float) env('OCR_REVIEW_THRESHOLD', 92),
         'medium_threshold' => (float) env('OCR_MEDIUM_THRESHOLD', 75),
         'low_threshold' => (float) env('OCR_LOW_THRESHOLD', 50),
+        // geometric | geometric+gemini | gemini | fake
+        'prefer_geometric' => filter_var(env('OCR_PREFER_GEOMETRIC', true), FILTER_VALIDATE_BOOLEAN),
     ],
     'messaging' => [
         'sms' => [

@@ -43,6 +43,11 @@ class TenantMembership extends Model
         return $this->belongsTo(Role::class);
     }
 
+    public function accessRole(): BelongsTo
+    {
+        return $this->belongsTo(TenantAccessRole::class, 'tenant_access_role_id');
+    }
+
     public function roleAssignments(): HasMany
     {
         return $this->hasMany(RoleAssignment::class);
@@ -50,6 +55,9 @@ class TenantMembership extends Model
 
     public function permissionNames(): array
     {
-        return $this->role?->permissions?->pluck('name')->values()->all() ?? [];
+        $primary = $this->role?->permissions?->pluck('name')->values()->all() ?? [];
+        $custom = $this->accessRole?->permissions?->pluck('name')->values()->all() ?? [];
+
+        return array_values(array_unique([...$primary, ...$custom]));
     }
 }

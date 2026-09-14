@@ -16,10 +16,22 @@ class Assessment extends Model
 
     protected $hidden = ['id', 'tenant_id'];
 
-    /** @return array{scheduled_at: 'datetime', published_at: 'datetime', metadata: 'array'} */
+    /** @return array{scheduled_at: 'datetime', published_at: 'datetime', metadata: 'array', locked_at: 'datetime', starts_at: 'datetime', ends_at: 'datetime', random_questions: 'boolean', random_options: 'boolean', navigation_restricted: 'boolean'} */
     protected function casts(): array
     {
-        return ['scheduled_at' => 'datetime', 'published_at' => 'datetime', 'metadata' => 'array'];
+        return [
+            'scheduled_at' => 'datetime',
+            'published_at' => 'datetime',
+            'locked_at' => 'datetime',
+            'starts_at' => 'datetime',
+            'ends_at' => 'datetime',
+            'metadata' => 'array',
+            'random_questions' => 'boolean',
+            'random_options' => 'boolean',
+            'navigation_restricted' => 'boolean',
+            'weight' => 'float',
+            'pass_threshold' => 'float',
+        ];
     }
 
     /** @return HasMany<AssessmentQuestion, $this> */
@@ -56,5 +68,22 @@ class Assessment extends Model
     public function term(): BelongsTo
     {
         return $this->belongsTo(Term::class);
+    }
+
+    /** @return HasMany<AssessmentSection, $this> */
+    public function sections(): HasMany
+    {
+        return $this->hasMany(AssessmentSection::class);
+    }
+
+    /** @return HasMany<AssessmentScoreAdjustment, $this> */
+    public function scoreAdjustments(): HasMany
+    {
+        return $this->hasMany(AssessmentScoreAdjustment::class);
+    }
+
+    public function meta(string $key, mixed $default = null): mixed
+    {
+        return data_get($this->metadata ?? [], $key, $default);
     }
 }

@@ -35,6 +35,21 @@ class Employee extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function position(): BelongsTo
+    {
+        return $this->belongsTo(WorkforcePosition::class);
+    }
+
+    public function campus(): BelongsTo
+    {
+        return $this->belongsTo(Campus::class);
+    }
+
+    public function reportingManager(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'reporting_manager_id');
+    }
+
     public function teacherProfile(): HasOne
     {
         return $this->hasOne(TeacherProfile::class);

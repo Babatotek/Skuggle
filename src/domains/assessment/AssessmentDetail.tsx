@@ -78,9 +78,74 @@ function SmartMarkUpload({ assessment }: { assessment: Assessment }) {
 }
 function Builder({ assessment, onSaved }: { assessment: Assessment; onSaved: () => void }) {
   const query = useAssessmentQuery<{ revision: number; editable: boolean; questions: Question[] }>(`/assessments/${assessment.id}/questions`);
-  const [questions, setQuestions] = useState<Question[]>([]); const [bank, setBank] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
+  const sectionsQuery = useAssessmentQuery<{ id: string; title: string; position: number; optionalCount: number | null; maximumMarks: number | null; instructions: string | null }[]>(`/assessments/${assessment.id}/sections`);
+  const templates = useAssessmentQuery<{ id: string; title: string; type: string | null }[]>('/assessments/templates');
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [sections, setSections] = useState<{ title: string; position: number; optionalCount: number | null; maximumMarks: number | null; instructions: string }[]>([]);
+  const [bank, setBank] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [templateId, setTemplateId] = useState('');
   useEffect(() => { if (query.data) setQuestions(query.data.questions); }, [query.data]);
+  useEffect(() => {
+    if (sectionsQuery.data) {
+      setSections(sectionsQuery.data.map(s => ({
+        title: s.title,
+        position: s.position,
+        optionalCount: s.optionalCount,
+        maximumMarks: s.maximumMarks,
+        instructions: s.instructions || '',
+      })));
+    }
+  }, [sectionsQuery.data]);
   const move = (index: number, direction: number) => { const next = [...questions]; [next[index], next[index + direction]] = [next[index + direction], next[index]]; setQuestions(next); };
-  const save = async () => { setBusy(true); setError(''); try { await mutate(`/assessments/${assessment.id}/questions`, 'PUT', { revision: query.data?.revision, questions: questions.map(q => ({ id: q.id, marks: q.marks, section: q.section || '' })) }); query.reload(); onSaved(); } catch (e) { setError(e instanceof Error ? e.message : 'Unable to save questions.'); } finally { setBusy(false); } };
-  return <Panel title="Assessment Builder"><QueryState query={query} name="assessment questions" />{error && <p role="alert">{error}</p>}{query.data && <><div className="assessment-actions">{query.data.editable && <><Button onClick={() => setBank(!bank)}>Import from Question Bank</Button><Button disabled={busy} onClick={() => void save()}>Save Questions</Button></>}<span>{questions.reduce((sum, q) => sum + Number(q.marks), 0)} / {assessment.maxScore} marks</span></div>{bank && <QuestionBank classId={assessment.classId} subjectId={assessment.subjectId} onSelect={q => { if (!questions.some(x => x.id === q.id)) setQuestions(old => [...old, q]); setBank(false); }} />}{questions.map((q, i) => <article className="assessment-question" key={q.id}><h3>{q.section && `${q.section} · `}{i + 1}. {q.prompt} ({q.marks} marks)</h3><ol type="A">{q.options.map((option, j) => <li key={`${q.id}:${j}`}>{option}</li>)}</ol>{query.data.editable && <div className="assessment-filters"><label>Section<input value={q.section || ''} onChange={e => setQuestions(old => old.map(x => x.id === q.id ? { ...x, section: e.target.value } : x))} /></label><label>Marks<input type="number" min={0.01} max={1000} step="0.01" value={q.marks} onChange={e => setQuestions(old => old.map(x => x.id === q.id ? { ...x, marks: Number(e.target.value) } : x))} /></label><Button variant="outline" disabled={i === 0} onClick={() => move(i, -1)}>Move Up</Button><Button variant="outline" disabled={i === questions.length - 1} onClick={() => move(i, 1)}>Move Down</Button><Button variant="outline" onClick={() => setQuestions(old => old.filter(x => x.id !== q.id))}>Remove</Button></div>}</article>)}</>}</Panel>;
+  const save = async () => {
+    setBusy(true); setError('');
+    try {
+      await mutate(`/assessments/${assessment.id}/sections`, 'PUT', { sections });
+      await mutate(`/assessments/${assessment.id}/questions`, 'PUT', { revision: query.data?.revision, questions: questions.map(q => ({ id: q.id, marks: q.marks, section: q.section || '' })) });
+      query.reload(); sectionsQuery.reload(); onSaved();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Unable to save questions.'); }
+    finally { setBusy(false); }
+  };
+  const duplicate = async () => { setBusy(true); setError(''); try { const result = await mutate<{ id: string }>(`/assessments/${assessment.id}/duplicate`, 'POST'); window.location.assign(`/school/assessment/assessments/${result.data.id}`); } catch (e) { setError(e instanceof Error ? e.message : 'Unable to duplicate.'); } finally { setBusy(false); } };
+  const saveTemplate = async () => { setBusy(true); setError(''); try { await mutate(`/assessments/${assessment.id}/template`, 'POST', { title: `${assessment.title} template` }); templates.reload(); } catch (e) { setError(e instanceof Error ? e.message : 'Unable to save template.'); } finally { setBusy(false); } };
+  const applyTemplate = async () => {
+    if (!templateId) return;
+    setBusy(true); setError('');
+    try {
+      await mutate(`/assessments/${assessment.id}/apply-template`, 'POST', { templateId });
+      query.reload(); sectionsQuery.reload(); onSaved();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Unable to apply template.'); }
+    finally { setBusy(false); }
+  };
+  return <Panel title="Assessment Builder"><QueryState query={query} name="assessment questions" />{error && <p role="alert">{error}</p>}{query.data && <><div className="assessment-actions">{query.data.editable && <><Button onClick={() => setBank(!bank)}>Import from Question Bank</Button><Button disabled={busy} onClick={() => void save()}>Save Questions</Button><Button variant="outline" disabled={busy} onClick={() => void duplicate()}>Duplicate assessment</Button><Button variant="outline" disabled={busy} onClick={() => void saveTemplate()}>Save as template</Button></>}<span>{questions.reduce((sum, q) => sum + Number(q.marks), 0)} / {assessment.maxScore} marks</span></div>
+    {query.data.editable && (
+      <details className="assessment-panel">
+        <summary>Sections (e.g. Objective / Theory “answer 4 of 6”)</summary>
+        {sections.map((section, i) => (
+          <div className="assessment-form-grid" key={`section-${i}`}>
+            <label>Title<input value={section.title} onChange={e => setSections(old => old.map((row, idx) => idx === i ? { ...row, title: e.target.value } : row))} /></label>
+            <label>Optional count<input type="number" min={0} value={section.optionalCount ?? ''} onChange={e => setSections(old => old.map((row, idx) => idx === i ? { ...row, optionalCount: e.target.value === '' ? null : Number(e.target.value) } : row))} /></label>
+            <label>Maximum marks<input type="number" min={0} value={section.maximumMarks ?? ''} onChange={e => setSections(old => old.map((row, idx) => idx === i ? { ...row, maximumMarks: e.target.value === '' ? null : Number(e.target.value) } : row))} /></label>
+            <label className="span-full">Instructions<input value={section.instructions} onChange={e => setSections(old => old.map((row, idx) => idx === i ? { ...row, instructions: e.target.value } : row))} /></label>
+            <Button variant="outline" onClick={() => setSections(old => old.filter((_, idx) => idx !== i))}>Remove section</Button>
+          </div>
+        ))}
+        <Button variant="outline" onClick={() => setSections(old => [...old, { title: `Section ${String.fromCharCode(65 + old.length)}`, position: old.length + 1, optionalCount: null, maximumMarks: null, instructions: '' }])}>Add section</Button>
+      </details>
+    )}
+    {query.data.editable && templates.data && templates.data.length > 0 && (
+      <div className="assessment-filters">
+        <label>Apply template
+          <select value={templateId} onChange={e => setTemplateId(e.target.value)}>
+            <option value="">Select template…</option>
+            {templates.data.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
+          </select>
+        </label>
+        <Button variant="outline" disabled={!templateId || busy} onClick={() => void applyTemplate()}>Apply template</Button>
+      </div>
+    )}
+    {bank && <QuestionBank classId={assessment.classId} subjectId={assessment.subjectId} onSelect={q => { if (!questions.some(x => x.id === q.id)) setQuestions(old => [...old, q]); setBank(false); }} />}
+    {questions.map((q, i) => <article className="assessment-question" key={q.id}><h3>{q.section && `${q.section} · `}{i + 1}. {q.prompt} ({q.marks} marks)</h3><ol type="A">{q.options.map((option, j) => <li key={`${q.id}:${j}`}>{option}</li>)}</ol>{query.data.editable && <div className="assessment-filters"><label>Section<input value={q.section || ''} onChange={e => setQuestions(old => old.map(x => x.id === q.id ? { ...x, section: e.target.value } : x))} list={`sections-${assessment.id}`} /><datalist id={`sections-${assessment.id}`}>{sections.map(s => <option key={s.title} value={s.title} />)}</datalist></label><label>Marks<input type="number" min={0.01} max={1000} step="0.01" value={q.marks} onChange={e => setQuestions(old => old.map(x => x.id === q.id ? { ...x, marks: Number(e.target.value) } : x))} /></label><Button variant="outline" disabled={i === 0} onClick={() => move(i, -1)}>Move Up</Button><Button variant="outline" disabled={i === questions.length - 1} onClick={() => move(i, 1)}>Move Down</Button><Button variant="outline" onClick={() => setQuestions(old => old.filter(x => x.id !== q.id))}>Remove</Button></div>}</article>)}</>}</Panel>;
 }

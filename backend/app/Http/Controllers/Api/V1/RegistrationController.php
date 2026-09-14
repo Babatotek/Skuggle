@@ -17,11 +17,12 @@ use App\Models\TenantMembership;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\PersonalWorkspaceProvisioner;
+use App\Services\TenantAccessRoleDefaults;
 use App\Support\ApiResponse;
+use App\Support\PublicStorageUrl;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class RegistrationController extends Controller
@@ -65,14 +66,12 @@ class RegistrationController extends Controller
                 $path = $request->file('logo')->store("tenants/{$tenant->public_id}/branding", $disk);
                 $settings = $tenant->settings;
                 data_set($settings, 'branding.logo_key', $path);
-                try {
-                    data_set($settings, 'branding.logo_url', Storage::disk($disk)->url($path));
-                } catch (\Throwable) { /* private disks intentionally expose no URL */
-                }
+                data_set($settings, 'branding.logo_url', PublicStorageUrl::fromKey($path));
                 $tenant->update(['settings' => $settings]);
             }
 
             $audit->record('tenant.registered', $tenant, [], ['code' => $tenant->code, 'type' => 'school']);
+            app(TenantAccessRoleDefaults::class)->ensureFor($tenant);
             // School admins also receive My Skuggle so joining/creating a school never replaces personal ownership.
             app(PersonalWorkspaceProvisioner::class)->ensureFor($user, 'teacher');
             $context->clear();

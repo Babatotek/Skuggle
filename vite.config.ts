@@ -8,8 +8,10 @@ import { defineConfig, type ProxyOptions } from 'vite';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 
+const backendTarget = process.env.SKUGGLE_BACKEND_URL || 'http://127.0.0.1:8010';
+
 const emailProxy: ProxyOptions = {
-  target: 'http://127.0.0.1:8000',
+  target: backendTarget,
   changeOrigin: true,
   configure: (proxy) => {
     proxy.on('proxyReq', (proxyReq: ClientRequest, req: IncomingMessage) => {
@@ -50,13 +52,14 @@ export default defineConfig(({ command }) => {
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? { ignored: ['**'] } : {},
       proxy: {
-        '/api': 'http://127.0.0.1:8000',
-        '/sanctum': 'http://127.0.0.1:8000',
-        '/health': 'http://127.0.0.1:8000',
-        '/ready': 'http://127.0.0.1:8000',
-        '/live': 'http://127.0.0.1:8000',
-        '/startup': 'http://127.0.0.1:8000',
-        '/version': 'http://127.0.0.1:8000',
+        '/api': backendTarget,
+        '/sanctum': backendTarget,
+        '/storage': backendTarget,
+        '/health': backendTarget,
+        '/ready': backendTarget,
+        '/live': backendTarget,
+        '/startup': backendTarget,
+        '/version': backendTarget,
         '/email': emailProxy,
       },
     },

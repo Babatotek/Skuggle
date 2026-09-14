@@ -59,7 +59,7 @@ class SchoolModuleRecordController extends Controller
     {
         $definition = $this->definition($module);
         $this->assertPermission($request, $definition['writePermission']);
-        $data = $this->validated($request, $definition);
+        $data = $this->validated($request, $definition, true, $module);
         $record = SchoolModuleRecord::query()->create([
             'module' => $module,
             'title' => $data['title'],
@@ -78,8 +78,11 @@ class SchoolModuleRecordController extends Controller
         $definition = $this->definition($module);
         $this->assertPermission($request, $definition['writePermission']);
         $item = SchoolModuleRecord::query()->where('module', $module)->where('public_id', $record)->firstOrFail();
-        $data = $this->validated($request, $definition, false);
+        $data = $this->validated($request, $definition, false, $module);
         $before = $item->only(['title', 'status', 'payload']);
+        if ($module === 'integrations') {
+            $before['payload'] = $this->integrationMetadata($before['payload'] ?? []);
+        }
         $item->fill(array_filter([
             'title' => $data['title'] ?? $item->title,
             'status' => $data['status'] ?? $item->status,
@@ -87,7 +90,11 @@ class SchoolModuleRecordController extends Controller
             'payload' => $data['payload'] ?? $item->payload,
         ], fn ($value) => $value !== null));
         $item->save();
-        $audit->record('school_module.updated', $item, $before, $item->only(['title', 'status', 'payload']));
+        $after = $item->only(['title', 'status', 'payload']);
+        if ($module === 'integrations') {
+            $after['payload'] = $this->integrationMetadata($after['payload'] ?? []);
+        }
+        $audit->record('school_module.updated', $item, $before, $after);
 
         return ApiResponse::success($this->present($item));
     }
@@ -105,9 +112,9 @@ class SchoolModuleRecordController extends Controller
 
     /**
      * @param  array{statuses: list<string>, fields: list<array<string, mixed>>}  $definition
-     * @return array{title: string, status: string, reference?: string|null, payload: array<string, mixed>}
+     * @return array{title?: string, status?: string, reference?: string|null, payload?: array<string, mixed>}
      */
-    private function validated(Request $request, array $definition, bool $creating = true): array
+    private function validated(Request $request, array $definition, bool $creating = true, string $module = ''): array
     {
         $rules = [
             'title' => [$creating ? 'required' : 'sometimes', 'string', 'max:190'],
@@ -118,15 +125,22 @@ class SchoolModuleRecordController extends Controller
         foreach ($definition['fields'] as $field) {
             $rules['payload.'.$field['key']] = [! empty($field['required']) && $creating ? 'required' : 'nullable', 'string', 'max:2000'];
         }
+        // This module is a provider inventory, not a credential vault. Reject
+        // undeclared keys rather than persisting secrets in JSON and audit logs.
+        if ($module === 'integrations') {
+            $rules['payload'] = ['nullable', 'array:name,provider,purpose'];
+        }
         $data = $request->validate($rules);
         $title = $data['title'] ?? (string) data_get($data, 'payload.'.($definition['fields'][0]['key'] ?? 'title'), 'Untitled');
 
-        return [
+        $values = [
             'title' => $title,
             'status' => $data['status'] ?? $definition['statuses'][0],
             'reference' => $data['reference'] ?? null,
             'payload' => $data['payload'] ?? [],
         ];
+
+        return $creating ? $values : array_intersect_key($values, $data);
     }
 
     private function assertPermission(Request $request, string $permission): void
@@ -146,9 +160,14 @@ class SchoolModuleRecordController extends Controller
             'title' => $item->title,
             'status' => $item->status,
             'reference' => $item->reference,
-            'payload' => $item->payload ?? [],
+            'payload' => $item->module === 'integrations' ? $this->integrationMetadata($item->payload ?? []) : ($item->payload ?? []),
             'createdAt' => $item->created_at?->toIso8601String(),
             'updatedAt' => $item->updated_at?->toIso8601String(),
         ];
+    }
+
+    private function integrationMetadata(array $payload): array
+    {
+        return array_intersect_key($payload, array_flip(['name', 'provider', 'purpose']));
     }
 }

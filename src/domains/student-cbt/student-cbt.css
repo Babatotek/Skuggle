@@ -24,6 +24,14 @@
 .student-cbt-free-text textarea { width: 100%; min-height: 140px; border: 1px solid #d5dde7; border-radius: 10px; padding: 12px 14px; font-size: 16px; }
 .student-cbt-player-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 20px; }
 .student-cbt-result { background: #fff; border-radius: 12px; padding: 24px; text-align: center; }
+.student-cbt-progress { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.student-cbt-progress button { min-width: 40px; min-height: 40px; border-radius: 8px; border: 1px solid #d5dde7; background: #fff; cursor: pointer; }
+.student-cbt-progress button.active { background: #122033; color: #fff; border-color: #122033; }
+.student-cbt-progress button.answered { border-color: #1d4ed8; color: #1d4ed8; }
+.student-cbt-matching { display: grid; gap: 12px; margin-top: 16px; }
+.student-cbt-matching label { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: center; }
+.student-cbt-matching select { min-height: 44px; }
+.student-cbt-media { display: block; max-width: 100%; margin: 12px 0; border-radius: 8px; }
 @media (max-width: 767px) {
   .student-cbt-list li, .student-cbt-player-header, .student-cbt-player-footer { flex-direction: column; align-items: stretch; }
   .student-cbt-actions { align-items: stretch; }

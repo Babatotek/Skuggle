@@ -52,17 +52,8 @@ export const SCHOOL_STAFF_PRIMARY_NAVIGATION: readonly PrimaryNavigationGroup[] 
     { routeId: 'school.insights.reports', label: 'Reports', icon: 'reports' },
   ] },
   { id: 'administration', label: 'Administration', items: [
-    { routeId: 'school.administration.school-setup', label: 'School Setup', icon: 'school-settings' },
-    { routeId: 'school.administration.users-access', label: 'Users & Access', icon: 'user-access' },
-    { routeId: 'school.administration.roles-permissions', label: 'Roles & Permissions', icon: 'administrators' },
-    { routeId: 'school.administration.forms', label: 'Forms & Custom Fields', icon: 'workflow-rules' },
-    { routeId: 'school.administration.workflows', label: 'Workflows', icon: 'automation' },
-    { routeId: 'school.administration.integrations', label: 'Integrations', icon: 'integrations' },
-    { routeId: 'school.administration.subscription', label: 'Subscription & Plan', icon: 'subscription' },
-    { routeId: 'school.administration.security', label: 'Security', icon: 'security' },
-    { routeId: 'school.administration.audit', label: 'Audit', icon: 'audit-logs' },
-  ] },
-];
+    { routeId: 'school.administration', label: 'Administration', icon: 'school-settings' },
+  ] },];
 
 const PERSONAL_PRIMARY_NAVIGATION: readonly PrimaryNavigationGroup[] = [
   { id: 'personal', label: 'Personal', items: [

@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Notifications\WelcomeToSkuggleNotification;
 use App\Services\AuditLogger;
 use App\Support\ApiResponse;
+use App\Support\PublicStorageUrl;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -279,7 +280,7 @@ class AuthController extends Controller
             'tenantStatus' => $membership->tenant->status,
             'role' => $membership->role->name,
             'roleLabel' => $membership->role->label,
-            'logoUrl' => data_get($membership->tenant->settings, 'branding.logo_url'),
+            'logoUrl' => PublicStorageUrl::relative(data_get($membership->tenant->settings, 'branding.logo_url')),
         ];
     }
 

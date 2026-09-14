@@ -28,8 +28,8 @@ describe('Wave 9 canonical primary navigation', () => {
     expect(project().some((group) => group.label === 'Online Learning')).toBe(false);
   });
 
-  it('does not exceed the frozen 26 primary destinations', () => {
-    expect(items()).toHaveLength(26);
+  it('does not exceed the 18 consolidated primary destinations', () => {
+    expect(items()).toHaveLength(18);
   });
 
   it.each(['Finance', 'Attendance', 'Assessment', 'Performance', 'Communication', 'Student Services', 'Operations', 'Reports'])
@@ -50,8 +50,9 @@ describe('Wave 9 canonical primary navigation', () => {
   it('owns Forms and Subscription only under Administration and keeps SaaS subscription out of Finance', () => {
     const administration = project().find((group) => group.label === 'Administration')?.items.map((item) => item.label);
     const operations = project().find((group) => group.label === 'School Operations')?.items.map((item) => item.label);
-    expect(administration?.filter((label) => label === 'Forms & Custom Fields')).toHaveLength(1);
-    expect(administration).toContain('Subscription & Plan');
+    expect(administration).toEqual(['Administration']);
+    expect(primaryNavigationIdForRoute(routeById('school.administration.forms'))).toBe('school.administration');
+    expect(primaryNavigationIdForRoute(routeById('school.administration.subscription'))).toBe('school.administration');
     expect(operations).toContain('Finance');
     expect(operations?.some((label) => label.includes('Subscription'))).toBe(false);
   });
@@ -64,7 +65,7 @@ describe('Wave 9 canonical primary navigation', () => {
 
   it('uses the same route capability contract for exposure and revocation', () => {
     expect(project([]).flatMap((group) => group.items).some((item) => item.id === 'school.administration.forms')).toBe(false);
-    expect(project(['school.settings.update']).flatMap((group) => group.items).some((item) => item.id === 'school.administration.forms')).toBe(true);
+    expect(project(['school.settings.update']).flatMap((group) => group.items).some((item) => item.id === 'school.administration')).toBe(true);
     expect(project(['school.settings.update']).flatMap((group) => group.items).some((item) => item.id === 'school.finance')).toBe(false);
   });
 

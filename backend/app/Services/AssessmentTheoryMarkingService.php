@@ -112,7 +112,7 @@ final class AssessmentTheoryMarkingService
         $before = $row->only(['score', 'status', 'metadata']);
         $row->fill([
             'score' => $score,
-            'status' => 'ENTERED',
+            'status' => 'VERIFIED',
             'graded_by' => $actorId,
             'graded_at' => now(),
             'revision' => ($row->revision ?? 0) + 1,
@@ -122,6 +122,7 @@ final class AssessmentTheoryMarkingService
                 'humanVerified' => true,
             ]),
         ])->save();
+        app(AssessmentCompleteService::class)->recordRubric($assessment, (int) $student->getKey(), (array) ($suggestion['rubricBreakdown'] ?? []));
         app(AuditLogger::class)->record('assessment.theory_suggestion_applied', $row, $before, $row->only(['score', 'status', 'metadata']));
         $assessment->increment('revision');
 

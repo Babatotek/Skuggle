@@ -1,3 +1,5 @@
+import { ADMINISTRATION_ROUTES } from './administration';
+import { STUDENT_SERVICES_ROUTES } from './studentServices';
 import type { CanonicalRouteDefinition, RouteAccessMetadata } from './types';
 
 const expose = true as const;
@@ -62,7 +64,7 @@ const people: CanonicalRouteDefinition[] = [
   route({ id: 'school.people.guardians', workspace: 'school', domain: 'people', capability: 'people.guardians', path: '/school/people/guardians', pageKey: 'guardians', access: cap('students.view'), breadcrumb: { label: 'Guardians', parentId: 'school.home' }, legacyNavIds: ['parents'], visibility: 'staff', classification: 'private', title: 'Guardians' }),
   route({ id: 'school.people.workforce', workspace: 'school', domain: 'people', capability: 'people.workforce', path: '/school/people/workforce', pageKey: 'workforce', query: [{ name: 'view', kind: 'view', enumValues: ['staff', 'teachers'], invalid: 'default', defaultValue: 'staff' }], access: cap('users.manage'), breadcrumb: { label: 'Workforce', parentId: 'school.home' }, legacyNavIds: ['people', 'staff'], visibility: 'staff', classification: 'private', title: 'Workforce' }),
   route({ id: 'school.people.workforce.teachers', workspace: 'school', domain: 'people', capability: 'people.workforce', path: '/school/people/workforce/teachers', pageKey: 'workforce', access: cap('users.manage'), breadcrumb: { label: 'Teachers', parentId: 'school.people.workforce' }, legacyNavIds: ['teachers'], visibility: 'staff', classification: 'private', title: 'Teachers', pageContext: { view: 'teachers' } }),
-  route({ id: 'school.people.invitations', workspace: 'school', domain: 'people', capability: 'people.workforce', path: '/school/people/invitations', pageKey: 'invitations', access: cap('users.manage'), breadcrumb: { label: 'Invitations', parentId: 'school.people.workforce' }, legacyNavIds: ['invitations'], visibility: 'staff', classification: 'private', title: 'Invitations' }),
+  route({ id: 'school.people.workforce.profile', workspace: 'school', domain: 'people', capability: 'people.workforce', path: '/school/people/workforce/:employeePublicId', pageKey: 'workforce', params: [{ name: 'employeePublicId', kind: 'publicId', invalid: '404' }], access: cap('users.manage'), breadcrumb: { label: 'Employee', parentId: 'school.people.workforce' }, visibility: 'staff', classification: 'private', title: 'Employee profile' }),
 ];
 
 // View is the fine-grained grant; manage is the legacy aggregate alias target.
@@ -113,7 +115,7 @@ const teaching: CanonicalRouteDefinition[] = [
 const operations: CanonicalRouteDefinition[] = [
   route({ id: 'school.attendance', workspace: 'school', domain: 'attendance', capability: 'attendance.overview', path: '/school/attendance', pageKey: 'attendance', query: [{ name: 'view', kind: 'view', enumValues: ['roll-call', 'trends', 'summary'], invalid: 'default', defaultValue: 'roll-call' }], access: cap('attendance.view'), breadcrumb: { label: 'Attendance', parentId: 'school.home' }, legacyNavIds: ['attendance', 'daily-register', 'attendance-analytics', 'attendance-summary'], visibility: 'staff', classification: 'private', title: 'Attendance' }),
   route({ id: 'school.finance', workspace: 'school', domain: 'finance', capability: 'finance.overview', path: '/school/finance', pageKey: 'finance', query: [{ name: 'view', kind: 'view', enumValues: ['invoices', 'structure', 'settlement'], invalid: 'default', defaultValue: 'invoices' }], access: cap('finance.view'), breadcrumb: { label: 'Finance', parentId: 'school.home' }, legacyNavIds: ['finance', 'student-billing', 'invoices', 'fee-structure', 'payments', 'outstanding-fees', 'receipts'], visibility: 'staff', classification: 'private', title: 'Finance' }),
-  route({ id: 'school.student-services', workspace: 'school', domain: 'student-services', capability: 'services.overview', path: '/school/student-services', pageKey: 'module', access: cap('services.manage'), breadcrumb: { label: 'Student services', parentId: 'school.home' }, legacyNavIds: ['behaviour', 'discipline', 'welfare', 'counselling', 'student-support', 'transport'], visibility: 'staff', classification: 'private', title: 'Student services', moduleKey: 'behaviour' }),
+  ...STUDENT_SERVICES_ROUTES,
   route({ id: 'school.operations', workspace: 'school', domain: 'operations', capability: 'operations.overview', path: '/school/operations', pageKey: 'module', access: cap('operations.manage'), breadcrumb: { label: 'Operations', parentId: 'school.home' }, legacyNavIds: ['assets', 'inventory', 'operations-facilities', 'approvals', 'documents'], visibility: 'staff', classification: 'private', title: 'Operations', moduleKey: 'assets' }),
 ];
 
@@ -125,17 +127,7 @@ const engagementInsights: CanonicalRouteDefinition[] = [
   route({ id: 'school.insights.reports', workspace: 'school', domain: 'insights', capability: 'insights.reports', path: '/school/insights/reports', pageKey: 'reports', access: cap('reports.view'), breadcrumb: { label: 'Reports', parentId: 'school.home' }, legacyNavIds: ['academic-reports', 'attendance-reports', 'student-reports', 'staff-reports', 'finance-reports', 'admission-reports', 'performance-reports', 'custom-reports', 'export-centre', 'financial-reports', 'operational-reports'], visibility: 'staff', classification: 'private', title: 'Reports' }),
 ];
 
-const administration: CanonicalRouteDefinition[] = [
-  route({ id: 'school.administration.school-setup', workspace: 'school', domain: 'administration', capability: 'administration.school-setup', path: '/school/administration/school-setup', pageKey: 'structure', access: cap('settings.configure'), breadcrumb: { label: 'School setup', parentId: 'school.home' }, legacyNavIds: ['school-overview', 'school-organisation', 'school-academics', 'school-facilities', 'school-settings-hub', 'school-settings'], visibility: 'staff', classification: 'private', title: 'School setup', pageContext: { resource: 'overview' } }),
-  route({ id: 'school.administration.users-access', workspace: 'school', domain: 'administration', capability: 'administration.users', path: '/school/administration/users-access', pageKey: 'accounts', access: cap('users.manage'), breadcrumb: { label: 'Users & access', parentId: 'school.home' }, legacyNavIds: ['user-access', 'accounts'], visibility: 'staff', classification: 'private', title: 'Users & access' }),
-  route({ id: 'school.administration.roles-permissions', workspace: 'school', domain: 'administration', capability: 'administration.roles', path: '/school/administration/roles-permissions', pageKey: 'administrators', access: cap('roles.manage'), breadcrumb: { label: 'Roles & permissions', parentId: 'school.home' }, legacyNavIds: ['roles-permissions', 'administrators'], visibility: 'staff', classification: 'private', title: 'Roles & permissions' }),
-  route({ id: 'school.administration.forms', workspace: 'school', domain: 'administration', capability: 'administration.forms', path: '/school/administration/forms', pageKey: 'forms', access: cap('settings.configure'), breadcrumb: { label: 'Forms', parentId: 'school.home' }, legacyNavIds: ['school-forms'], visibility: 'staff', classification: 'private', title: 'Forms & custom fields' }),
-  route({ id: 'school.administration.workflows', workspace: 'school', domain: 'administration', capability: 'administration.workflows', path: '/school/administration/workflows', pageKey: 'module', access: cap('settings.configure'), breadcrumb: { label: 'Workflows', parentId: 'school.home' }, legacyNavIds: ['workflow-rules', 'automation'], visibility: 'staff', classification: 'private', title: 'Workflows', moduleKey: 'workflows' }),
-  route({ id: 'school.administration.integrations', workspace: 'school', domain: 'administration', capability: 'administration.integrations', path: '/school/administration/integrations', pageKey: 'module', access: cap('security.manage'), breadcrumb: { label: 'Integrations', parentId: 'school.home' }, legacyNavIds: ['integrations'], visibility: 'staff', classification: 'private', title: 'Integrations', moduleKey: 'integrations' }),
-  route({ id: 'school.administration.subscription', workspace: 'school', domain: 'administration', capability: 'administration.subscription', path: '/school/administration/subscription', pageKey: 'subscription', access: authed, breadcrumb: { label: 'Subscription', parentId: 'school.home' }, legacyNavIds: ['current-plan', 'usage', 'billing', 'subscription-invoices', 'entitlements', 'upgrade'], visibility: 'authenticated', classification: 'private', title: 'Subscription & plan' }),
-  route({ id: 'school.administration.security', workspace: 'school', domain: 'administration', capability: 'administration.security', path: '/school/administration/security', pageKey: 'module', access: cap('security.manage'), breadcrumb: { label: 'Security', parentId: 'school.home' }, legacyNavIds: ['security', 'auth-policies', 'system-configuration'], visibility: 'staff', classification: 'private', title: 'Security', moduleKey: 'security-settings' }),
-  route({ id: 'school.administration.audit', workspace: 'school', domain: 'administration', capability: 'administration.audit', path: '/school/administration/audit', pageKey: 'audit', access: cap('audit.view'), breadcrumb: { label: 'Audit', parentId: 'school.home' }, legacyNavIds: ['audit-logs'], visibility: 'staff', classification: 'private', title: 'Audit' }),
-  route({ id: 'school.administration.branding', workspace: 'school', domain: 'administration', capability: 'administration.branding', path: '/school/administration/branding', pageKey: 'branding', access: cap('settings.configure'), breadcrumb: { label: 'Branding', parentId: 'school.administration.school-setup' }, legacyNavIds: ['branding'], visibility: 'staff', classification: 'private', title: 'Branding' }),
+const administration: CanonicalRouteDefinition[] = [...ADMINISTRATION_ROUTES,
   route({ id: 'school.help', workspace: 'school', domain: 'help', capability: 'help.support', path: '/school/help', pageKey: 'help', access: authed, breadcrumb: { label: 'Help', parentId: 'school.home' }, legacyNavIds: ['help-support', 'help'], visibility: 'authenticated', classification: 'private', title: 'Help & support' }),
 ];
 
@@ -168,6 +160,7 @@ export const CANONICAL_ROUTES: readonly CanonicalRouteDefinition[] = [
   ...operations,
   ...engagementInsights,
   ...administration,
+  route({ id: 'school.operations.facilities', workspace: 'school', domain: 'operations', capability: 'operations.facilities', path: '/school/operations/facilities', pageKey: 'module', moduleKey: 'facilities', access: cap('operations.manage'), breadcrumb: { label: 'Facilities', parentId: 'school.operations' }, title: 'Facilities', classification: 'private', visibility: 'staff', legacyNavIds: ['school-facilities'] }),
   ...personal,
   ...platform,
   ...relate,
@@ -199,5 +192,6 @@ export const LEGACY_NAV_TO_ROUTE_ID: ReadonlyMap<string, string> = (() => {
     }
   }
   map.set('home', 'school.home');
+  map.set('school-facilities', 'school.operations.facilities');
   return map;
 })();

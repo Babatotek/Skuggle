@@ -132,7 +132,7 @@ class StudentCbtPlayerTest extends TestCase
             'assessment_id' => $f['assessment']->id,
             'student_id' => $f['student']->id,
             'score' => 10,
-            'status' => 'ENTERED',
+            'status' => 'AUTO_MARKED',
         ]);
         $this->assertDatabaseHas('assessment_submissions', [
             'assessment_id' => $f['assessment']->id,

@@ -9,7 +9,7 @@ interface AuditRow {
   occurredAt?: string;
 }
 
-export const AuditLogsView: React.FC = () => {
+export const AuditLogsView: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const { showToast } = useApp();
   const [rows, setRows] = useState<AuditRow[]>([]);
 
@@ -21,10 +21,12 @@ export const AuditLogsView: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {!embedded && <>
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6">
         <h1 className="font-display font-extrabold text-xl text-slate-900">Audit Logs</h1>
         <p className="text-xs text-slate-500 mt-1">Immutable tenant activity. Records cannot be deleted from this screen.</p>
       </div>
+      </>}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-x-auto">
         <table className="w-full text-xs">
           <thead>

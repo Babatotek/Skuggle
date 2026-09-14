@@ -12,6 +12,7 @@ use App\Models\RoleAssignment;
 use App\Models\TenantMembership;
 use App\Models\Term;
 use App\Models\User;
+use App\Support\PublicStorageUrl;
 
 final class SessionPresenter
 {
@@ -74,7 +75,7 @@ final class SessionPresenter
                 'code' => $tenant->code,
                 'type' => $tenant->type,
                 'status' => $tenant->status,
-                'logoUrl' => data_get($tenant->settings, 'branding.logo_url'),
+                'logoUrl' => PublicStorageUrl::relative(data_get($tenant->settings, 'branding.logo_url')),
                 'className' => data_get($tenant->settings, 'profile.class_name'),
             ],
             'memberships' => $user->memberships()
@@ -110,7 +111,7 @@ final class SessionPresenter
                         'tenantStatus' => $item->tenant->status,
                         'role' => $itemRole instanceof Role ? $itemRole->name : null,
                         'roleLabel' => $itemRole instanceof Role ? $itemRole->label : null,
-                        'logoUrl' => data_get($item->tenant->settings, 'branding.logo_url'),
+                        'logoUrl' => PublicStorageUrl::relative(data_get($item->tenant->settings, 'branding.logo_url')),
                         'current' => $item->tenant->public_id === $tenant->public_id,
                     ];
                 })

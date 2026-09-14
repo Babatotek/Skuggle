@@ -5,11 +5,12 @@ namespace App\Services;
 use App\Domain\Tenancy\TenantContext;
 use App\Models\SchoolClass;
 use App\Models\Tenant;
+use App\Support\SchoolCode;
 use Illuminate\Support\Facades\DB;
 
 final class AdmissionNumberGenerator
 {
-    public const DEFAULT_PATTERN = '{SCHOOL_CODE}/{YEAR}/{CLASS}/{SEQUENCE:4}';
+    public const DEFAULT_PATTERN = '{SCHOOL_CODE}/{YEAR2}/{SEQUENCE:4}';
 
     public function __construct(
         private readonly TenantContext $context,
@@ -43,8 +44,9 @@ final class AdmissionNumberGenerator
         }
 
         $replacements = [
-            '{SCHOOL_CODE}' => strtoupper((string) ($tenant->code ?: 'SKG')),
+            '{SCHOOL_CODE}' => SchoolCode::forTenant($tenant),
             '{YEAR}' => now()->format('Y'),
+            '{YEAR2}' => now()->format('y'),
             '{SESSION}' => now()->format('Y'),
             '{CLASS}' => $classLabel,
             '{CAMPUS}' => strtoupper((string) ($campusCode ?: 'MAIN')),
