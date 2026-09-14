@@ -22,7 +22,7 @@ final class CanonicalPermissionRegistryTest extends TestCase
     public function test_registry_is_unique_valid_and_fully_described(): void
     {
         $definitions = PermissionRegistry::definitions();
-        $this->assertCount(56, $definitions);
+        $this->assertCount(64, $definitions);
         $this->assertCount(count($definitions), array_unique(array_keys($definitions)));
         foreach ($definitions as $key => $definition) {
             $this->assertMatchesRegularExpression('/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/', $key);
