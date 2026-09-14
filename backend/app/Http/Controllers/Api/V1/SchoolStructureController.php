@@ -18,6 +18,7 @@ use App\Models\TenantMembership;
 use App\Models\Term;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\EmployeeNumberGenerator;
 use App\Services\LookupCacheService;
 use App\Support\ApiResponse;
 use App\Support\PublicStorageUrl;
@@ -229,7 +230,7 @@ class SchoolStructureController extends Controller
             'settings' => $settings,
         ])->save();
         if (isset($data['name']) && $data['name'] !== $previousName) {
-            app(\App\Services\EmployeeNumberGenerator::class)->realignExisting($tenant->fresh());
+            app(EmployeeNumberGenerator::class)->realignExisting($tenant->fresh());
         }
         $audit->record('school.profile.updated', $tenant, $before, $settings);
 

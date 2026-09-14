@@ -15,14 +15,15 @@ use App\Models\SmartmarkBatch;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Services\AcademicContext;
+use App\Services\AssessmentAccess;
 use App\Services\AssessmentCompleteService;
+use App\Services\AssessmentItemAnalyticsService;
 use App\Services\AssessmentNotifier;
 use App\Services\AssessmentSettings;
-use App\Services\AssessmentAccess;
-use App\Services\AssessmentItemAnalyticsService;
 use App\Services\AssessmentTheoryMarkingService;
 use App\Services\AssessmentWorkflow;
 use App\Services\AuditLogger;
+use App\Services\FormEngineService;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -221,21 +222,21 @@ class AssessmentController extends Controller
             $body = implode("\n", $lines);
             $filename = 'assessment-'.$item->public_id.'-questions.csv';
         } else {
-        $item->loadMissing(['schoolClass', 'subject', 'scores']);
-        $roster = $this->workflow->roster($item);
-        $scores = $item->scores->keyBy('student_id');
-        $lines = ['Admission,Name,Score,Status,Source'];
-        foreach ($roster as $student) {
-            $score = $scores->get($student->getKey());
-            $lines[] = sprintf(
-                '"%s","%s",%s,%s,%s',
-                str_replace('"', '""', (string) $student->admission_number),
-                str_replace('"', '""', trim($student->first_name.' '.$student->last_name)),
-                $score->score ?? '',
-                $score->status ?? 'MISSING',
-                $score?->metadata['source'] ?? ''
-            );
-        }
+            $item->loadMissing(['schoolClass', 'subject', 'scores']);
+            $roster = $this->workflow->roster($item);
+            $scores = $item->scores->keyBy('student_id');
+            $lines = ['Admission,Name,Score,Status,Source'];
+            foreach ($roster as $student) {
+                $score = $scores->get($student->getKey());
+                $lines[] = sprintf(
+                    '"%s","%s",%s,%s,%s',
+                    str_replace('"', '""', (string) $student->admission_number),
+                    str_replace('"', '""', trim($student->first_name.' '.$student->last_name)),
+                    $score->score ?? '',
+                    $score->status ?? 'MISSING',
+                    $score?->metadata['source'] ?? ''
+                );
+            }
             $body = implode("\n", $lines);
             $filename = 'assessment-'.$item->public_id.'-scores.csv';
         }
@@ -326,7 +327,7 @@ class AssessmentController extends Controller
             $data['invigilator'] = trim((string) $data['invigilator']) !== '' ? $data['invigilator'] : 'System';
         }
         if (! empty($data['customFields']) && is_array($data['customFields'])) {
-            $data['customFields'] = app(\App\Services\FormEngineService::class)->validateValues(app(TenantContext::class)->tenant(), 'assessment.configuration', $data['customFields']);
+            $data['customFields'] = app(FormEngineService::class)->validateValues(app(TenantContext::class)->tenant(), 'assessment.configuration', $data['customFields']);
         }
         $item ??= new Assessment(['created_by' => $request->user()->getKey(), 'status' => 'draft', 'revision' => 0]);
         $item->fill(['class_id' => $class->getKey(), 'subject_id' => $subject->getKey(), 'academic_session_id' => $session->getKey(), 'term_id' => $term->getKey(), 'title' => $data['title'], 'type' => $data['assessmentTypeId'], 'maximum_score' => $data['maxScore'], 'scheduled_at' => $data['date'].' '.($data['startTime'] ?? '00:00'), 'metadata' => array_merge($item->metadata ?? [], collect($data)->except(['title', 'classId', 'subjectId', 'assessmentTypeId', 'date', 'maxScore'])->all()), 'revision' => $item->revision + 1]);

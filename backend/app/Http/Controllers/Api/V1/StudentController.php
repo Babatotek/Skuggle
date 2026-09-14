@@ -20,6 +20,7 @@ use App\Services\StudentEnrolmentService;
 use App\Services\StudentProfileCompletenessCalculator;
 use App\Services\StudentProfileSheetService;
 use App\Support\ApiResponse;
+use App\Support\SchoolCode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -88,7 +89,7 @@ class StudentController extends Controller
             ])->values(),
             'lifecycleStatuses' => Student::lifecycleStatuses(),
             'admissionNumberPattern' => app(AdmissionNumberGenerator::class)->pattern($tenant),
-            'schoolCode' => \App\Support\SchoolCode::forTenant($tenant),
+            'schoolCode' => SchoolCode::forTenant($tenant),
             'customFields' => $this->customFields->definitions($tenant, CustomFieldRegistry::ENTITY_STUDENT, true),
         ]);
     }

@@ -23,6 +23,7 @@ use App\Models\TeacherAssignment;
 use App\Models\Tenant;
 use App\Models\Term;
 use App\Models\User;
+use App\Support\SchoolCode;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -300,7 +301,7 @@ class DemoTenantDataSeeder extends Seeder
      */
     private function seedStaff(Tenant $school, array $users): void
     {
-        $code = \App\Support\SchoolCode::forTenant($school);
+        $code = SchoolCode::forTenant($school);
         $staff = [
             ['admin@royalgateway.edu.ng', $code.'-E-001', 'Demo School Admin', 'full_time'],
             ['principal@royalgateway.edu.ng', $code.'-E-002', 'Mrs. Adeyemi', 'full_time'],
@@ -325,6 +326,7 @@ class DemoTenantDataSeeder extends Seeder
                     'started_at' => '2023-09-01',
                     'status' => 'active',
                 ])->save();
+
                 continue;
             }
 

@@ -6,19 +6,19 @@ use App\Domain\Authorization\PermissionRegistry;
 use App\Domain\Identity\SchoolRoles;
 use App\Domain\Tenancy\TenantContext;
 use App\Http\Controllers\Controller;
+use App\Models\Employee;
+use App\Models\Guardian;
 use App\Models\Role;
+use App\Models\Student;
 use App\Models\TenantAccessRole;
 use App\Models\TenantMembership;
 use App\Models\User;
-use App\Models\Employee;
-use App\Models\Guardian;
-use App\Models\Student;
-use Illuminate\Support\Facades\DB;
 use App\Services\AuditLogger;
 use App\Services\TenantAccessRoleDefaults;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -39,6 +39,7 @@ class TenantMembershipController extends Controller
             $employee = $employees->get($membership->user_id);
             $guardian = $guardians->get($membership->user_id);
             $student = $students->get($membership->user_id);
+
             return [...$this->present($membership),
                 'accountType' => $employee ? 'Staff' : ($student ? 'Student' : ($guardian ? 'Guardian' : 'School account')),
                 'linkedProfile' => $employee ? ['id' => $employee->public_id, 'type' => 'workforce', 'label' => $employee->position?->name ?? $employee->name] : ($student ? ['id' => $student->public_id, 'type' => 'student', 'label' => trim($student->first_name.' '.$student->last_name)] : ($guardian ? ['id' => $guardian->public_id, 'type' => 'guardian', 'label' => $guardian->name] : null)),
@@ -191,8 +192,10 @@ class TenantMembershipController extends Controller
             $record->user_id = $user->getKey();
             $record->save();
             $audit->record('workforce.account.linked', $record, [], ['user_id' => $user->public_id]);
+
             return $membership->load(['user', 'role']);
         });
+
         return ApiResponse::success(['membership' => $this->present($membership)], [], 201);
     }
 

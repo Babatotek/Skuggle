@@ -20,6 +20,7 @@ class EmployeeDocumentController extends Controller
     public function index(string $employee): JsonResponse
     {
         $record = Employee::query()->where('public_id', $employee)->firstOrFail();
+
         return ApiResponse::success(['data' => EmployeeDocument::query()->where('employee_id', $record->getKey())->latest()->get()]);
     }
 
@@ -38,6 +39,7 @@ class EmployeeDocumentController extends Controller
             throw $error;
         }
         $audit->record('workforce.document.uploaded', $record, [], ['document_id' => $document->public_id]);
+
         return ApiResponse::success($document, [], 201);
     }
 
@@ -46,6 +48,7 @@ class EmployeeDocumentController extends Controller
         $record = Employee::query()->where('public_id', $employee)->firstOrFail();
         $item = EmployeeDocument::query()->where('employee_id', $record->getKey())->where('public_id', $document)->firstOrFail();
         $audit->record('workforce.document.downloaded', $record, [], ['document_id' => $item->public_id]);
+
         return Storage::disk('local')->download($item->storage_key, $item->original_name, ['X-Content-Type-Options' => 'nosniff']);
     }
 }

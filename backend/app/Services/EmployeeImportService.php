@@ -86,6 +86,7 @@ final class EmployeeImportService
             $rowErrors = $this->validateRow($record, $rowNumber, $seenNumbers);
             if ($rowErrors !== []) {
                 array_push($errors, ...$rowErrors);
+
                 continue;
             }
 
@@ -111,6 +112,7 @@ final class EmployeeImportService
                     $number = trim((string) $row['employee_number']);
                     if (Employee::query()->where('employee_number', $number)->exists()) {
                         $errors[] = ['row' => $rowNumber, 'field' => 'employee_number', 'message' => 'Employee number already exists: '.$number];
+
                         continue;
                     }
 
@@ -132,6 +134,7 @@ final class EmployeeImportService
                         $department = Department::query()->whereRaw('lower(name) = ?', [mb_strtolower(trim((string) $row['department_name']))])->first();
                         if (! $department) {
                             $errors[] = ['row' => $rowNumber, 'field' => 'department_name', 'message' => 'Department not found: '.$row['department_name']];
+
                             continue;
                         }
                         $departmentId = $department->getKey();
@@ -142,6 +145,7 @@ final class EmployeeImportService
                         $campus = Campus::query()->whereRaw('lower(name) = ?', [mb_strtolower(trim((string) $row['campus_name']))])->first();
                         if (! $campus) {
                             $errors[] = ['row' => $rowNumber, 'field' => 'campus_name', 'message' => 'Campus not found: '.$row['campus_name']];
+
                             continue;
                         }
                         $campusId = $campus->getKey();

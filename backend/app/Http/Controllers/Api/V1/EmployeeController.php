@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Domain\Identity\SchoolRoles;
 use App\Domain\Tenancy\TenantContext;
 use App\Http\Controllers\Controller;
+use App\Models\Campus;
 use App\Models\Department;
 use App\Models\Employee;
-use App\Models\Campus;
 use App\Models\WorkforcePosition;
-use App\Domain\Identity\SchoolRoles;
 use App\Services\AuditLogger;
 use App\Services\CustomFieldRegistry;
 use App\Services\EmployeeNumberGenerator;
@@ -21,7 +21,9 @@ use Illuminate\Validation\Rule;
 class EmployeeController extends Controller
 {
     private const STATUSES = ['active', 'probation', 'on_leave', 'suspended', 'resigned', 'retired', 'terminated', 'inactive'];
+
     private const RELATIONS = ['department', 'position', 'campus', 'reportingManager', 'user'];
+
     public function __construct(
         private readonly TenantContext $context,
         private readonly CustomFieldRegistry $customFields,
@@ -113,6 +115,7 @@ class EmployeeController extends Controller
         ]);
 
         $audit->record('workforce.created', $employee, [], ['employee_number' => $employee->employee_number, 'employment_status' => $employee->status]);
+
         return ApiResponse::success($this->present($employee->load(self::RELATIONS)), [], 201);
     }
 
@@ -127,7 +130,9 @@ class EmployeeController extends Controller
         ]);
         $before = $record->only(['name', 'status', 'position_id', 'department_id', 'campus_id', 'staff_category', 'employment_type']);
         $values = $this->employmentValues($data);
-        if (array_key_exists('department_id', $data)) $values['department_id'] = $data['department_id'] ? Department::query()->where('public_id', $data['department_id'])->firstOrFail()->getKey() : null;
+        if (array_key_exists('department_id', $data)) {
+            $values['department_id'] = $data['department_id'] ? Department::query()->where('public_id', $data['department_id'])->firstOrFail()->getKey() : null;
+        }
         abort_if(($values['reporting_manager_id'] ?? null) === $record->getKey(), 422, 'A staff member cannot report to themselves.');
         $meta = $record->metadata ?? [];
         foreach (['personal', 'professional'] as $key) {
@@ -188,6 +193,7 @@ class EmployeeController extends Controller
         $data = $request->validate(['name' => ['required', 'string', 'max:120', Rule::unique('workforce_positions')->where('tenant_id', $this->context->tenantId())], 'category' => ['required', 'in:teaching,non_teaching']]);
         $position = WorkforcePosition::query()->create($data);
         $audit->record('workforce.position.created', $position, [], $data);
+
         return ApiResponse::success(['id' => $position->public_id, ...$data], [], 201);
     }
 
@@ -209,8 +215,11 @@ class EmployeeController extends Controller
     {
         $values = array_intersect_key($data, ['staff_category' => true]);
         foreach (['position_id' => WorkforcePosition::class, 'campus_id' => Campus::class, 'reporting_manager_id' => Employee::class] as $key => $model) {
-            if (array_key_exists($key, $data)) $values[$key] = $data[$key] ? $model::query()->where('public_id', $data[$key])->firstOrFail()->getKey() : null;
+            if (array_key_exists($key, $data)) {
+                $values[$key] = $data[$key] ? $model::query()->where('public_id', $data[$key])->firstOrFail()->getKey() : null;
+            }
         }
+
         return $values;
     }
 

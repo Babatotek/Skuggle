@@ -13,7 +13,7 @@ use App\Models\AssessmentType;
 use App\Models\SmartmarkBatch;
 use App\Models\SmartmarkDetection;
 use App\Models\SmartmarkSheet;
-use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -45,7 +45,7 @@ final class AssessmentCompleteService
             'navigation_restricted' => (bool) ($data['navigationRestricted'] ?? $item->navigation_restricted),
             'duration_minutes' => $duration,
             'starts_at' => $starts,
-            'ends_at' => $starts ? \Carbon\Carbon::parse($starts)->addMinutes(max(1, $duration)) : null,
+            'ends_at' => $starts ? Carbon::parse($starts)->addMinutes(max(1, $duration)) : null,
             'responsible_teacher_id' => $item->responsible_teacher_id ?? $item->created_by,
         ]);
     }
@@ -195,6 +195,7 @@ final class AssessmentCompleteService
     public function applyTemplate(Assessment $item, AssessmentTemplate $template): Assessment
     {
         $payload = $template->payload ?? [];
+
         return DB::transaction(function () use ($item, $template, $payload) {
             $item->update([
                 'template_id' => $template->getKey(),

@@ -22,7 +22,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class InviteController extends Controller
@@ -59,7 +58,9 @@ class InviteController extends Controller
 
         $employee = ! empty($data['employeeId']) ? Employee::query()->where('public_id', $data['employeeId'])->firstOrFail() : null;
         abort_if($employee && $employee->user_id, 422, 'This employee already has a linked account.');
-        if ($employee) abort_if(TenantInvitation::query()->where('status', 'pending')->where('expires_at', '>', now())->where('metadata->employee_id', $employee->public_id)->exists(), 422, 'An account invitation is already pending for this employee.');
+        if ($employee) {
+            abort_if(TenantInvitation::query()->where('status', 'pending')->where('expires_at', '>', now())->where('metadata->employee_id', $employee->public_id)->exists(), 422, 'An account invitation is already pending for this employee.');
+        }
 
         $role = Role::query()->where('name', $data['role'])->firstOrFail();
         $token = TenantInvitation::issueToken();
@@ -144,7 +145,9 @@ class InviteController extends Controller
 
         $result = DB::transaction(function () use ($invite, $data, $email, $audit, $context): array {
             $user = User::query()->where('email', $email)->first();
-            if ($user) abort_unless(auth()->id() === $user->getKey() || Hash::check($data['password'], $user->password), 422, 'Sign in to your existing account or confirm its current password to accept this invitation.');
+            if ($user) {
+                abort_unless(auth()->id() === $user->getKey() || Hash::check($data['password'], $user->password), 422, 'Sign in to your existing account or confirm its current password to accept this invitation.');
+            }
             if (! $user) {
                 $user = User::query()->create([
                     'name' => $data['name'],

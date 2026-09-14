@@ -9,6 +9,7 @@ use App\Models\AssessmentScore;
 use App\Models\AuditLog;
 use App\Models\Enrollment;
 use App\Models\ResultPublication;
+use App\Models\SchoolClass;
 use App\Models\SmartmarkBatch;
 use App\Support\QrCodeSvg;
 use Illuminate\Support\Collection;
@@ -32,11 +33,11 @@ final class AssessmentWorkflow
         if ($mode === 'multiple-arms') {
             $arms = array_filter((array) ($item->metadata['arms'] ?? []));
             if ($name && $arms !== []) {
-                $classIds = \App\Models\SchoolClass::query()->where('name', $name)->whereIn('arm', $arms)->pluck('id');
+                $classIds = SchoolClass::query()->where('name', $name)->whereIn('arm', $arms)->pluck('id');
             }
         }
         if ($mode === 'subject-group' && $name) {
-            $classIds = \App\Models\SchoolClass::query()
+            $classIds = SchoolClass::query()
                 ->where('name', $name)
                 ->where('status', 'active')
                 ->whereExists(function ($q) use ($item): void {

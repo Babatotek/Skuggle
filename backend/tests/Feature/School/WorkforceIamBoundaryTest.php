@@ -2,11 +2,11 @@
 
 namespace Tests\Feature\School;
 
-use App\Models\Employee;
 use App\Models\Role;
 use App\Models\TenantAccessRole;
 use App\Models\WorkforcePosition;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 use Tests\Support\CreatesTenantUsers;
 use Tests\TestCase;
@@ -211,7 +211,7 @@ class WorkforceIamBoundaryTest extends TestCase
         file_put_contents($path, $csv);
 
         $validated = $this->actingAsTenantUser($admin, $tenant)
-            ->post('/api/v1/employees/imports/validate', ['file' => new \Illuminate\Http\UploadedFile($path, 'staff.csv', 'text/csv', null, true)])
+            ->post('/api/v1/employees/imports/validate', ['file' => new UploadedFile($path, 'staff.csv', 'text/csv', null, true)])
             ->assertOk()
             ->json('data');
 
