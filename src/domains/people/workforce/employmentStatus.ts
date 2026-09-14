@@ -1,4 +1,4 @@
-import type { EmploymentStatus } from '../../types';
+import type { EmploymentStatus } from '../../../types';
 
 const STATUS_LABELS: Record<string, EmploymentStatus> = {
   active: 'Active',

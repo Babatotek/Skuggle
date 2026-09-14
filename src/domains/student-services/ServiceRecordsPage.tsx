@@ -239,7 +239,7 @@ export const ServiceRecordsPage: React.FC<{
       nav={<StudentServicesContextNav />}
       toolbar={toolbar}
     >
-      <DataTable
+      <DataTable<ServiceRecord>
         columns={columns}
         data={rows}
         keyExtractor={(row) => row.id}
