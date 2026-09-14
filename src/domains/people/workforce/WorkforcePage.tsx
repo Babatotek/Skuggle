@@ -52,10 +52,10 @@ const emptyLookups = (): Lookups => ({ positions: [], departments: [], campuses:
 
 export const WorkforcePage: React.FC<{ view?: 'staff' | 'teachers'; employeePublicId?: string }> = ({ view = 'staff' }) => {
   const navigate = useNavigate();
-  const { staff, addStaff, updateStaff, showToast, currentUser, currentRole, refreshStaff } = useApp();
+  const { staff, addStaff, updateStaff, showToast, currentUser, refreshStaff } = useApp();
   const permissions = currentUser.permissions ?? [];
   const canManage = permissions.includes('users.manage');
-  const canManageAccess = currentRole === 'Super Admin' && permissions.includes('roles.manage');
+  const canManageAccess = permissions.includes('roles.manage');
 
   const [query, setQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
@@ -152,7 +152,7 @@ export const WorkforcePage: React.FC<{ view?: 'staff' | 'teachers'; employeePubl
     event.preventDefault();
     if (!canManage || step < 5) return;
     if (form.accessMode === 'create_account' && !canManageAccess) {
-      showToast('Access linking unavailable', 'Creating a login account requires roles.manage (Super Admin). Send an invitation instead.', 'error');
+      showToast('Access linking unavailable', 'Creating a login account requires roles.manage permission. Send an invitation instead.', 'error');
       return;
     }
     setBusy(true);
@@ -416,7 +416,7 @@ export const WorkforcePage: React.FC<{ view?: 'staff' | 'teachers'; employeePubl
               </FormField>
               {!canManageAccess && (
                 <p className="text-xs text-[var(--color-text-muted)]">
-                  Direct account creation requires Super Admin with roles.manage. You can still invite them, or manage accounts later under{' '}
+                  Direct account creation requires roles.manage permission. You can still invite them, or manage accounts later under{' '}
                   <Link className="font-semibold text-[var(--color-action-primary)]" to={buildRoute('school.administration.users-access')}>Users</Link>.
                 </p>
               )}

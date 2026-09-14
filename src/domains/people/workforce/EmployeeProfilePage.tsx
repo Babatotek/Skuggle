@@ -30,10 +30,10 @@ type AccessMode = 'create_account' | 'send_invitation';
 
 export const EmployeeProfilePage: React.FC<{ employeePublicId: string }> = ({ employeePublicId }) => {
   const navigate = useNavigate();
-  const { staff, updateStaff, showToast, currentUser, currentRole } = useApp();
+  const { staff, updateStaff, showToast, currentUser } = useApp();
   const permissions = currentUser.permissions ?? [];
   const canManage = permissions.includes('users.manage');
-  const canManageAccess = currentRole === 'Super Admin' && permissions.includes('roles.manage');
+  const canManageAccess = permissions.includes('roles.manage');
 
   const [member, setMember] = useState<StaffMember | null>(staff.find((item) => item.id === employeePublicId) ?? null);
   const [lookups, setLookups] = useState<Lookups>({ positions: [], departments: [], campuses: [], accessRoles: [] });
@@ -167,7 +167,7 @@ export const EmployeeProfilePage: React.FC<{ employeePublicId: string }> = ({ em
     event.preventDefault();
     if (!member || member.linkedUserId || !canManage) return;
     if (accessForm.mode === 'create_account' && !canManageAccess) {
-      showToast('Access linking unavailable', 'Creating a login account requires roles.manage (Super Admin).', 'error');
+      showToast('Access linking unavailable', 'Creating a login account requires roles.manage permission.', 'error');
       return;
     }
     setBusy(true);
