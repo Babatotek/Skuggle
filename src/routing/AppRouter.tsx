@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Info, X, XCircle } from 'lucide-react';
 import { EmailVerificationModal } from '../components/EmailVerificationModal';
-import { DashboardLoading } from '../components/dashboard/DashboardPrimitives';
+import { BootSuspenseFallback, PublicBootLoader } from '../components/PublicBootLoader';
 import { useApp } from '../context/AppContext';
 import { useAccess, useWorkspace } from '../state/ApplicationStateProviders';
 import { apiRequest, ApiError, describeApiError, hasLikelyBrowserSession, initializeCsrf } from '../lib/apiClient';
@@ -379,7 +379,7 @@ export function AppRouter() {
   };
 
   if (isSessionChecking) {
-    return <div className="min-h-screen bg-[#FFFCF7] p-6"><DashboardLoading /></div>;
+    return <PublicBootLoader message="Checking your session…" />;
   }
 
   const workspaceHome = workspace.activeWorkspace.type === 'platform'
@@ -419,7 +419,7 @@ export function AppRouter() {
           closeLabel={location.pathname === '/register' ? 'Got it — I will check my email' : undefined}
         />
       )}
-      <Suspense fallback={<div className="min-h-screen bg-[#FFFCF7] p-6"><DashboardLoading /></div>}>
+      <Suspense fallback={<BootSuspenseFallback />}>
         <Routes>
           <Route path="/" element={<PublicLanding onSelectRole={(persona) => navigate(persona === 'school' ? buildRoute('public.register-school') : buildRoute('auth.personal-login'))} onOpenResultChecker={() => navigate(buildRoute('public.results'))} onTenantLogin={() => navigate(buildRoute('auth.school-login'))} onEnterAppDirectly={() => navigate(buildRoute('auth.school-login'))} onOpenPersonalAuth={() => navigate(buildRoute('auth.personal-login'))} onOpenSchoolAuth={() => navigate(buildRoute('auth.school-login'))} />} />
           <Route path="/login" element={<PersonalAuthPage onSuccess={enterAuthenticatedApp} onBack={() => navigate(buildRoute('public.landing'))} />} />

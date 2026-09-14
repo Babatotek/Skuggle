@@ -6,7 +6,7 @@
 import React, { Suspense } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
-import { DashboardLoading } from './components/dashboard/DashboardPrimitives';
+import { BootSuspenseFallback } from './components/PublicBootLoader';
 import { ReleaseSkewBanner } from './components/ReleaseSkewBanner';
 import { AppRouter } from './routing/AppRouter';
 
@@ -15,7 +15,7 @@ export default function App() {
     <AppProvider>
       <ReleaseSkewBanner />
       <BrowserRouter>
-        <Suspense fallback={<div className="min-h-screen bg-[#FFFCF7] p-6"><DashboardLoading /></div>}>
+        <Suspense fallback={<BootSuspenseFallback />}>
           <AppRouter />
         </Suspense>
       </BrowserRouter>
